@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -110,7 +110,8 @@ User có thể:
 - xem nội dung văn bản;
 - xem quan hệ của văn bản với các VBPL khác;
 - thấy provision xử phạt nào còn hiệu lực hoặc đã bị tác động;
-- search theo hành vi vi phạm;
+- search hành vi thủ công bằng full-text search;
+- hỏi bằng AI chat để hệ thống tự tìm các hành vi / rule liên quan và trả lời kèm reference;
 - xem mức phạt hiện hành;
 - xem các provision hiện hành áp dụng cho hành vi;
 - xem lịch sử provision và mức phạt của hành vi.
@@ -143,7 +144,9 @@ System tự động:
 - detect semantic changes;
 - reconstruct history;
 - determine current rule;
-- index cho search.
+- index cho full-text / semantic search;
+- retrieve evidence cho AI chat;
+- sinh câu trả lời có reference tới source provision.
 
 ---
 
@@ -343,9 +346,16 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
                                   ▼
                       Current Rule + History
                                   │
-                    ┌─────────────┴─────────────┐
-                    ▼                           ▼
-              Document Search             Behavior Search
+                    ┌─────────────┴────────────────────────┐
+                    ▼                                      ▼
+              Document Search                      Violation Retrieval
+                                                          │
+                                             ┌────────────┴────────────┐
+                                             ▼                         ▼
+                                      Manual Full-text Search       AI Chat RAG
+                                                                       │
+                                                                       ▼
+                                                           Answer + Provision References
 ~~~
 
 ---
@@ -766,7 +776,11 @@ Mỗi related document có thể click để mở Document View nội bộ nếu
 
 ## FR-16 — Search by Traffic Violation
 
-User có thể query tự nhiên:
+Hệ thống phải hỗ trợ hai chế độ tìm kiếm hành vi độc lập nhưng dùng chung TrafficViolation / ViolationRule knowledge base.
+
+### FR-16.1 — Manual Full-text Search
+
+User có thể nhập trực tiếp từ khóa hoặc mô tả hành vi:
 
 ~~~text
 đỗ xe
@@ -775,21 +789,111 @@ dừng xe ngoài đô thị
 đi quá tốc độ 10 đến 20 km/h
 ~~~
 
+Manual search không cần LLM để sinh câu trả lời.
+
+Search phải hỗ trợ tối thiểu:
+
+~~~text
+full-text search trên canonical behavior
++ aliases
++ provision text
++ structured filtering nếu có
+~~~
+
+Kết quả trả về danh sách TrafficViolation / ViolationRule phù hợp, ưu tiên CURRENT rules.
+
+Mỗi result tối thiểu hiển thị:
+
+- hành vi;
+- context chính;
+- current sanction nếu có;
+- current provision;
+- source document;
+- link tới detail/history.
+
+### FR-16.2 — AI Chat Search
+
+User có thể đặt câu hỏi tự nhiên thay vì tự chọn một hành vi cụ thể.
+
+Ví dụ:
+
+~~~text
+Đỗ ô tô ngoài đô thị sai quy định thì bị phạt thế nào?
+Vượt đèn đỏ hiện giờ phạt bao nhiêu và trước đây thay đổi ra sao?
+Các lỗi liên quan đến dừng đỗ trên phần đường xe chạy là gì?
+~~~
+
+AI phải tự:
+
+1. hiểu intent và context của câu hỏi;
+2. tìm một hoặc nhiều TrafficViolation liên quan;
+3. retrieve CURRENT ViolationRule và history cần thiết;
+4. retrieve source Provision tương ứng;
+5. tổng hợp câu trả lời;
+6. đính kèm reference cho các claim pháp lý.
+
 Pipeline:
 
 ~~~text
-query
- ↓
-violation semantic parsing
- ↓
-canonical / alias / structured resolution
- ↓
+User question
+      ↓
+Query understanding
+      ↓
+Hybrid retrieval
+(FTS + alias + structured + semantic)
+      ↓
 TrafficViolation candidates
- ↓
-current ViolationRules
+      ↓
+ViolationRule / Sanction / History retrieval
+      ↓
+Source Provision retrieval
+      ↓
+LLM answer synthesis
+      ↓
+Answer + references
 ~~~
 
-Kết quả phải ưu tiên CURRENT rules.
+AI chat phải theo nguyên tắc **retrieval-first, answer-last**.
+
+AI không được:
+
+- tự invent hành vi;
+- tự invent mức phạt;
+- tự invent trạng thái hiệu lực;
+- đưa ra claim pháp lý mà không có evidence trong corpus.
+
+Nếu evidence không đủ hoặc các rule mâu thuẫn / UNCERTAIN, câu trả lời phải thể hiện uncertainty thay vì ép một kết luận.
+
+### FR-16.3 — AI Answer References
+
+Mỗi claim quan trọng về:
+
+- mức phạt;
+- rule hiện hành;
+- Điều / Khoản / Điểm;
+- trạng thái hiệu lực;
+- lịch sử thay đổi;
+
+phải reference về ít nhất một Provision nguồn.
+
+Reference tối thiểu phải cho phép user mở:
+
+~~~text
+Document
+→ Điều
+→ Khoản
+→ Điểm
+→ raw provision text
+~~~
+
+Ví dụ presentation:
+
+~~~text
+Phạt từ X đến Y đồng.
+[Nghị định ..., Điều 6, Khoản 2, Điểm a]
+~~~
+
+Khi câu trả lời dựa trên history, AI phải có thể reference cả provision trước và provision sau của transition.
 
 ---
 
@@ -860,17 +964,22 @@ Index:
 - aliases;
 - structured dimensions;
 - provision text;
+- current / historical rule status;
 - embeddings nếu sử dụng.
 
-Search strategy có thể kết hợp:
+Manual search phải sử dụng full-text search làm retrieval chính.
+
+AI chat có thể sử dụng hybrid retrieval:
 
 ~~~text
-exact match
+full-text
 + alias
-+ full-text
 + structured filters
 + vector retrieval
++ reranking nếu cần
 ~~~
+
+Retrieval result phải giữ stable IDs của TrafficViolation, ViolationRule và Provision để answer layer có thể tạo reference chính xác.
 
 ---
 
@@ -1198,10 +1307,11 @@ GET /provisions/:id/relations
 ### Public — Violations
 
 ~~~http
-GET /violations/search?q=
-GET /violations/:id
-GET /violations/:id/rules
-GET /violations/:id/history
+GET  /violations/search?q=
+GET  /violations/:id
+GET  /violations/:id/rules
+GET  /violations/:id/history
+POST /violations/chat
 ~~~
 
 ### Admin
@@ -1270,16 +1380,39 @@ Các văn bản tác động / hướng dẫn / thay thế (...)
 
 ### 12.4. Violation Search
 
+UI phải cho phép user chọn giữa hai mode:
+
+~~~text
+[ Search ] [ Ask AI ]
+~~~
+
+Manual Search:
+
 ~~~text
 Search:
 [ vượt đèn đỏ ]
 
-Resolved:
-Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
-
-Current rules:
-...
+Results:
+- Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
+  Current sanction: ...
+  Source: ...
 ~~~
+
+Ask AI:
+
+~~~text
+User:
+Vượt đèn đỏ hiện giờ phạt bao nhiêu và trước đây thay đổi thế nào?
+
+AI:
+<answer tổng hợp từ retrieved rules>
+
+References:
+[1] Nghị định ..., Điều ..., Khoản ..., Điểm ...
+[2] Nghị định ..., Điều ..., Khoản ..., Điểm ...
+~~~
+
+Reference phải click được để mở đúng provision trong Document View.
 
 ### 12.5. Violation Detail
 
@@ -1358,6 +1491,16 @@ thay vì ép một mapping hoặc legal status.
 
 Crawler phải có throttling, retry/backoff và cache phù hợp.
 
+### NFR-06 — Grounded AI Answers
+
+AI chat chỉ được trả lời từ evidence đã retrieve trong corpus.
+
+Các claim pháp lý quan trọng phải có reference tới Provision nguồn.
+
+Nếu không retrieve được evidence đủ mạnh, system phải trả lời theo trạng thái không đủ căn cứ thay vì hallucinate.
+
+Answer generation không được thay đổi dữ liệu canonical trong TrafficViolation / ViolationRule / Sanction.
+
 ---
 
 ## 14. Evaluation
@@ -1375,7 +1518,11 @@ Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao th
 | Semantic Change Detection | Precision / Recall / F1 |
 | Critical Change Detection | Critical-change Recall |
 | Current Rule Determination | Accuracy |
-| Violation Search | Recall@K / MRR |
+| Manual Violation Search | Recall@K / MRR |
+| AI Chat Retrieval | Recall@K / nDCG@K |
+| AI Answer Correctness | Accuracy / task-specific QA score |
+| AI Citation Coverage | % legal claims with valid Provision reference |
+| AI Citation Precision | % references that actually support the claim |
 | History Reconstruction | Edge / Timeline Accuracy |
 
 ### Primary research metrics
@@ -1446,6 +1593,18 @@ vs
 document + provision relation + behavior history
 ~~~
 
+### AI chat retrieval / QA
+
+~~~text
+FTS Top-K + template answer
+vs
+vector retrieval + LLM
+vs
+hybrid retrieval + structured legal context + LLM
+~~~
+
+AI QA evaluation phải tách retrieval quality khỏi answer quality để phân biệt lỗi tìm sai evidence và lỗi sinh câu trả lời.
+
 ---
 
 ## 16. MVP Acceptance Criteria
@@ -1466,12 +1625,15 @@ MVP hoàn thành khi:
 12. User search được văn bản.
 13. Document View có đúng hai tab chính: Nội dung và Quan hệ.
 14. Provision bị sửa / thay thế / bãi bỏ được highlight và mở được history.
-15. User search được hành vi bằng natural-language query.
-16. Violation Detail hiển thị current sanction và current provisions.
-17. Violation History hiển thị chuỗi provision relations và semantic changes.
-18. Mọi result quan trọng trace được về raw source provision.
-19. Có evaluation dataset độc lập.
-20. Có baseline cho các task AI chính.
+15. User search thủ công được hành vi bằng full-text search.
+16. User có thể hỏi bằng AI chat; system tự retrieve hành vi / rule liên quan.
+17. AI chat trả lời current sanction / history khi corpus có đủ evidence.
+18. Mọi claim pháp lý quan trọng trong AI answer có reference tới source Provision.
+19. Violation Detail hiển thị current sanction và current provisions.
+20. Violation History hiển thị chuỗi provision relations và semantic changes.
+21. Mọi result quan trọng trace được về raw source provision.
+22. Có evaluation dataset độc lập, gồm cả query / QA cases.
+23. Có baseline cho các task AI chính, bao gồm retrieval / QA.
 
 ---
 
@@ -1500,10 +1662,11 @@ MVP hoàn thành khi:
 8. Semantic diff:
    SANCTION_INCREASE.
 
-9. User search:
+9. User dùng Manual Search:
    "đỗ xe ngoài đô thị"
 
 10. System trả:
+    matching TrafficViolation;
     current sanction;
     current provision;
     current source document.
@@ -1514,11 +1677,16 @@ MVP hoàn thành khi:
     Provision A → Provision B → ...
     cùng relation, effective date và mức phạt từng thời kỳ.
 
-13. User mở Document View.
+13. User chuyển sang Ask AI:
+    "Đỗ xe ngoài đô thị hiện bị phạt bao nhiêu và mức phạt đã thay đổi thế nào?"
 
-14. Tab Nội dung highlight provision cũ là SUPERSEDED.
+14. AI retrieve TrafficViolation + current rule + history và trả lời kèm references tới từng Provision liên quan.
 
-15. Tab Quan hệ hiển thị graph quan hệ VBPL của document.
+15. User click reference để mở đúng Điều / Khoản / Điểm trong Document View.
+
+16. Tab Nội dung highlight provision cũ là SUPERSEDED.
+
+17. Tab Quan hệ hiển thị graph quan hệ VBPL của document.
 ~~~
 
 ---
@@ -1537,7 +1705,8 @@ Contribution của hệ thống nằm ở việc tự động:
 4. nhận diện cùng một hành vi qua nhiều wording / provision;
 5. dùng hành vi làm identity để nối rule qua thời gian;
 6. semantic-diff các rule;
-7. xác định rule hiện hành và reconstruct legal history có traceability.
+7. xác định rule hiện hành và reconstruct legal history có traceability;
+8. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
 
 Core research pipeline:
 
@@ -1551,6 +1720,8 @@ TrafficViolation identity
 Semantic rule change
         ↓
 Current sanction + legal history
+        ↓
+Manual search + grounded AI QA
 ~~~
 
 ---
@@ -1580,7 +1751,9 @@ Dữ liệu domain phù hợp với relational database.
 
 Raw HTML / snapshots có thể lưu object storage.
 
-Search có thể dùng full-text và embedding tùy implementation.
+Manual behavior search dùng full-text search.
+
+AI chat dùng retrieval layer tách biệt với answer generation; có thể kết hợp full-text, alias, structured filters và embedding. Answer generator chỉ nhận retrieved legal evidence và phải giữ reference IDs tới Provision.
 
 Không cần graph database trong MVP; DocumentRelation và ProvisionRelation có thể model bằng relational tables.
 
@@ -1612,6 +1785,12 @@ Không cần graph database trong MVP; DocumentRelation và ProvisionRelation c�
 8. **Narrow legal scope, deep change tracking**  
    MVP chỉ tập trung vào xử phạt hành vi giao thông nhưng track sâu document → provision → behavior → sanction.
 
+9. **Search and answer are separate**  
+   Manual search phải hoạt động độc lập bằng full-text retrieval; AI chat là lớp grounded QA dùng cùng knowledge base.
+
+10. **No citation, no legal claim**  
+    AI answer về mức phạt, hiệu lực hoặc lịch sử phải reference về Provision nguồn.
+
 ---
 
 ## 21. Alignment with Course Requirements
@@ -1620,7 +1799,8 @@ SRS giữ nguyên các yêu cầu chính của project **Legal Document Change D
 
 - working prototype;
 - real legal documents;
-- retrieval;
+- deterministic/full-text retrieval;
+- AI retrieval / grounded question answering;
 - LLM / Legal NLP;
 - knowledge representation;
 - legal change detection;
@@ -1634,4 +1814,4 @@ Việc giới hạn domain vào xử phạt hành vi giao thông là scope reduc
 
 Điểm nhấn học thuật của project là:
 
-> Từ document-level legal relationships, tự động resolve provision-level changes và dùng traffic-violation identity để reconstruct semantic sanction history.
+> Từ document-level legal relationships, tự động resolve provision-level changes, dùng traffic-violation identity để reconstruct semantic sanction history, sau đó hỗ trợ cả full-text retrieval và grounded AI question answering có source references.
