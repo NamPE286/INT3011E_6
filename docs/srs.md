@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.3  
+**Version:** 0.4  
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -39,7 +39,9 @@ North-star question:
 
 ### 2.1. In scope
 
-MVP chỉ tập trung vào **quy định xử phạt hành vi vi phạm giao thông đường bộ**.
+MVP chỉ tập trung vào **quy định xử phạt vi phạm hành chính đối với hành vi giao thông đường bộ**.
+
+Các rule hình sự, dân sự hoặc trách nhiệm bồi thường không thuộc scope MVP.
 
 Hệ thống xử lý các dữ liệu cần thiết để xác định:
 
@@ -51,6 +53,7 @@ Hệ thống xử lý các dữ liệu cần thiết để xác định:
 - hình thức xử phạt bổ sung liên quan trực tiếp;
 - biện pháp khắc phục hậu quả liên quan trực tiếp;
 - hiệu lực của rule;
+- rule áp dụng tại một thời điểm cụ thể (as-of date);
 - lịch sử sửa đổi, bổ sung, thay thế, bãi bỏ của rule;
 - quan hệ giữa các Điều / Khoản / Điểm;
 - quan hệ giữa các văn bản cần thiết để reconstruct lịch sử rule.
@@ -122,6 +125,7 @@ Admin có thể:
 
 - import một URL từ vbpl.vn;
 - xem trạng thái crawl / process;
+- xem import ở trạng thái READY / PARTIAL / FAILED;
 - retry import thất bại;
 - trigger reprocess khi cần.
 
@@ -269,6 +273,61 @@ Provision
 Sanction
 ~~~
 
+### 4.6.1. Rule Lineage
+
+TrafficViolation là identity của **hành vi**, nhưng một hành vi có thể có nhiều rule song song theo vehicle / subject / context.
+
+Vì vậy history không được tạo bằng cách nối tất cả ViolationRule của cùng một TrafficViolation vào một timeline duy nhất.
+
+System phải duy trì **RuleLineage** để biểu diễn một chuỗi rule mà trong đó rule sau thực sự sửa đổi, thay thế hoặc kế thừa rule trước.
+
+Ví dụ:
+
+~~~text
+TrafficViolation: Vượt đèn đỏ
+
+├── RuleLineage: Ô tô
+│   ├── Rule A
+│   └── Rule B [CURRENT]
+│
+└── RuleLineage: Xe máy
+    ├── Rule C
+    └── Rule D [CURRENT]
+~~~
+
+Semantic diff chỉ được thực hiện giữa các rule thuộc cùng lineage hoặc có ProvisionRelation / legal evidence chứng minh quan hệ kế thừa.
+
+### 4.6.2. Behavior Signature
+
+Mỗi TrafficViolation phải có một semantic signature ổn định dùng cho resolution và deduplication.
+
+Signature không chứa sanction hoặc effective date.
+
+Tối thiểu có thể gồm:
+
+~~~text
+action
+polarity
+target
+location
+core conditions
+~~~
+
+Subject / vehicle / context có thể thuộc ViolationRule nếu chúng tạo ra các rule áp dụng song song thay vì một hành vi hoàn toàn khác.
+
+### 4.6.3. Evidence Level
+
+Mọi relation / mapping quan trọng phải ghi nhận evidence level:
+
+~~~text
+SOURCE_METADATA
+EXPLICIT_LEGAL_TEXT
+STRUCTURED_DERIVATION
+SEMANTIC_INFERENCE
+~~~
+
+Evidence cấp thấp hơn không được override evidence pháp lý explicit.
+
 ### 4.7. Sanction
 
 Chế tài áp dụng cho ViolationRule.
@@ -341,6 +400,9 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
                        TrafficViolation identity
                                   │
                                   ▼
+                           Rule Lineage
+                                  │
+                                  ▼
                          Semantic Change Engine
                                   │
                                   ▼
@@ -379,6 +441,32 @@ System phải:
 7. tạo ImportJob;
 8. bắt đầu recursive crawl.
 
+ImportJob tối thiểu có lifecycle:
+
+~~~text
+QUEUED
+→ DISCOVERING
+→ FETCHING
+→ PARSING
+→ PROCESSING
+→ INDEXING
+→ READY
+~~~
+
+Nếu một phần related documents không thể fetch/process nhưng root corpus vẫn usable:
+
+~~~text
+PARTIAL
+~~~
+
+Nếu root document hoặc processing cốt lõi thất bại:
+
+~~~text
+FAILED
+~~~
+
+Import phải idempotent: import lại cùng source snapshot không được tạo duplicate Document / Provision / relation.
+
 Không hỗ trợ file upload trong MVP.
 
 ---
@@ -405,6 +493,7 @@ System phải:
 - deduplicate document;
 - detect cycle;
 - persist every discovered DocumentRelation;
+- sử dụng source_item_id / canonical source URL làm stable source identity;
 - không refetch document đã hoàn thành nếu snapshot còn hợp lệ;
 - ghi nhận failed nodes để retry;
 - không làm mất toàn bộ import nếu một related document fetch thất bại.
@@ -530,6 +619,7 @@ Mỗi edge phải lưu:
 - to_provision_id;
 - source_document_relation nếu có;
 - evidence;
+- evidence_level;
 - resolution method;
 - confidence.
 
@@ -633,6 +723,18 @@ Ví dụ:
 
 Việc map không chỉ dựa vào similarity text; phải xét structured context như vehicle, location, condition và exception.
 
+Resolver không được ép merge khi không đủ evidence.
+
+Output tối thiểu:
+
+~~~text
+MATCH_EXISTING
+CREATE_NEW
+AMBIGUOUS
+~~~
+
+Nếu AMBIGUOUS, rule vẫn được lưu nhưng không được dùng để tự động tạo history lineage chắc chắn.
+
 ---
 
 ## FR-11 — Behavior-centric Provision History
@@ -660,13 +762,16 @@ Provision graph phải cho biết:
 A --AMENDED_BY--> B --REPLACED_BY--> C
 ~~~
 
-Behavior history phải cho biết:
+Behavior history phải cho biết theo từng RuleLineage:
 
 ~~~text
-Rule A → Rule B → Rule C
+Lineage 1: Rule A → Rule B → Rule C
+Lineage 2: Rule D → Rule E
 ~~~
 
 Hai graph phải liên kết được với nhau.
+
+Không được nối hai ViolationRule chỉ vì chúng cùng TrafficViolation nếu không có legal / temporal / semantic evidence cho lineage đó.
 
 ---
 
@@ -692,6 +797,31 @@ UNCERTAIN
 ~~~
 
 Không được đánh dấu CURRENT chỉ vì văn bản chứa provision còn hiệu lực nếu chính provision đã bị sửa hoặc bãi bỏ.
+
+### FR-12.1 — Deterministic Current-rule Resolution
+
+Current-rule resolution phải ưu tiên deterministic legal evidence trước AI.
+
+Với một RuleLineage và thời điểm T:
+
+1. loại rule chưa có hiệu lực tại T;
+2. loại rule đã hết hiệu lực tại T;
+3. apply REPEALS / REPLACES / AMENDS từ ProvisionRelation;
+4. xét document effective status;
+5. nếu còn nhiều candidate hợp lệ do context khác nhau, giữ tất cả thay vì chọn tùy ý;
+6. chỉ dùng semantic inference để resolve phần chưa rõ.
+
+### FR-12.2 — As-of Query
+
+System phải hỗ trợ xác định rule áp dụng tại một ngày cụ thể.
+
+Ví dụ:
+
+~~~text
+Mức phạt vượt đèn đỏ ngày 01/06/2022 là bao nhiêu?
+~~~
+
+As-of query phải sử dụng effective interval của ViolationRule / source provision, không dùng trạng thái CURRENT hiện tại.
 
 ---
 
@@ -866,6 +996,8 @@ Nếu evidence không đủ hoặc các rule mâu thuẫn / UNCERTAIN, câu tr�
 
 ### FR-16.3 — AI Answer References
 
+Reference phải ở **claim-level**, không chỉ đặt một danh sách nguồn chung ở cuối câu trả lời.
+
 Mỗi claim quan trọng về:
 
 - mức phạt;
@@ -894,6 +1026,8 @@ Phạt từ X đến Y đồng.
 ~~~
 
 Khi câu trả lời dựa trên history, AI phải có thể reference cả provision trước và provision sau của transition.
+
+Mỗi reference phải mang stable Provision ID để UI có thể deep-link đúng Điều / Khoản / Điểm.
 
 ---
 
@@ -1015,7 +1149,9 @@ Document
         └── Sanction
 
 TrafficViolation
-└── ViolationAlias
+├── ViolationAlias
+└── RuleLineage
+    └── ViolationRule
 
 ExtractionRun
 ChangeEvent
@@ -1126,17 +1262,29 @@ normalized_alias
 embedding
 ~~~
 
+### rule_lineage
+
+~~~text
+id
+traffic_violation_id
+lineage_key
+context_ir
+status
+~~~
+
 ### violation_rule
 
 ~~~text
 id
 traffic_violation_id
+rule_lineage_id
 provision_id
 semantic_ir
 effective_from
 effective_to
 status
 confidence
+evidence_level
 ~~~
 
 ### sanction
@@ -1174,6 +1322,8 @@ source_url
 status
 documents_discovered
 documents_processed
+documents_failed
+source_snapshot_hash
 started_at
 finished_at
 error
@@ -1243,6 +1393,8 @@ retrieve candidate TrafficViolation
 resolve identity
  ↓
 attach rule
+ ↓
+resolve RuleLineage
 ~~~
 
 ### Phase 6 — History reconstruction
@@ -1277,6 +1429,8 @@ Khi xác định legal change, evidence được ưu tiên:
 
 AI semantic inference không được override explicit legal evidence.
 
+Nếu semantic inference mâu thuẫn với explicit source metadata hoặc explicit amendment text, system phải giữ explicit evidence và ghi conflict để debug / evaluation.
+
 Nếu evidence không đủ:
 
 ~~~text
@@ -1309,7 +1463,7 @@ GET /provisions/:id/relations
 ~~~http
 GET  /violations/search?q=
 GET  /violations/:id
-GET  /violations/:id/rules
+GET  /violations/:id/rules?as_of=
 GET  /violations/:id/history
 POST /violations/chat
 ~~~
@@ -1361,6 +1515,7 @@ Document metadata
 Rule status: SUPERSEDED
 Affected behavior: Đỗ xe ngoài đô thị
 [View history]
+[View rule at date]
 ~~~
 
 ### 12.3. Document View — Quan hệ
@@ -1491,7 +1646,17 @@ thay vì ép một mapping hoặc legal status.
 
 Crawler phải có throttling, retry/backoff và cache phù hợp.
 
-### NFR-06 — Grounded AI Answers
+### NFR-06 — Data Consistency
+
+System phải enforce:
+
+- unique source identity cho Document;
+- không duplicate Provision trong cùng snapshot;
+- không tạo cyclic successor chain trong cùng RuleLineage;
+- effective_from <= effective_to khi effective_to tồn tại;
+- CURRENT rules trong cùng lineage không được overlap nếu context giống nhau, trừ khi trạng thái UNCERTAIN được ghi rõ.
+
+### NFR-07 — Grounded AI Answers
 
 AI chat chỉ được trả lời từ evidence đã retrieve trong corpus.
 
@@ -1500,6 +1665,19 @@ Các claim pháp lý quan trọng phải có reference tới Provision nguồn.
 Nếu không retrieve được evidence đủ mạnh, system phải trả lời theo trạng thái không đủ căn cứ thay vì hallucinate.
 
 Answer generation không được thay đổi dữ liệu canonical trong TrafficViolation / ViolationRule / Sanction.
+
+### NFR-08 — Processing Observability
+
+Mỗi ImportJob phải expose đủ trạng thái để xác định document nào:
+
+- discovered;
+- fetched;
+- parsed;
+- processed;
+- indexed;
+- failed.
+
+Mỗi ExtractionRun phải trace được model / parser version và source snapshot hash để reproduce kết quả.
 
 ---
 
@@ -1524,6 +1702,35 @@ Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao th
 | AI Citation Coverage | % legal claims with valid Provision reference |
 | AI Citation Precision | % references that actually support the claim |
 | History Reconstruction | Edge / Timeline Accuracy |
+| End-to-end Current Sanction QA | Exact / Structured Answer Accuracy |
+| As-of Rule QA | Accuracy |
+
+### Dataset split policy
+
+Train / development / test split không được random theo từng provision nếu các provision cùng một legal lineage có thể rơi vào nhiều split.
+
+Ưu tiên split theo:
+
+~~~text
+document lineage / amendment chain
+~~~
+
+để tránh leakage giữa rule cũ và rule sửa đổi.
+
+Evaluation report phải có error analysis tối thiểu theo nhóm:
+
+~~~text
+crawler/source failure
+provision segmentation
+change-target resolution
+violation identity
+rule-lineage resolution
+sanction extraction
+current-rule resolution
+retrieval
+answer synthesis
+citation
+~~~
 
 ### Primary research metrics
 
@@ -1605,6 +1812,16 @@ hybrid retrieval + structured legal context + LLM
 
 AI QA evaluation phải tách retrieval quality khỏi answer quality để phân biệt lỗi tìm sai evidence và lỗi sinh câu trả lời.
 
+### End-to-end current sanction QA
+
+~~~text
+direct LLM over raw provision corpus
+vs
+RAG over provision text
+vs
+behavior-centric knowledge base + provision lineage + grounded answer
+~~~
+
 ---
 
 ## 16. MVP Acceptance Criteria
@@ -1632,8 +1849,13 @@ MVP hoàn thành khi:
 19. Violation Detail hiển thị current sanction và current provisions.
 20. Violation History hiển thị chuỗi provision relations và semantic changes.
 21. Mọi result quan trọng trace được về raw source provision.
-22. Có evaluation dataset độc lập, gồm cả query / QA cases.
-23. Có baseline cho các task AI chính, bao gồm retrieval / QA.
+22. System hỗ trợ as-of query cho ít nhất một historical violation lineage.
+23. System không merge các rule context khác nhau vào cùng history lineage nếu không có evidence.
+24. AI xử lý được query thiếu context bằng cách trả nhiều applicable rule hoặc yêu cầu làm rõ.
+25. Import cùng source snapshot nhiều lần không tạo duplicate domain entities.
+26. Có evaluation dataset độc lập, gồm cả query / QA cases và split tránh lineage leakage.
+27. Có baseline cho các task AI chính, bao gồm retrieval / QA.
+28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
 
 ---
 
@@ -1687,6 +1909,13 @@ MVP hoàn thành khi:
 16. Tab Nội dung highlight provision cũ là SUPERSEDED.
 
 17. Tab Quan hệ hiển thị graph quan hệ VBPL của document.
+
+18. User hỏi:
+    "Mức phạt hành vi này năm 2022 là bao nhiêu?"
+
+19. System sử dụng as-of resolution để trả historical rule và reference đúng provision tại thời điểm đó.
+
+20. Với câu hỏi thiếu vehicle/context, AI hiển thị nhiều applicable rules hoặc yêu cầu bổ sung context thay vì tự chọn một rule.
 ~~~
 
 ---
@@ -1706,7 +1935,9 @@ Contribution của hệ thống nằm ở việc tự động:
 5. dùng hành vi làm identity để nối rule qua thời gian;
 6. semantic-diff các rule;
 7. xác định rule hiện hành và reconstruct legal history có traceability;
-8. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
+8. tách TrafficViolation identity khỏi RuleLineage để không trộn các rule context song song;
+9. hỗ trợ temporal/as-of legal QA;
+10. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
 
 Core research pipeline:
 
@@ -1791,6 +2022,18 @@ Không cần graph database trong MVP; DocumentRelation và ProvisionRelation c�
 10. **No citation, no legal claim**  
     AI answer về mức phạt, hiệu lực hoặc lịch sử phải reference về Provision nguồn.
 
+11. **Same behavior does not imply same lineage**  
+    Rule cho ô tô, xe máy hoặc context khác nhau có thể cùng TrafficViolation nhưng phải nằm ở lineage riêng nếu chúng không trực tiếp kế thừa nhau.
+
+12. **Temporal correctness is first-class**  
+    CURRENT chỉ là trường hợp đặc biệt của query theo thời gian; mọi rule phải có effective interval rõ nhất có thể.
+
+13. **Prefer ambiguity over false certainty**  
+    Khi context hoặc evidence chưa đủ, hệ thống giữ AMBIGUOUS / UNCERTAIN thay vì ép merge, ép lineage hoặc chọn một sanction tùy ý.
+
+14. **Evaluation must avoid legal-lineage leakage**  
+    Dataset split phải tránh việc amendment chain gần như giống nhau xuất hiện ở cả train/dev và test.
+
 ---
 
 ## 21. Alignment with Course Requirements
@@ -1806,6 +2049,8 @@ SRS giữ nguyên các yêu cầu chính của project **Legal Document Change D
 - legal change detection;
 - baseline comparison;
 - quantitative evaluation;
+- temporal/as-of legal reasoning;
+- end-to-end QA evaluation;
 - traceability;
 - hallucination awareness;
 - reproducible methodology.
