@@ -1,7 +1,7 @@
-# SRS — Vietnamese Legal Behavior Change Intelligence
+# SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.1  
-**Domain:** Pháp luật giao thông đường bộ Việt Nam  
+**Version:** 0.2  
+**Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
 
@@ -9,36 +9,29 @@
 
 ## 1. Mục tiêu hệ thống
 
-Hệ thống phân tích văn bản pháp luật giao thông Việt Nam thành một biểu diễn có cấu trúc dựa trên **hành vi pháp lý** (*Legal Behavior*), từ đó cho phép:
+Hệ thống xây dựng cơ sở tri thức về **hành vi vi phạm giao thông và mức xử phạt tương ứng** từ các văn bản trên CSDL quốc gia về văn bản pháp luật (VBPL).
 
-1. **Highlight quy định có khả năng đã lỗi thời** khi văn bản mà nó phụ thuộc vào đã bị sửa đổi, thay thế hoặc hết hiệu lực.
-2. **Diff văn bản pháp luật theo hành vi**, thay vì chỉ so sánh text.
-3. **Query quy định theo hành vi** và xem lịch sử thay đổi của hành vi đó qua các phiên bản văn bản.
+Điểm nhấn của hệ thống là **track hành vi qua nhiều văn bản và nhiều điều khoản khác nhau**.
 
-Ví dụ người dùng không cần biết hành vi nằm ở Điều/Khoản nào mà có thể truy vấn:
+Với một hành vi như:
 
-```text
-"Đỗ xe trên phần đường xe chạy ngoài đô thị"
-```
+~~~text
+Đỗ xe trên phần đường xe chạy ngoài đô thị
+~~~
 
-Hệ thống resolve thành:
+hệ thống phải xác định được:
 
-```text
-Đỗ xe
-+ Phần đường xe chạy
-+ Ngoài đô thị
-```
+- quy định xử phạt hiện hành;
+- mức phạt hiện hành;
+- Điều / Khoản / Điểm đang là căn cứ;
+- các điều khoản trước đó từng quy định cùng hành vi;
+- điều khoản nào sửa đổi, bổ sung, thay thế hoặc bãi bỏ điều khoản nào;
+- mức phạt và phạm vi hành vi đã thay đổi ra sao theo thời gian;
+- văn bản nguồn cho từng thay đổi.
 
-sau đó trả về:
+North-star question:
 
-```text
-Quy định hiện hành
-Mức phạt
-Điều/Khoản nguồn
-Văn bản nguồn
-Các phiên bản trước
-Lịch sử thay đổi mức phạt/phạm vi áp dụng
-```
+> Given a traffic violation, what is the currently applicable sanction, which provision establishes it, and how did that rule evolve over time?
 
 ---
 
@@ -46,702 +39,663 @@ Lịch sử thay đổi mức phạt/phạm vi áp dụng
 
 ### 2.1. In scope
 
-Phiên bản MVP tập trung vào **văn bản quy phạm pháp luật giao thông đường bộ**, ưu tiên:
+MVP chỉ tập trung vào **quy định xử phạt hành vi vi phạm giao thông đường bộ**.
 
-```text
-Luật
-↓
-Nghị định
-↓
-Thông tư
-↓
-Văn bản sửa đổi / bổ sung
-↓
-Văn bản hợp nhất
-```
+Hệ thống xử lý các dữ liệu cần thiết để xác định:
 
-Hệ thống hỗ trợ:
+- hành vi vi phạm;
+- chủ thể / loại phương tiện;
+- địa điểm, điều kiện và ngoại lệ;
+- mức phạt tiền;
+- trừ điểm giấy phép lái xe nếu có;
+- hình thức xử phạt bổ sung liên quan trực tiếp;
+- biện pháp khắc phục hậu quả liên quan trực tiếp;
+- hiệu lực của rule;
+- lịch sử sửa đổi, bổ sung, thay thế, bãi bỏ của rule;
+- quan hệ giữa các Điều / Khoản / Điểm;
+- quan hệ giữa các văn bản cần thiết để reconstruct lịch sử rule.
 
-- nhập văn bản qua URL từ CSDL VBPL;
-- upload văn bản;
-- phân tích cấu trúc Điều / Khoản / Điểm;
-- phát hiện quan hệ giữa các văn bản;
-- lấy thêm các văn bản liên quan;
-- parse quy định thành Legal Behavior IR;
-- xây ontology hành vi;
-- phát hiện hành vi/concept mới;
-- trích xuất chế tài;
-- semantic diff;
-- xác định provision có khả năng outdated;
-- query hành vi hiện tại;
-- xem lịch sử thay đổi hành vi.
+Nguồn dữ liệu MVP:
 
-### 2.2. Out of scope cho MVP
+~~~text
+https://vbpl.vn/
+~~~
 
-Hệ thống không nhằm:
+Admin chỉ được import bằng URL văn bản từ CSDL VBPL.
 
-- đưa ra tư vấn pháp lý cuối cùng thay con người;
-- tự xác định một văn bản "trái luật" hay "mâu thuẫn pháp luật" theo nghĩa pháp lý;
-- bao phủ toàn bộ hệ thống pháp luật Việt Nam;
-- tự động quyết định một người cụ thể có vi phạm pháp luật hay không;
+### 2.2. Crawl scope
+
+Khi import một văn bản, hệ thống phải crawl recursive các văn bản liên quan được VBPL cung cấp nhằm xây dựng document graph đầy đủ.
+
+Crawler phải:
+
+- deduplicate theo source identifier / ItemID;
+- chống cycle bằng visited set;
+- lưu relationship giữa các văn bản;
+- snapshot dữ liệu nguồn cần thiết;
+- có retry cho request thất bại;
+- có safety limit để tránh lỗi crawler tạo traversal vô hạn.
+
+Semantic processing tập trung vào những provision có khả năng:
+
+- định nghĩa hành vi vi phạm;
+- quy định chế tài;
+- sửa đổi / bổ sung rule;
+- thay thế rule;
+- bãi bỏ rule.
+
+### 2.3. Out of scope
+
+MVP không nhằm:
+
+- bao phủ toàn bộ pháp luật giao thông;
+- tư vấn pháp lý cho một vụ việc cụ thể;
+- tự kết luận một cá nhân có vi phạm hay không;
+- phân tích quy hoạch, hạ tầng hoặc tiêu chuẩn kỹ thuật không liên quan tới xử phạt hành vi;
+- phân tích tổ chức bộ máy và trách nhiệm cơ quan nếu không tác động tới sanction rule;
+- hỗ trợ upload PDF / DOCX / file tùy ý;
+- thay thế CSDL VBPL chính thức;
 - train foundation model riêng;
-- thay thế CSDL pháp luật chính thức.
-
-Hệ thống chỉ thể hiện **nguồn, quan hệ, extraction và change analysis**.
+- yêu cầu human review cho mỗi extraction.
 
 ---
 
-## 3. Định nghĩa chính
+## 3. Actors
 
-### 3.1. Document
+### 3.1. User
 
-Một văn bản pháp luật, ví dụ Luật, Nghị định hoặc Thông tư.
+User có thể:
 
-### 3.2. Document Version
+- search văn bản;
+- xem nội dung văn bản;
+- xem quan hệ của văn bản với các VBPL khác;
+- thấy provision xử phạt nào còn hiệu lực hoặc đã bị tác động;
+- search theo hành vi vi phạm;
+- xem mức phạt hiện hành;
+- xem các provision hiện hành áp dụng cho hành vi;
+- xem lịch sử provision và mức phạt của hành vi.
 
-Trạng thái của một Document tại một thời điểm.
+### 3.2. Admin
 
-### 3.3. Provision
+Admin có thể:
 
-Một đơn vị pháp lý có thể tham chiếu, ví dụ:
+- import một URL từ vbpl.vn;
+- xem trạng thái crawl / process;
+- retry import thất bại;
+- trigger reprocess khi cần.
 
-```text
-Điều 6
-Khoản 2 Điều 6
+Admin và Reviewer được gộp thành một role.
+
+MVP không có manual review queue bắt buộc.
+
+### 3.3. System
+
+System tự động:
+
+- crawl document graph;
+- parse Điều / Khoản / Điểm;
+- classify provision relevance;
+- extract amendment instructions;
+- resolve provision-to-provision relations;
+- extract traffic violations;
+- extract sanctions;
+- resolve identity của hành vi;
+- detect semantic changes;
+- reconstruct history;
+- determine current rule;
+- index cho search.
+
+---
+
+## 4. Domain Definitions
+
+### 4.1. Document
+
+Một văn bản trên CSDL VBPL.
+
+Ví dụ:
+
+~~~text
+Nghị định 36/CP
+Nghị định 75/1998/NĐ-CP
+Nghị định 36/2001/NĐ-CP
+~~~
+
+Một văn bản sửa đổi hoặc thay thế được model thành một Document riêng, không phải version của cùng một Document.
+
+### 4.2. Provision
+
+Đơn vị pháp lý có thể tham chiếu:
+
+~~~text
+Điều
+Khoản
+Điểm
+~~~
+
+Ví dụ:
+
+~~~text
 Điểm a Khoản 2 Điều 6
-```
+~~~
 
-### 3.4. Semantic Atom
+Provision là node chính trong provision change graph.
 
-Khái niệm pháp lý nhỏ có thể tái sử dụng:
+### 4.3. Document Relation
 
-```text
-Đỗ xe
-Dừng xe
-Chấp hành
-Phần đường xe chạy
-Lề đường
-Đèn tín hiệu giao thông
-Ngoài đô thị
-```
-
-### 3.5. Legal Behavior
-
-Một biểu thức có cấu trúc được tạo bằng cách kết hợp các semantic atom.
+Quan hệ giữa hai văn bản, lấy chủ yếu từ VBPL.
 
 Ví dụ:
 
-```text
-ĐỖ XE
-ON PHẦN ĐƯỜNG XE CHẠY
-WHERE NGOÀI ĐÔ THỊ
-AND CÓ LỀ ĐƯỜNG
-```
+~~~text
+AMENDS
+SUPPLEMENTS
+PARTIALLY_REPLACES
+FULLY_REPLACES
+CORRECTS
+REFERENCES
+LEGAL_BASIS
+GUIDES
+DETAILS
+SUSPENDS
+~~~
 
-### 3.6. Sanction Rule
+Document Relation dùng để discover corpus và hỗ trợ resolve thay đổi, nhưng không thay thế Provision Relation.
 
-Chế tài áp dụng cho một Legal Behavior trong một context cụ thể.
+### 4.4. Provision Relation
 
-### 3.7. Behavior Alias
+Quan hệ có hướng giữa hai Điều / Khoản / Điểm.
 
-Cách diễn đạt khác của cùng một semantic atom.
+Các relation quan trọng:
+
+~~~text
+AMENDS
+SUPPLEMENTS
+REPLACES
+REPEALS
+REFERENCES
+SPLITS_INTO
+MERGES_INTO
+~~~
 
 Ví dụ:
 
-```text
-Canonical:
-Đỗ xe
+~~~text
+Nghị định A — Điểm a Khoản 2 Điều 6
+        ↓ AMENDED_BY
+Nghị định B — Khoản 3 Điều 1
+~~~
 
-Aliases:
-- đậu xe
-- đỗ phương tiện
-```
+Hệ thống phải lưu evidence chỉ ra vì sao hai provision được nối.
 
-### 3.8. Outdated Provision
+### 4.5. Traffic Violation
 
-Provision có evidence cho thấy nội dung hoặc dependency của nó có khả năng không còn phản ánh trạng thái pháp luật hiện hành.
+Canonical identity của một hành vi vi phạm giao thông.
 
-`OUTDATED` trong hệ thống **không đồng nghĩa với kết luận pháp lý rằng provision vô hiệu**.
+Một TrafficViolation không đồng nhất với một Provision.
 
----
+Một hành vi có thể được quy định bởi nhiều provision qua thời gian.
 
-## 4. User Roles
+Ví dụ:
 
-### 4.1. User
+~~~text
+ACTION:
+    Đỗ xe
 
-Có thể:
+VEHICLE:
+    Ô tô
 
-- import văn bản;
-- query hành vi;
-- xem diff;
-- xem dependency;
-- xem historical timeline.
+LOCATION:
+    Phần đường xe chạy
 
-### 4.2. Reviewer
+CONDITIONS:
+    Ngoài đô thị
+~~~
 
-Ngoài quyền User, có thể:
+### 4.6. Violation Rule
 
-- approve/reject concept mới;
-- merge concept duplicate;
-- approve alias;
-- sửa extraction;
-- xác nhận relation;
-- xác nhận change classification.
+Một rule cụ thể gắn TrafficViolation với một Provision trong một context pháp lý nhất định.
 
-### 4.3. System
+~~~text
+TrafficViolation
+      ↓
+ViolationRule
+      ↓
+Provision
+      ↓
+Sanction
+~~~
 
-Tự động:
+### 4.7. Sanction
 
-- parse document;
-- search source;
-- resolve ontology;
-- gọi LLM khi cần;
-- index;
-- detect changes;
-- tính outdated status.
+Chế tài áp dụng cho ViolationRule.
+
+Tối thiểu hỗ trợ:
+
+- fine_min;
+- fine_max;
+- currency;
+- points_deducted;
+- additional_sanction;
+- remedial_measure.
+
+### 4.8. Change Instruction
+
+Biểu diễn có cấu trúc của một câu lệnh sửa đổi pháp luật.
+
+Ví dụ:
+
+~~~text
+Sửa đổi điểm a khoản 2 Điều 6 như sau...
+Bãi bỏ khoản 3 Điều 5.
+Bổ sung điểm c vào khoản 4 Điều 7.
+~~~
+
+ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
 
 ---
 
 ## 5. High-level Architecture
 
-```text
-                         ┌─────────────────┐
-                         │      User       │
-                         └────────┬────────┘
+~~~text
+                    ADMIN
+                      │
+                VBPL document URL
+                      │
+                      ▼
+             VBPL Source Adapter
+                      │
+              fetch + snapshot
+                      │
+                      ▼
+           Recursive Document Crawler
+                      │
+              DocumentRelation graph
+                      │
+                      ▼
+            Provision Segmentation
+                      │
+                      ▼
+          Provision Relevance Classifier
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+     irrelevant               relevant
                                   │
-                    URL / Document upload
+                       ┌──────────┴──────────┐
+                       ▼                     ▼
+              Change Instruction      Violation/Sanction
+                  Extraction              Extraction
+                       │                     │
+                       ▼                     ▼
+                ProvisionRelation     ViolationRule IR
+                       │                     │
+                       └──────────┬──────────┘
+                                  ▼
+                         Violation Resolver
                                   │
                                   ▼
-                     ┌─────────────────────┐
-                     │ Document Ingestion  │
-                     └─────────┬───────────┘
-                               │
-               ┌───────────────┴────────────────┐
-               ▼                                ▼
-        Raw snapshot                     Metadata parser
-               │                                │
-               └───────────────┬────────────────┘
-                               ▼
-                    Provision segmentation
-                               │
-                               ▼
-                     Relation extraction
-                               │
-                 ┌─────────────┴──────────────┐
-                 ▼                            ▼
-           Existing corpus             Missing document
-                                              │
-                                      crawl / request upload
-                                              │
-                 └─────────────┬──────────────┘
-                               ▼
-                    Semantic AI Parser
-                               │
-                               ▼
-                      Semantic Atoms
-                               │
-                               ▼
-             Canonical + Alias exact lookup
-                               │
-                    ┌──────────┴──────────┐
-                    │ miss                │ hit
-                    ▼                     ▼
-            Hybrid retrieval          reuse concept
-                    │
-                    ▼
-              LLM Resolver
-          ┌─────────┼────────┬───────────┐
-          ▼         ▼        ▼           ▼
-        REUSE   ADD_ALIAS  COMPOSE     CREATE
-                                         │
-                                      PROPOSED
-                                         │
-                                     review/index
-                                         │
-          └──────────────────────────────┘
-                         │
-                         ▼
-                    Legal Rule IR
-                         │
-             ┌───────────┼────────────┐
-             ▼           ▼            ▼
-        Knowledge     Change        Search
-          Graph       Engine         Index
-```
+                       TrafficViolation identity
+                                  │
+                                  ▼
+                         Semantic Change Engine
+                                  │
+                                  ▼
+                      Current Rule + History
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+              Document Search             Behavior Search
+~~~
 
 ---
 
 ## 6. Functional Requirements
 
-## FR-01 — Import Legal Document
+## FR-01 — Import from CSDL VBPL
 
-Hệ thống phải hỗ trợ nhập văn bản bằng URL hoặc file.
+Only Admin can initiate import.
 
-### FR-01.1 URL Import
-
-User cung cấp URL từ nguồn pháp luật được hỗ trợ.
+Input phải là URL hợp lệ thuộc vbpl.vn và resolve được tới một văn bản.
 
 System phải:
 
-1. fetch nội dung;
-2. lưu raw snapshot;
-3. extract metadata;
-4. parse nội dung;
-5. lưu source URL và thời điểm fetch.
+1. validate source;
+2. resolve source ItemID / identifier;
+3. fetch metadata;
+4. fetch full text;
+5. fetch document relations;
+6. lưu raw source snapshot;
+7. tạo ImportJob;
+8. bắt đầu recursive crawl.
 
-### FR-01.2 File Upload
-
-Hỗ trợ tối thiểu:
-
-```text
-PDF
-DOCX
-TXT / HTML
-```
-
-### FR-01.3 Duplicate Detection
-
-Nếu văn bản/version đã tồn tại, system phải phát hiện thông qua:
-
-```text
-document number
-version/effective date
-content hash
-```
+Không hỗ trợ file upload trong MVP.
 
 ---
 
-## FR-02 — Document Structure Parsing
+## FR-02 — Recursive Related-document Crawl
 
-System phải tách:
+Từ root document, system phải crawl recursive các document relations mà nguồn VBPL cung cấp.
 
-```text
+Traversal:
+
+~~~text
+root
+ ↓
+related documents
+ ↓
+their related documents
+ ↓
+...
+until no unseen document remains
+~~~
+
+System phải:
+
+- deduplicate document;
+- detect cycle;
+- persist every discovered DocumentRelation;
+- không refetch document đã hoàn thành nếu snapshot còn hợp lệ;
+- ghi nhận failed nodes để retry;
+- không làm mất toàn bộ import nếu một related document fetch thất bại.
+
+---
+
+## FR-03 — VBPL Relationship Preservation
+
+System phải preserve taxonomy quan hệ có ích từ VBPL để render lại cho user.
+
+Document Relation View phải hỗ trợ các nhóm tương ứng như:
+
+- Văn bản được hướng dẫn áp dụng;
+- Văn bản được quy định chi tiết, hướng dẫn thi hành;
+- Văn bản bị tác động hiệu lực một phần;
+- Văn bản bị tác động hiệu lực toàn bộ;
+- Văn bản được đính chính;
+- Văn bản được dẫn chiếu;
+- Căn cứ ban hành;
+- Văn bản được giải thích;
+- Văn bản bị đình chỉ thi hành;
+- Văn bản bị tạm ngưng / gia hạn / công bố tiếp tục còn hiệu lực;
+- các quan hệ inverse tương ứng của văn bản đang xem.
+
+System có thể normalize tên quan hệ nội bộ nhưng phải giữ source category và provenance.
+
+---
+
+## FR-04 — Provision Segmentation
+
+System phải parse hierarchy:
+
+~~~text
 Chương
 Mục
 Điều
 Khoản
 Điểm
-```
+~~~
 
 Mỗi Provision phải giữ:
 
-```json
-{
-    "document_id": "...",
-    "article": "6",
-    "paragraph": "2",
-    "point": "a",
-    "raw_text": "..."
-}
-```
+- document_id;
+- parent_id;
+- article_no;
+- paragraph_no;
+- point_no;
+- raw_text;
+- source anchor nếu có.
 
-Phải trace được mọi dữ liệu semantic về nguyên văn nguồn.
+Mọi AI output downstream phải trace về Provision.
 
 ---
 
-## FR-03 — Legal Document Relation Discovery
+## FR-05 — Provision Relevance Classification
 
-Sau khi import, hệ thống phải phát hiện các văn bản liên quan.
+Mỗi provision phải được classify tối thiểu thành một trong:
 
-Relation tối thiểu:
+~~~text
+SANCTION_RULE
+VIOLATION_RULE
+AMENDMENT_INSTRUCTION
+REPEAL_INSTRUCTION
+REFERENCE
+IRRELEVANT
+UNCERTAIN
+~~~
 
-```text
-AMENDS
-AMENDED_BY
-SUPPLEMENTS
-REPLACES
-REPLACED_BY
-REFERENCES
-LEGAL_BASIS
-DETAILS
-IMPLEMENTED_BY
-INVALIDATES
-```
-
-Nguồn relation có thể là:
-
-```text
-VBPL metadata
-explicit citation parser
-AI semantic extraction
-human verification
-```
-
-Mỗi relation phải lưu provenance và confidence.
-
-Ví dụ:
-
-```json
-{
-    "type": "AMENDS",
-    "source": "VBPL_METADATA",
-    "confidence": 1.0
-}
-```
+Chỉ provision liên quan tới traffic violation sanction hoặc legal change của sanction rule mới đi qua semantic pipeline đầy đủ.
 
 ---
 
-## FR-04 — Related Document Acquisition
+## FR-06 — Change Instruction Extraction
 
-Khi phát hiện document dependency chưa tồn tại trong corpus:
+Với provision sửa đổi / bổ sung / bãi bỏ / thay thế, system phải extract ChangeInstruction.
 
-```text
-Missing related document
-        ↓
-source available?
-   ┌────┴────┐
-  yes        no
-   ↓          ↓
-Import       Ask user
-automatically to upload/provide source
-```
+Ví dụ input:
 
-Không crawl recursion vô hạn.
+~~~text
+Sửa đổi điểm a khoản 2 Điều 6 như sau...
+~~~
 
-Auto-import ưu tiên:
+Output logic:
 
-```text
-AMENDS
-AMENDED_BY
-REPLACES
-DETAILS
-```
-
-Các relation yếu như `LEGAL_BASIS` chỉ suggest import nếu không cần thiết trực tiếp.
-
----
-
-## FR-05 — Semantic Atom Extraction
-
-LLM phải phân tích Provision bằng **open vocabulary**, không bị giới hạn bởi ontology hiện có.
-
-Ví dụ:
-
-```text
-Dừng xe, đỗ xe trên phần đường xe chạy ở đoạn đường ngoài đô thị nơi có lề đường
-```
-
-Output:
-
-```json
+~~~json
 {
-    "actions": [
-        "Dừng xe",
-        "Đỗ xe"
-    ],
+    "operation": "AMEND",
     "target": {
-        "relation": "trên",
-        "concept": "Phần đường xe chạy"
-    },
+        "article": "6",
+        "paragraph": "2",
+        "point": "a"
+    }
+}
+~~~
+
+Các operation tối thiểu:
+
+~~~text
+AMEND
+SUPPLEMENT
+REPLACE
+REPEAL
+CORRECT
+~~~
+
+---
+
+## FR-07 — Provision Relation Resolution
+
+System phải resolve ChangeInstruction thành edge giữa provision nguồn và provision bị tác động.
+
+Ví dụ:
+
+~~~text
+Provision B
+  └── AMENDS → Provision A
+~~~
+
+Mỗi edge phải lưu:
+
+- relation_type;
+- from_provision_id;
+- to_provision_id;
+- source_document_relation nếu có;
+- evidence;
+- resolution method;
+- confidence.
+
+ProvisionRelation là dữ liệu first-class, không được derive tạm thời chỉ khi render UI.
+
+---
+
+## FR-08 — Traffic Violation Extraction
+
+Provision liên quan phải được parse thành structured violation representation.
+
+Các dimension chính:
+
+~~~text
+ACTION
+SUBJECT
+VEHICLE
+TARGET
+LOCATION
+CONDITION
+EXCEPTION
+CONSEQUENCE
+~~~
+
+Ví dụ:
+
+~~~json
+{
+    "action": "Đỗ xe",
+    "vehicle": "Ô tô",
+    "location": "Phần đường xe chạy",
     "conditions": [
         "Ngoài đô thị",
         "Có lề đường"
-    ]
+    ],
+    "exceptions": []
 }
-```
+~~~
 
-Mục tiêu của phase này là **extract semantic meaning**, chưa resolve ontology.
+Một Provision có thể:
 
----
+- không tạo TrafficViolation;
+- tạo một ViolationRule;
+- tạo nhiều ViolationRule.
 
-## FR-06 — Concept Resolution
-
-Mỗi extracted atom phải được resolve theo flow:
-
-```text
-Normalize
-   ↓
-Canonical exact search
-   ↓ miss
-Alias exact search
-   ↓ miss
-Hybrid search
-   ↓
-Top-K candidate concepts
-   ↓
-LLM resolver
-```
-
-LLM resolver chỉ được trả một trong:
-
-```text
-REUSE
-ADD_ALIAS
-COMPOSE
-CREATE
-UNCERTAIN
-```
-
-Thứ tự preference:
-
-```text
-REUSE
->
-ADD_ALIAS
->
-COMPOSE
->
-CREATE
-```
-
-`CREATE` chỉ được dùng khi concept thực sự không thể biểu diễn bởi ontology hiện có.
+Không được giả định Provision = TrafficViolation.
 
 ---
 
-## FR-07 — Alias Management
+## FR-09 — Sanction Extraction
 
-Một Concept phải hỗ trợ nhiều alias.
+System phải extract sanction áp dụng cho từng ViolationRule.
 
-Ví dụ:
+Tối thiểu:
 
-```text
-Concept:
-Đỗ xe
-
-Aliases:
-đậu xe
-đỗ phương tiện
-```
-
-Alias phải tham gia search/index.
-
-Nếu một wording mới được xác định semantic-equivalent với concept đã có, system phải có khả năng:
-
-```text
-ADD_ALIAS
-```
-
-mà không tạo Concept mới.
-
----
-
-## FR-08 — Missing Concept Detection
-
-Nếu:
-
-```text
-canonical lookup = miss
-AND alias lookup = miss
-AND no semantically equivalent candidate exists
-AND expression cannot be composed from existing concepts
-```
-
-thì system có thể tạo:
-
-```text
-PROPOSED CONCEPT
-```
-
-Ví dụ:
-
-```json
-{
-    "canonical_name": "Điều khiển phương tiện từ xa",
-    "status": "PROPOSED"
-}
-```
-
-Concept không trở thành canonical ontology entry cho tới khi được approve hoặc đạt policy confidence do hệ thống quy định.
-
----
-
-## FR-09 — Legal Behavior IR Generation
-
-Provision phải được convert thành structured JSON.
-
-Ví dụ:
-
-```json
-{
-    "subject": {
-        "concept": "Người điều khiển xe"
-    },
-
-    "behavior": {
-        "actions": [
-            "Dừng xe",
-            "Đỗ xe"
-        ],
-
-        "target": {
-            "relation": "trên",
-            "concept": "Phần đường xe chạy"
-        },
-
-        "conditions": [
-            {
-                "concept": "Ngoài đô thị"
-            },
-            {
-                "concept": "Có lề đường"
-            }
-        ],
-
-        "exceptions": []
-    }
-}
-```
-
----
-
-## FR-10 — Sanction Extraction
-
-System phải liên kết một behavior với chế tài tương ứng.
-
-Tối thiểu extract:
-
-```text
-subject
-vehicle/context
+~~~text
 fine_min
 fine_max
 currency
-point deduction
-additional sanction
-conditions
-```
+points_deducted
+additional_sanction
+remedial_measure
+~~~
 
-Ví dụ:
+Sanction phải gắn với ViolationRule, không gắn trực tiếp một mức phạt duy nhất vào TrafficViolation.
 
-```json
-{
-    "behavior_id": "...",
+Cùng hành vi có thể có sanction khác nhau theo:
 
-    "sanction": {
-        "fine": {
-            "min": 400000,
-            "max": 600000,
-            "currency": "VND"
-        }
-    }
-}
-```
-
-Không được coi:
-
-```text
-Behavior → một mức phạt cố định
-```
-
-vì cùng behavior có thể khác chế tài tùy subject, vehicle, consequence và thời điểm.
+- subject;
+- vehicle;
+- location;
+- condition;
+- consequence;
+- effective period.
 
 ---
 
-## FR-11 — Highlight Outdated Law
+## FR-10 — Violation Identity Resolution
 
-Đây là feature chính thứ nhất.
+Đây là feature AI trung tâm.
 
-### FR-11.1 Detection
+Các ViolationRule từ nhiều văn bản phải được resolve về cùng một TrafficViolation khi chúng biểu diễn cùng hành vi pháp lý hoặc cùng lineage của hành vi.
 
-System phải phát hiện Provision có nguy cơ outdated nếu xảy ra một hoặc nhiều điều kiện:
+Flow ưu tiên:
 
-```text
-Văn bản bị hết hiệu lực
-Văn bản bị thay thế
-Provision bị sửa đổi
-Provision bị bãi bỏ
-Dependency của Provision bị sửa
-Semantic rule phụ thuộc vào clause đã thay đổi
-```
+~~~text
+normalize
+→ canonical / alias match
+→ structured field match
+→ lexical / semantic retrieval
+→ LLM resolver khi cần
+~~~
 
-### FR-11.2 Status
+Ví dụ:
 
-Không chỉ dùng boolean.
+~~~text
+"không chấp hành hiệu lệnh của đèn tín hiệu giao thông"
+≈
+"vượt đèn đỏ"
+~~~
 
-```text
+Việc map không chỉ dựa vào similarity text; phải xét structured context như vehicle, location, condition và exception.
+
+---
+
+## FR-11 — Behavior-centric Provision History
+
+TrafficViolation là identity trung tâm của history.
+
+System phải reconstruct:
+
+~~~text
+TrafficViolation
+   │
+   ├── ViolationRule A
+   │       └── Provision A
+   │
+   ├── ViolationRule B
+   │       └── Provision B
+   │
+   └── ViolationRule C
+           └── Provision C
+~~~
+
+Provision graph phải cho biết:
+
+~~~text
+A --AMENDED_BY--> B --REPLACED_BY--> C
+~~~
+
+Behavior history phải cho biết:
+
+~~~text
+Rule A → Rule B → Rule C
+~~~
+
+Hai graph phải liên kết được với nhau.
+
+---
+
+## FR-12 — Current Rule Determination
+
+Với mỗi TrafficViolation, system phải xác định những ViolationRule đang hiện hành dựa trên:
+
+1. document effective status;
+2. effective dates;
+3. explicit DocumentRelation;
+4. explicit ProvisionRelation;
+5. ChangeInstruction;
+6. semantic alignment.
+
+Rule status tối thiểu:
+
+~~~text
 CURRENT
-POTENTIALLY_OUTDATED
-OUTDATED_BY_EXPLICIT_AMENDMENT
+AMENDED
 REPEALED
 SUPERSEDED
 UNCERTAIN
-```
+~~~
 
-### FR-11.3 UI
-
-Provision bị ảnh hưởng phải được highlight.
-
-Ví dụ:
-
-```text
-⚠ Có khả năng lỗi thời
-
-Điều 6 Khoản 2 Điểm a
-
-Lý do:
-Nghị định X đã được sửa đổi bởi Nghị định Y.
-
-Affected behavior:
-Đỗ xe → Phần đường xe chạy → Ngoài đô thị
-
-[View change]
-```
-
-### FR-11.4 Evidence
-
-Mọi warning phải có source/evidence.
-
-Không được để AI tự đánh dấu `outdated` mà không giải thích được dependency dẫn tới kết quả.
+Không được đánh dấu CURRENT chỉ vì văn bản chứa provision còn hiệu lực nếu chính provision đã bị sửa hoặc bãi bỏ.
 
 ---
 
-## FR-12 — Behavior-based Legal Diff
+## FR-13 — Semantic Change Detection
 
-Feature chính thứ hai.
+Khi hai ViolationRule trong cùng history lineage khác nhau, system phải tạo semantic diff.
 
-Thay vì:
+Các change type tối thiểu:
 
-```diff
-- 400.000 đồng
-+ 600.000 đồng
-```
-
-system phải tạo semantic diff.
-
-Ví dụ:
-
-```text
-Behavior:
-Đỗ xe
-ON Phần đường xe chạy
-WHERE Ngoài đô thị
-
-Version A:
-Có lề đường = TRUE
-Fine = 400k–600k
-
-Version B:
-Không còn condition "Có lề đường"
-Fine = 800k–1m
-```
-
-Semantic diff:
-
-```text
-CONDITION_REMOVED:
-Có lề đường
-
-→ SCOPE_EXPANSION
-
-SANCTION:
-400k–600k
-→
-800k–1m
-
-→ SANCTION_INCREASE
-```
-
----
-
-## FR-13 — Change Classification
-
-Tối thiểu hỗ trợ:
-
-```text
+~~~text
 NO_SEMANTIC_CHANGE
 
-BEHAVIOR_ADDED
-BEHAVIOR_REMOVED
+VIOLATION_ADDED
+VIOLATION_REMOVED
 
 CONDITION_ADDED
 CONDITION_REMOVED
@@ -750,1105 +704,934 @@ CONDITION_CHANGED
 EXCEPTION_ADDED
 EXCEPTION_REMOVED
 
-SUBJECT_SCOPE_EXPANSION
-SUBJECT_SCOPE_REDUCTION
-
-BEHAVIOR_SCOPE_EXPANSION
-BEHAVIOR_SCOPE_REDUCTION
+SUBJECT_CHANGED
+VEHICLE_SCOPE_CHANGED
+LOCATION_SCOPE_CHANGED
 
 SANCTION_INCREASE
 SANCTION_DECREASE
 SANCTION_CHANGED
-
 POINT_DEDUCTION_CHANGED
+ADDITIONAL_SANCTION_CHANGED
 
-REFERENCE_CHANGED
-
-EDITORIAL_CHANGE
+REPEALED
+REPLACED
 UNKNOWN
-```
+~~~
 
-Một change có thể có nhiều classification.
+Một transition có thể có nhiều change type.
 
 ---
 
-## FR-14 — Query by Behavior
+## FR-14 — Legal Document Search
 
-Feature chính thứ ba.
+User có thể search document bằng:
 
-User có thể query bằng:
+- số hiệu;
+- tên;
+- từ khóa;
+- loại văn bản;
+- cơ quan ban hành;
+- trạng thái hiệu lực.
 
-```text
+Kết quả phải ưu tiên metadata từ nguồn VBPL.
+
+---
+
+## FR-15 — Legal Document View
+
+Trang document có đúng hai tab chính.
+
+### Tab 1 — Nội dung
+
+Hiển thị:
+
+- metadata;
+- tình trạng hiệu lực;
+- nội dung theo Điều / Khoản / Điểm;
+- provision xử phạt bị tác động;
+- trạng thái của relevant ViolationRule.
+
+Relevant provision bị sửa đổi / thay thế / bãi bỏ phải được highlight.
+
+User có thể mở history từ provision đó.
+
+### Tab 2 — Quan hệ
+
+Hiển thị relationship groups tương ứng với VBPL.
+
+Mỗi related document có thể click để mở Document View nội bộ nếu đã crawl.
+
+---
+
+## FR-16 — Search by Traffic Violation
+
+User có thể query tự nhiên:
+
+~~~text
 đỗ xe
 vượt đèn đỏ
 dừng xe ngoài đô thị
-không chấp hành tín hiệu đèn
-```
+đi quá tốc độ 10 đến 20 km/h
+~~~
 
-Query pipeline:
+Pipeline:
 
-```text
-User query
-    ↓
-semantic atom extraction
-    ↓
-alias/canonical resolution
-    ↓
-behavior expression
-    ↓
-behavior index
-    ↓
-matching rules
-```
+~~~text
+query
+ ↓
+violation semantic parsing
+ ↓
+canonical / alias / structured resolution
+ ↓
+TrafficViolation candidates
+ ↓
+current ViolationRules
+~~~
 
-Kết quả phải ưu tiên **quy định hiện hành**.
-
-Mỗi result hiển thị tối thiểu:
-
-```text
-Behavior
-Subject
-Conditions
-Exception
-Sanction
-Effective period
-Document
-Điều / Khoản / Điểm
-Source
-```
+Kết quả phải ưu tiên CURRENT rules.
 
 ---
 
-## FR-15 — Historical Behavior Query
+## FR-17 — Violation Detail
 
-User có thể mở:
+Khi user chọn một TrafficViolation, system phải hiển thị:
 
-```text
-History
-```
+- canonical behavior;
+- subject / vehicle;
+- location / conditions / exceptions;
+- current applicable sanction;
+- current applicable provisions;
+- effective period;
+- source documents;
+- confidence / uncertainty khi cần;
+- link tới history.
 
-của một behavior.
-
-Ví dụ:
-
-```text
-ĐỖ XE
-    │
-    ├── 2019
-    │   Fine: ...
-    │
-    ├── 2021
-    │   Fine changed
-    │
-    ├── 2025
-    │   Scope changed
-    │
-    └── Current
-        Fine: ...
-```
-
-Hệ thống phải cho phép query:
-
-```text
-Quy định hiện tại
-Quy định tại ngày X
-Toàn bộ timeline
-```
+Nếu có nhiều current rules do khác vehicle/context, UI phải hiển thị từng applicable rule riêng.
 
 ---
 
-## FR-16 — Behavior History Diff
+## FR-18 — Violation History
 
-Mỗi history item phải thể hiện:
+History phải hiển thị theo thời gian:
 
-```text
-What changed?
-Before
-After
-Change type
-Effective date
-Source document
-Affected provision
-```
+~~~text
+Provision A
+Fine: 400k–600k
+[SUPERSEDED]
+      ↓ AMENDED
 
-Ví dụ:
+Provision B
+Fine: 600k–800k
+[SUPERSEDED]
+      ↓ REPLACED
 
-```text
-01/01/2025
+Provision C
+Fine: 800k–1m
+[CURRENT]
+~~~
 
-SANCTION_INCREASE
+Mỗi transition phải cho biết:
 
-Before:
-6–8 triệu
-
-After:
-18–20 triệu
-
-Affected behavior:
-Không chấp hành tín hiệu đèn
-
-Source:
-Nghị định ...
-Điểm ... Khoản ... Điều ...
-```
+- provision trước;
+- provision sau;
+- relation;
+- effective date;
+- semantic change;
+- sanction before / after;
+- source document;
+- evidence.
 
 ---
 
-## FR-17 — Search Index
+## FR-19 — Search Index
 
-System phải duy trì ít nhất hai logical index.
+System phải duy trì ít nhất:
 
-### Concept Index
+### Document Index
 
-Search:
+Dùng cho search văn bản.
 
-```text
-Đỗ xe
-Đậu xe
-Dừng phương tiện
-...
-```
+### Violation Index
 
-Dữ liệu gồm:
+Index:
 
-```text
-canonical concept
-aliases
-embeddings
-```
+- canonical behavior;
+- aliases;
+- structured dimensions;
+- provision text;
+- embeddings nếu sử dụng.
 
-### Provision Index
+Search strategy có thể kết hợp:
 
-Search các Điều/Khoản có nội dung tương đồng hoặc dependency.
-
-Search strategy:
-
-```text
-Exact match
-+
-full-text
-+
-embedding
-+
-structured filtering
-```
+~~~text
+exact match
++ alias
++ full-text
++ structured filters
++ vector retrieval
+~~~
 
 ---
 
-## FR-18 — AI Provenance
+## FR-20 — AI Provenance
 
-Mọi output AI quan trọng phải lưu:
+Mọi AI output quan trọng phải lưu:
 
-```text
-model
-prompt/schema version
-timestamp
-confidence
-raw output
-normalized output
-evidence
-human_verified
-```
+- task type;
+- model;
+- prompt/schema version;
+- timestamp;
+- confidence;
+- raw output;
+- normalized output;
+- evidence provision;
+- extraction run.
 
-Ví dụ:
-
-```json
-{
-    "method": "LLM",
-    "model": "...",
-    "parser_version": "1.2",
-    "confidence": 0.91,
-    "human_verified": false
-}
-```
-
----
-
-## FR-19 — Human Review
-
-Reviewer phải có queue cho:
-
-```text
-New concept
-Ambiguous concept mapping
-New alias
-Low-confidence extraction
-Potential semantic relation
-Potentially outdated provision
-```
-
-Reviewer có thể:
-
-```text
-Approve
-Reject
-Edit
-Merge concepts
-Mark uncertain
-```
+Không có human_verified requirement bắt buộc trong MVP.
 
 ---
 
 ## 7. Data Model
 
-Core relational model:
+Core model:
 
-```text
+~~~text
 Document
-└── DocumentVersion
-    └── Provision
-        ├── ProvisionRelation
-        └── BehaviorRule
-            ├── BehaviorAction
-            ├── BehaviorTarget
-            ├── BehaviorCondition
-            ├── BehaviorException
-            └── SanctionRule
+├── DocumentRelation
+└── Provision
+    ├── ChangeInstruction
+    ├── ProvisionRelation
+    └── ViolationRule
+        └── Sanction
 
-Concept
-├── ConceptAlias
-└── ConceptRelation
+TrafficViolation
+└── ViolationAlias
 
 ExtractionRun
 ChangeEvent
-```
+ImportJob
+SourceSnapshot
+~~~
 
-Database đề xuất:
+Hai graph quan trọng:
 
-```text
-PostgreSQL
-+ JSONB
-+ pgvector
-```
+~~~text
+Document Graph
+Document ──relation──> Document
 
-Raw PDF/HTML có thể lưu ở object storage.
+Provision Graph
+Provision ──AMENDS/REPLACES/...──> Provision
+~~~
+
+TrafficViolation đóng vai trò semantic identity nối các ViolationRule thuộc nhiều provision khác nhau.
 
 ---
 
 ## 8. Core Tables
 
-### `concept`
+### document
 
-```text
+~~~text
 id
-code
-canonical_name
-concept_type
-status
-merged_into
-created_at
-```
-
-### `concept_alias`
-
-```text
-id
-concept_id
-alias
-normalized_alias
-embedding
 source
-status
-```
-
-### `document`
-
-```text
-id
+source_item_id
 document_number
 title
 document_type
 issuer
-source_url
-```
-
-### `document_version`
-
-```text
-id
-document_id
 issued_at
 effective_from
 effective_to
-content_hash
-raw_source_uri
-```
+effective_status
+source_url
+created_at
+~~~
 
-### `provision`
+### document_relation
 
-```text
+~~~text
 id
-document_version_id
+from_document_id
+to_document_id
+relation_type
+source_category
+source
+raw_label
+~~~
+
+### provision
+
+~~~text
+id
+document_id
 parent_id
 article_no
 paragraph_no
 point_no
+provision_type
 raw_text
-raw_ir
-```
+source_anchor
+~~~
 
-### `provision_relation`
+### change_instruction
 
-```text
+~~~text
+id
+source_provision_id
+operation
+target_document_id
+target_locator_json
+raw_text
+confidence
+~~~
+
+### provision_relation
+
+~~~text
 id
 from_provision_id
 to_provision_id
 relation_type
-source
+evidence
+method
 confidence
-human_verified
-```
+~~~
 
-### `behavior_rule`
+### traffic_violation
 
-```text
+~~~text
 id
-provision_id
-subject_concept_id
+canonical_name
 semantic_ir
-confidence
-human_verified
-```
+created_at
+~~~
 
-### `sanction_rule`
+### violation_alias
 
-```text
+~~~text
 id
-behavior_rule_id
+traffic_violation_id
+alias
+normalized_alias
+embedding
+~~~
 
+### violation_rule
+
+~~~text
+id
+traffic_violation_id
+provision_id
+semantic_ir
+effective_from
+effective_to
+status
+confidence
+~~~
+
+### sanction
+
+~~~text
+id
+violation_rule_id
 fine_min
 fine_max
 currency
-
 points_deducted
+additional_sanction
+remedial_measure
+~~~
 
-effective_from
-effective_to
-```
+### change_event
 
-### `change_event`
-
-```text
+~~~text
 id
-
-old_behavior_rule_id
-new_behavior_rule_id
-
-change_type
-significance
-
+traffic_violation_id
+old_violation_rule_id
+new_violation_rule_id
+provision_relation_id
+change_types
 effective_at
-
-source_document_id
 confidence
-```
+~~~
+
+### import_job
+
+~~~text
+id
+root_document_id
+source_url
+status
+documents_discovered
+documents_processed
+started_at
+finished_at
+error
+~~~
 
 ---
 
-## 9. LLM Parsing & Ontology Resolution Flow
-
-Hệ thống sử dụng LLM ở hai phase riêng biệt.
-
-### Phase 1 — Open-vocabulary semantic extraction
-
-LLM không nhìn ontology hiện có.
-
-```text
-Raw provision
-    ↓
-LLM semantic parser
-    ↓
-Semantic atoms
-```
-
-Mục đích là tránh ép concept mới vào keyword cũ.
-
-Ví dụ:
-
-```json
-{
-    "actions": [
-        {
-            "surface": "đỗ phương tiện",
-            "normalized": "đỗ phương tiện"
-        }
-    ]
-}
-```
-
-### Phase 2 — Concept resolution
-
-```text
-Semantic atom
-    ↓
-Normalize
-    ↓
-Canonical exact lookup
-    ↓ miss
-Alias exact lookup
-    ↓ miss
-FTS + embedding retrieval
-    ↓
-Top-K existing concepts
-    ↓
-LLM resolver
-```
-
-Resolver trả một trong:
-
-```text
-REUSE
-ADD_ALIAS
-COMPOSE
-CREATE
-UNCERTAIN
-```
-
-### Resolution priority
-
-```text
-REUSE
-  ↓
-ADD_ALIAS
-  ↓
-COMPOSE
-  ↓
-CREATE
-  ↓
-UNCERTAIN
-```
-
-`CREATE` chỉ dùng cho **atomic semantic concept mới thực sự**.
-
----
-
-## 10. Alias Strategy
-
-Alias table được sử dụng để tránh duplicate concepts.
-
-Ví dụ:
-
-```text
-Canonical:
-Đỗ xe
-
-Aliases:
-- đậu xe
-- đỗ phương tiện
-- đỗ phương tiện giao thông
-```
-
-Resolution:
-
-```text
-"đậu xe"
-    ↓
-exact alias lookup
-    ↓
-DO_XE
-```
-
-Không cần gọi LLM.
-
-Embedding được tạo cho từng alias riêng nhưng search result phải aggregate theo `concept_id`.
-
-Ví dụ:
-
-```text
-alias #1 → DO_XE    0.93
-alias #2 → DO_XE    0.89
-canonical → DO_XE   0.86
-
-aggregate:
-DO_XE = 0.93
-```
-
----
-
-## 11. Missing Concept Detection
-
-Nếu không tìm thấy concept:
-
-```text
-No canonical hit
-AND no alias hit
-AND no semantic equivalent
-AND cannot compose from existing concepts
-```
-
-thì resolver có thể:
-
-```json
-{
-    "decision": "CREATE",
-    "proposed_concept": {
-        "canonical_name": "Điều khiển phương tiện từ xa",
-        "type": "ACTION"
-    }
-}
-```
-
-Concept mới có lifecycle:
-
-```text
-PROPOSED
-↓
-ACTIVE
-↓
-DEPRECATED / MERGED
-```
-
-Concept mới không nên trở thành `ACTIVE` ngay nếu confidence thấp hoặc chưa review.
-
----
-
-## 12. Behavior Composition
-
-Không tạo một keyword cho mọi tổ hợp.
-
-Sai:
-
-```text
-DO_XE_TREN_PHAN_DUONG_XE_CHAY_NGOAI_DO_THI_CO_LE_DUONG
-```
-
-Đúng:
-
-```text
-ACTION:
-    Đỗ xe
-
-TARGET:
-    Phần đường xe chạy
-
-CONDITIONS:
-    Ngoài đô thị
-    Có lề đường
-```
-
-Các primitive semantic atom có thể tái sử dụng trong nhiều Legal Behavior.
-
----
-
-## 13. Outdated Detection Algorithm
-
-MVP algorithm:
-
-```text
-Provision P
-    ↓
-Check own DocumentVersion
-    ├── expired?
-    ├── replaced?
-    └── explicitly amended?
-    ↓
-Traverse dependency edges
-    ↓
-Dependency changed?
-    ↓
-Compare old/new Behavior IR
-    ↓
-Semantic impact?
-    ↓
-Assign status
-```
-
-Một provision chỉ được đánh dấu mạnh:
-
-```text
-OUTDATED_BY_EXPLICIT_AMENDMENT
-```
-
-khi có explicit evidence.
-
-Semantic inference chỉ nên tạo:
-
-```text
-POTENTIALLY_OUTDATED
-```
-
----
-
-## 14. Diff Algorithm
-
-```text
-Version A
-   ↓
-Provision alignment
-
-Version B
-   ↓
-
-Aligned provision pairs
-   ↓
-Legal Behavior IR
-   ↓
-Canonicalize atom IDs
-   ↓
-Structural diff
-   ↓
-Semantic change classifier
-```
-
-Ví dụ:
-
-```text
-OLD:
-Đỗ xe
-ON Phần đường xe chạy
-WHERE Ngoài đô thị
-AND Có lề đường
-
-NEW:
-Đỗ xe
-ON Phần đường xe chạy
-WHERE Ngoài đô thị
-```
-
-Structural diff:
-
-```text
-REMOVE CONDITION:
-Có lề đường
-```
-
-Semantic classification:
-
-```text
-SCOPE_EXPANSION
-```
-
----
-
-## 15. Query Flow
-
-```text
-User query
-    ↓
-Semantic atom extraction
-    ↓
-Canonical + alias resolution
-    ↓
-Behavior expression
-    ↓
-Behavior search
-    ↓
-Current sanction rules
-    ↓
-Historical versions
-```
-
-Ví dụ:
-
-```text
-"vượt đèn đỏ"
-```
-
-có thể resolve thành một behavior expression dựa trên các concept:
-
-```text
-Chấp hành
+## 9. Processing Flow
+
+### Phase 1 — Crawl
+
+~~~text
+VBPL URL
+ ↓
+validate
+ ↓
+fetch document
+ ↓
+extract metadata + relations
+ ↓
+enqueue unseen related documents
+ ↓
+repeat until graph exhausted
+~~~
+
+### Phase 2 — Provision parsing
+
+~~~text
+Documents
+ ↓
+segment Điều / Khoản / Điểm
+ ↓
+classify relevance
+~~~
+
+### Phase 3 — Legal change graph
+
+~~~text
+Amendment / repeal provisions
+ ↓
+extract ChangeInstruction
+ ↓
+resolve target provision
+ ↓
+create ProvisionRelation
+~~~
+
+### Phase 4 — Traffic violation extraction
+
+~~~text
+Relevant sanction provisions
+ ↓
+extract ViolationRule
+ ↓
+extract Sanction
+~~~
+
+### Phase 5 — Behavior resolution
+
+~~~text
+ViolationRule
+ ↓
+normalize
+ ↓
+retrieve candidate TrafficViolation
+ ↓
+resolve identity
+ ↓
+attach rule
+~~~
+
+### Phase 6 — History reconstruction
+
+~~~text
+ProvisionRelation
 +
-NEGATIVE polarity
+TrafficViolation identity
 +
-Đèn tín hiệu giao thông
-```
+effective dates
+ ↓
+Violation history
+ ↓
+semantic diff
+ ↓
+current rule
+~~~
 
 ---
 
-## 16. API sơ bộ
+## 10. Change Resolution Priority
 
-### Import
+Khi xác định legal change, evidence được ưu tiên:
 
-```http
-POST /documents/import-url
-POST /documents/upload
-```
+~~~text
+1. Explicit VBPL document relation
+2. Explicit amendment / repeal wording
+3. Resolved ProvisionRelation
+4. Effective date / status
+5. Semantic inference
+~~~
 
-### Documents
+AI semantic inference không được override explicit legal evidence.
 
-```http
+Nếu evidence không đủ:
+
+~~~text
+UNCERTAIN
+~~~
+
+---
+
+## 11. API sơ bộ
+
+### Public — Documents
+
+~~~http
+GET /documents/search?q=
 GET /documents/:id
+GET /documents/:id/content
 GET /documents/:id/relations
-GET /documents/:id/versions
-GET /documents/:id/outdated
-```
+~~~
 
-### Behavior
+### Public — Provisions
 
-```http
-GET /behaviors/search?q=
-GET /behaviors/:id
-GET /behaviors/:id/rules
-GET /behaviors/:id/history
-```
+~~~http
+GET /provisions/:id
+GET /provisions/:id/history
+GET /provisions/:id/relations
+~~~
 
-### Diff
+### Public — Violations
 
-```http
-GET /documents/:id/diff?from=&to=
-GET /behaviors/:id/diff?from=&to=
-```
+~~~http
+GET /violations/search?q=
+GET /violations/:id
+GET /violations/:id/rules
+GET /violations/:id/history
+~~~
 
-### Review
+### Admin
 
-```http
-GET  /review/queue
-POST /review/concepts/:id/approve
-POST /review/concepts/:id/reject
-POST /review/concepts/:id/merge
-```
+~~~http
+POST /admin/imports
+GET  /admin/imports
+GET  /admin/imports/:id
+POST /admin/imports/:id/retry
+~~~
+
+Import payload:
+
+~~~json
+{
+    "url": "https://vbpl.vn/...ItemID=..."
+}
+~~~
 
 ---
 
-## 17. UI Requirements
+## 12. UI Requirements
 
-MVP cần 4 màn hình chính.
+### 12.1. Document Search
 
-### 17.1. Document View
+Search box + filters.
 
-```text
+Result hiển thị:
+
+- số hiệu;
+- tên;
+- loại;
+- ngày hiệu lực;
+- tình trạng hiệu lực.
+
+### 12.2. Document View — Nội dung
+
+~~~text
 Document metadata
 
-[CURRENT / OUTDATED warnings]
+[Nội dung] [Quan hệ]
 
 Điều 1
 Điều 2
-⚠ Điều 3 — potentially outdated
-Điều 4
-```
 
-Click warning:
+⚠ Điểm a Khoản 2 Điều 6
+Rule status: SUPERSEDED
+Affected behavior: Đỗ xe ngoài đô thị
+[View history]
+~~~
 
-```text
-Affected by:
-Nghị định X → Nghị định Y
+### 12.3. Document View — Quan hệ
 
-Changed behaviors:
-- Đỗ xe
-- Dừng xe
-```
+Render theo nhóm quan hệ giống mental model của CSDL VBPL.
 
-### 17.2. Document Diff
+~~~text
+Văn bản được hướng dẫn áp dụng (...)
+Văn bản được quy định chi tiết, hướng dẫn thi hành (...)
+Văn bản bị tác động hiệu lực một phần (...)
+Văn bản bị tác động hiệu lực toàn bộ (...)
+...
+VĂN BẢN ĐANG XEM
+...
+Các văn bản tác động / hướng dẫn / thay thế (...)
+~~~
 
-Hai version side-by-side, nhưng highlight theo behavior:
+### 12.4. Violation Search
 
-```text
-ĐỖ XE
-
-Before                     After
------------------------------------------------
-Ngoài đô thị               Ngoài đô thị
-Có lề đường
-
-400k–600k                  800k–1m
-
-Changes:
-Scope expanded
-Fine increased
-```
-
-### 17.3. Behavior Search
-
-```text
+~~~text
 Search:
-[ vượt đèn đỏ                    ]
+[ vượt đèn đỏ ]
 
 Resolved:
-Không chấp hành tín hiệu đèn
+Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
 
 Current rules:
 ...
-```
+~~~
 
-### 17.4. Behavior History
+### 12.5. Violation Detail
 
-```text
-Không chấp hành tín hiệu đèn
+~~~text
+Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
 
-2019 ───── 2021 ───── 2025 ───── Current
-           ↑             ↑
-        Fine changed   New rule
-```
+Current sanction
+...
+
+Current provisions
+...
+
+[View history]
+~~~
+
+### 12.6. Violation History
+
+~~~text
+2019 ───────── 2021 ───────── 2025 ───── Current
+Rule A          Rule B          Rule C
+6–8m            8–10m          18–20m
+     ↑                ↑
+ AMENDED          REPLACED
+~~~
+
+Click một transition hiển thị provision relation và semantic diff.
 
 ---
 
-## 18. Non-functional Requirements
+## 13. Non-functional Requirements
 
 ### NFR-01 — Traceability
 
 100% kết luận về:
 
-```text
-behavior
-sanction
-change
-outdated status
-```
+- TrafficViolation;
+- Sanction;
+- current rule;
+- legal change;
+- history transition;
 
-phải trace được về ít nhất một Provision.
+phải trace được về ít nhất một Provision nguồn.
 
-### NFR-02 — Reproducibility
+### NFR-02 — Explainability
 
-Raw source phải được snapshot/cache để evaluation không phụ thuộc nội dung website thay đổi.
+System không được chỉ trả:
 
-### NFR-03 — Explainability
+~~~text
+Rule này đã hết hiệu lực.
+~~~
 
-Không được chỉ output:
+Mà phải chỉ được:
 
-```text
-OUTDATED
-```
+- provision bị tác động;
+- provision tác động;
+- relation;
+- source document;
+- effective date;
+- semantic change nếu có.
 
-mà phải output:
+### NFR-03 — Reproducibility
 
-```text
-why
-affected dependency
-old provision
-new provision
-source
-```
+Source HTML / extracted source snapshot cần được lưu đủ để evaluation có thể tái lập.
 
-### NFR-04 — Extensibility
+### NFR-04 — AI Failure Safety
 
-Schema ontology không được phụ thuộc vào fixed columns kiểu:
+Nếu không đủ evidence:
 
-```text
-is_parking
-is_highway
-is_red_light
-```
-
-Concept mới không được yêu cầu DB migration.
-
-### NFR-05 — AI Failure Safety
-
-Nếu confidence thấp:
-
-```text
+~~~text
 UNCERTAIN
-```
+~~~
 
-thay vì ép một classification.
+thay vì ép một mapping hoặc legal status.
+
+### NFR-05 — Source Respect
+
+Crawler phải có throttling, retry/backoff và cache phù hợp.
 
 ---
 
-## 19. Evaluation
+## 14. Evaluation
 
-Mỗi task phải có baseline và evaluation riêng.
+Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao thông có amendment / replacement thực tế.
 
 | Task | Metric |
 |---|---|
-| Semantic Atom Extraction | Precision / Recall / F1 |
-| Concept Resolution | Accuracy / Macro F1 |
+| Relevant Provision Classification | Precision / Recall / F1 |
+| Change Instruction Extraction | Field F1 / Exact Match |
+| Provision Relation Resolution | Precision / Recall / F1 |
+| Violation Extraction | Field Precision / Recall / F1 |
 | Sanction Extraction | Field F1 / Whole-record Exact Match |
-| Change Detection | Precision / Recall / Critical-change Recall |
-| Outdated Detection | Precision / Recall |
-| Behavior Search | Recall@K / MRR |
-| Behavior History Reconstruction | Accuracy |
+| Violation Identity Resolution | Accuracy / Macro F1 |
+| Semantic Change Detection | Precision / Recall / F1 |
+| Critical Change Detection | Critical-change Recall |
+| Current Rule Determination | Accuracy |
+| Violation Search | Recall@K / MRR |
+| History Reconstruction | Edge / Timeline Accuracy |
 
-### Primary metric
+### Primary research metrics
 
-```text
+~~~text
+Provision Relation F1
 Critical Change Recall
-```
+Current Rule Accuracy
+~~~
 
-Mục tiêu:
+Ba metric này phản ánh trực tiếp khả năng:
 
-> Trong tất cả thay đổi pháp lý quan trọng thực sự, hệ thống phát hiện được bao nhiêu?
+1. track Điều/Khoản/Điểm nào tác động tới nhau;
+2. detect thay đổi quan trọng;
+3. xác định rule hiện hành cho một hành vi.
 
 ---
 
-## 20. Baselines
+## 15. Baselines
 
-### Semantic extraction
+### Provision relation resolution
 
-```text
-Rule/regex
+~~~text
+explicit locator / regex only
+vs
+text retrieval
+vs
+structured extraction + resolver
+~~~
+
+### Violation extraction
+
+~~~text
+regex / keyword
 vs
 LLM zero-shot
 vs
-proposed structured parser
-```
+structured parser
+~~~
 
-### Concept resolution
+### Violation identity resolution
 
-```text
-Exact only
+~~~text
+exact match
 vs
-Embedding Top-1
+embedding Top-1
 vs
-Hybrid retrieval + LLM
-```
+structured retrieval + LLM
+~~~
 
 ### Change detection
 
-```text
-Text diff
+~~~text
+raw text diff
 vs
-IR structural diff
+sanction-field diff
 vs
-IR diff + semantic classifier
-```
+ViolationRule structural semantic diff
+~~~
 
-### Outdated detection
+### Current rule determination
 
-```text
-Document metadata only
+~~~text
+document effective status only
 vs
-Explicit dependency graph
+document relation graph
 vs
-Dependency graph + semantic behavior impact
-```
+document + provision relation + behavior history
+~~~
 
 ---
 
-## 21. MVP Acceptance Criteria
+## 16. MVP Acceptance Criteria
 
-MVP được coi là hoàn thành nếu:
+MVP hoàn thành khi:
 
-1. Import được ít nhất một chuỗi văn bản thực tế gồm original + amendment/new version.
-2. Parse được Điều/Khoản/Điểm.
-3. Extract được Legal Behavior IR.
-4. Có concept + alias ontology.
-5. Detect được missing concept.
-6. Extract được ít nhất các sanction dạng tiền phạt.
-7. Query được hành vi và trả đúng nguồn Điều/Khoản.
-8. Hiển thị được current rule.
-9. Hiển thị được history của behavior.
-10. Diff được hai version theo semantic behavior.
-11. Highlight được provision bị sửa/thay thế/hết hiệu lực.
-12. Mọi result đều trace được về văn bản gốc.
-13. Có evaluation dataset độc lập.
-14. Có ít nhất một baseline.
+1. Admin import được một URL hợp lệ từ CSDL VBPL.
+2. System recursive crawl được các related documents và chống duplicate/cycle.
+3. Document relationships được lưu và hiển thị.
+4. System parse được Điều / Khoản / Điểm.
+5. System classify được provision liên quan tới xử phạt hành vi giao thông.
+6. System extract được amendment / repeal instruction.
+7. System tạo được ProvisionRelation giữa các điều khoản ở cùng hoặc khác văn bản.
+8. System extract được TrafficViolation từ provision.
+9. System extract được ít nhất sanction dạng tiền phạt.
+10. Nhiều ViolationRule cùng hành vi được map về một TrafficViolation identity.
+11. System xác định được current ViolationRule.
+12. User search được văn bản.
+13. Document View có đúng hai tab chính: Nội dung và Quan hệ.
+14. Provision bị sửa / thay thế / bãi bỏ được highlight và mở được history.
+15. User search được hành vi bằng natural-language query.
+16. Violation Detail hiển thị current sanction và current provisions.
+17. Violation History hiển thị chuỗi provision relations và semantic changes.
+18. Mọi result quan trọng trace được về raw source provision.
+19. Có evaluation dataset độc lập.
+20. Có baseline cho các task AI chính.
 
 ---
 
-## 22. Demo Scenario đề xuất
+## 17. Demo Scenario
 
-```text
-1. Import một Nghị định phiên bản cũ
+~~~text
+1. Admin import một URL VBPL.
 
-2. System parse:
-   behavior
-   conditions
-   sanctions
+2. System crawl recursive document graph.
 
-3. Query:
+3. System parse provisions.
+
+4. System phát hiện:
+   Document B sửa Document A.
+
+5. System resolve xuống:
+   Provision B AMENDS Provision A.
+
+6. Cả Provision A và B được map vào:
+   TrafficViolation "Đỗ xe ngoài đô thị".
+
+7. System extract:
+   Rule A: 400k–600k
+   Rule B: 800k–1m
+
+8. Semantic diff:
+   SANCTION_INCREASE.
+
+9. User search:
    "đỗ xe ngoài đô thị"
 
-4. Hiển thị:
-   current rule + mức phạt + nguồn
+10. System trả:
+    current sanction;
+    current provision;
+    current source document.
 
-5. Import văn bản sửa đổi mới
+11. User mở History.
 
-6. System tự phát hiện:
-   Nghị định cũ bị sửa
+12. System hiển thị:
+    Provision A → Provision B → ...
+    cùng relation, effective date và mức phạt từng thời kỳ.
 
-7. Highlight:
-   ⚠ provision potentially outdated
+13. User mở Document View.
 
-8. Open Diff
+14. Tab Nội dung highlight provision cũ là SUPERSEDED.
 
-9. Hiển thị:
-   Condition removed
-   → SCOPE_EXPANSION
-
-   Fine changed
-   → SANCTION_INCREASE
-
-10. Quay lại behavior:
-    "Đỗ xe"
-
-11. History:
-    Version A → Version B
-```
-
-Ba feature chính nằm trong cùng một end-to-end story:
-
-```text
-Highlight outdated law
-        ↓
-Semantic behavior diff
-        ↓
-Behavior query + historical diff
-```
+15. Tab Quan hệ hiển thị graph quan hệ VBPL của document.
+~~~
 
 ---
 
-## 23. Định hướng kỹ thuật
+## 18. Research Contribution
 
-Stack DB đề xuất:
+Project không chỉ scrape hoặc hiển thị dữ liệu VBPL.
 
-```text
-PostgreSQL
-+ JSONB
-+ pgvector
-```
+VBPL cung cấp document-level source và document relationships.
 
-Nguyên tắc:
+Contribution của hệ thống nằm ở việc tự động:
 
-- SQL cho dữ liệu relational, versioning và integrity;
-- JSONB cho raw LLM/parser IR;
-- pgvector cho semantic retrieval;
-- object storage cho raw PDF/HTML;
-- không cần Neo4j ở MVP;
-- không cần MongoDB ở MVP.
+1. resolve thay đổi xuống cấp Điều / Khoản / Điểm;
+2. tạo ProvisionRelation graph;
+3. extract TrafficViolation và Sanction;
+4. nhận diện cùng một hành vi qua nhiều wording / provision;
+5. dùng hành vi làm identity để nối rule qua thời gian;
+6. semantic-diff các rule;
+7. xác định rule hiện hành và reconstruct legal history có traceability.
 
-LLM nên được dùng theo hướng:
+Core research pipeline:
 
-```text
-retrieval-first
-LLM-last
-```
-
-Không gọi LLM để invent ontology từ đầu nếu hệ thống có thể:
-
-```text
-exact match
-→ alias match
-→ hybrid retrieval
-→ compose existing concepts
-```
-
-Chỉ khi các bước trên thất bại mới đề xuất concept mới.
+~~~text
+Document relationship
+        ↓
+Provision relationship
+        ↓
+TrafficViolation identity
+        ↓
+Semantic rule change
+        ↓
+Current sanction + legal history
+~~~
 
 ---
 
-## 24. Nguyên tắc thiết kế cốt lõi
+## 19. Technical Direction
 
-1. **Vietnamese-first ontology**  
-   Canonical concept giữ bằng tiếng Việt, không cần map sang tiếng Anh.
+Hệ thống nên giữ abstraction:
 
-2. **Open-world ontology**  
-   Hệ thống phải chấp nhận khả năng luật mới sinh ra concept chưa tồn tại.
+~~~text
+VBPLSourceAdapter
+~~~
 
-3. **Prefer reuse over creation**  
-   `REUSE > ADD_ALIAS > COMPOSE > CREATE`.
+thay vì phụ thuộc trực tiếp vào HTML structure ở domain layer.
 
-4. **Behavior is composition, not giant keyword**  
-   Không tạo keyword dài cho mọi tổ hợp điều kiện.
+Adapter tối thiểu:
 
-5. **Every AI output needs evidence**  
-   Mọi extraction, relation và outdated warning phải trace được về source.
+~~~text
+getDocument()
+getContent()
+getMetadata()
+getRelations()
+~~~
+
+Implementation MVP có thể dùng scraping nếu không có public API ổn định.
+
+Dữ liệu domain phù hợp với relational database.
+
+Raw HTML / snapshots có thể lưu object storage.
+
+Search có thể dùng full-text và embedding tùy implementation.
+
+Không cần graph database trong MVP; DocumentRelation và ProvisionRelation có thể model bằng relational tables.
+
+---
+
+## 20. Nguyên tắc thiết kế cốt lõi
+
+1. **Behavior-centric**  
+   TrafficViolation là semantic identity xuyên suốt history.
+
+2. **Provision relations are first-class**  
+   Hệ thống phải biết Điều/Khoản/Điểm nào sửa, bổ sung, thay thế hoặc bãi bỏ Điều/Khoản/Điểm nào.
+
+3. **Document relations guide, provision relations explain**  
+   Document graph giúp discover và contextualize; provision graph giải thích thay đổi pháp lý cụ thể.
+
+4. **Provision is not Behavior**  
+   Một provision có thể chứa 0, 1 hoặc nhiều ViolationRule.
+
+5. **Explicit legal evidence first**  
+   Metadata và amendment text có precedence cao hơn semantic inference.
 
 6. **Semantic diff over text diff**  
-   Mục tiêu không phải chỉ phát hiện text thay đổi mà phải nhận diện thay đổi về phạm vi, điều kiện, chế tài và hành vi.
+   Mục tiêu là phát hiện thay đổi về hành vi, phạm vi và sanction chứ không chỉ text.
 
-7. **Reproducible corpus**  
-   Raw source phải được snapshot để benchmark có thể tái lập.
+7. **Every important result is traceable**  
+   Không có current sanction hoặc history transition nào không có source provision.
+
+8. **Narrow legal scope, deep change tracking**  
+   MVP chỉ tập trung vào xử phạt hành vi giao thông nhưng track sâu document → provision → behavior → sanction.
 
 ---
 
-## 25. Tài liệu nguồn môn học
+## 21. Alignment with Course Requirements
 
-SRS này được xây dựa trên định hướng của môn **Legal AI and Its Applications**, đặc biệt:
+SRS giữ nguyên các yêu cầu chính của project **Legal Document Change Detection**:
 
-- project-based workflow;
-- yêu cầu working prototype;
-- Legal Document Change Detection;
-- baseline requirement;
+- working prototype;
+- real legal documents;
+- retrieval;
+- LLM / Legal NLP;
+- knowledge representation;
+- legal change detection;
+- baseline comparison;
 - quantitative evaluation;
-- Legal AI pipeline có retrieval, LLM, knowledge base và evaluation;
-- yêu cầu traceability, hallucination awareness và methodology rõ ràng.
+- traceability;
+- hallucination awareness;
+- reproducible methodology.
+
+Việc giới hạn domain vào xử phạt hành vi giao thông là scope reduction, không thay đổi bài toán nghiên cứu cốt lõi.
+
+Điểm nhấn học thuật của project là:
+
+> Từ document-level legal relationships, tự động resolve provision-level changes và dùng traffic-violation identity để reconstruct semantic sanction history.
