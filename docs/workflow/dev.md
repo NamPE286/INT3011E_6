@@ -136,7 +136,7 @@ Trong trạng thái `In progress`, developer phải:
 5. Đảm bảo CI/check liên quan pass.
 6. Không để debug code, log hoặc dead code không cần thiết.
 
-Commit nên ngắn gọn, mô tả rõ thay đổi.
+Commit message phải ngắn gọn, mô tả rõ thay đổi và tuân theo đặc tả [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), ví dụ: `feat: add document search` hoặc `fix: handle failed processing job`.
 
 Ví dụ:
 

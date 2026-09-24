@@ -16,7 +16,7 @@ Tài liệu nguồn của dự án nằm trong thư mục [`docs`](docs):
 | Developer | [SRS](docs/srs.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Hiểu yêu cầu của task trước khi triển khai; tuân thủ quy trình estimate, branch, pull request, review và Definition of Done. |
 | Tester | [SRS](docs/srs.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria; kiểm tra happy path, edge case, regression và báo lỗi đúng mẫu. |
 
-Thứ tự đọc khuyến nghị cho thành viên mới:
+Thứ tự đọc:
 
 1. Đọc mục tiêu, phạm vi và actor trong SRS.
 2. Đọc các functional requirement liên quan đến task được giao.
