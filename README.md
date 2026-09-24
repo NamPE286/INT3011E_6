@@ -47,6 +47,7 @@ bun --version
 | UI | [Tailwind CSS](https://tailwindcss.com/docs), [shadcn-svelte](https://www.shadcn-svelte.com/docs), [Lucide Svelte](https://lucide.dev/guide/packages/lucide-svelte) | Styling và component giao diện. |
 | Backend API | [Elysia](https://elysiajs.com/) chạy trên [Cloudflare Workers](https://developers.cloudflare.com/workers/) | Cung cấp HTTP API và queue consumer. |
 | Lưu trữ | [Cloudflare D1](https://developers.cloudflare.com/d1/) và [Cloudflare R2](https://developers.cloudflare.com/r2/) | Lưu trạng thái job và tệp nguồn. |
+| ORM | [Drizzle ORM](https://orm.drizzle.team/) | Khai báo schema TypeScript, sinh migration và truy vấn Cloudflare D1. |
 | Xử lý bất đồng bộ | [Cloudflare Queues](https://developers.cloudflare.com/queues/) | Tách yêu cầu upload khỏi pipeline xử lý nền. |
 | Công cụ phát triển | [Wrangler](https://developers.cloudflare.com/workers/wrangler/) và TypeScript | Mô phỏng tài nguyên Cloudflare, chạy Worker, kiểm tra kiểu và deploy. |
 
@@ -74,6 +75,15 @@ cp web/.env.example web/.env
 Không commit các file `.env`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
 
 ### 2. Khởi tạo cơ sở dữ liệu local
+
+Schema Drizzle nằm trong `backend/src/db/schema.ts`. Khi thay đổi schema, sinh migration mới trước khi áp dụng:
+
+```bash
+cd backend
+bun run db:generate
+```
+
+Áp dụng các migration vào D1 local:
 
 ```bash
 cd backend
@@ -104,7 +114,7 @@ Kết quả mong đợi:
 {"status":"ok"}
 ```
 
-Endpoint `/api/dummy` đọc hàng mẫu được seed bởi migration thông qua Drizzle ORM và trả về:
+Endpoint `/api/dummy` dùng Drizzle ORM để đọc hàng mẫu được seed bởi migration từ D1 và trả về:
 
 ```json
 {"id":1,"message":"Drizzle is connected"}
