@@ -1,0 +1,1 @@
+Read all rules in `./ai-rules` before editing code
