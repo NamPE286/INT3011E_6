@@ -2,8 +2,7 @@
   "name": "backend",
   "version": "1.0.50",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "dev:worker": "wrangler dev",
+    "dev": "wrangler dev",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local --yes",

@@ -12,18 +12,16 @@ Tài liệu nguồn của dự án nằm trong thư mục [`docs`](docs):
 
 | Vai trò | Tài liệu nên đọc | Mục đích |
 | --- | --- | --- |
-| Tất cả thành viên | [Software Requirements Specification](docs/srs.md) | Hiểu bài toán, phạm vi MVP, thuật ngữ nghiệp vụ, yêu cầu chức năng, mô hình dữ liệu và kiến trúc đích. |
-| Product Owner / Business Analyst / Admin | [SRS](docs/srs.md), đặc biệt các mục 1–4, 6, 12 và 16 | Xác nhận mục tiêu, actor, yêu cầu, giao diện và acceptance criteria. |
-| Developer | [SRS](docs/srs.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Nắm yêu cầu trước khi triển khai; tuân thủ quy trình estimate, branch, pull request, review và Definition of Done. |
-| Reviewer | [SRS](docs/srs.md) và phần Review trong [Developer Workflow Guide](docs/workflow/dev.md#5-review) | Đối chiếu code với yêu cầu, scope issue và tiêu chuẩn review của nhóm. |
-| Tester / QA | [SRS](docs/srs.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria; thực hiện happy path, edge case, regression và báo lỗi đúng mẫu. |
+| Lead | [Software Requirements Specification](docs/srs.md), đặc biệt các mục 1–6, 13, 16 và 19–21 | Nắm toàn bộ định hướng sản phẩm và kỹ thuật; quản lý phạm vi, phân rã yêu cầu, duyệt thiết kế và review thay đổi trước khi chuyển sang kiểm thử. |
+| Developer | [SRS](docs/srs.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Hiểu yêu cầu của task trước khi triển khai; tuân thủ quy trình estimate, branch, pull request, review và Definition of Done. |
+| Tester | [SRS](docs/srs.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria; kiểm tra happy path, edge case, regression và báo lỗi đúng mẫu. |
 
 Thứ tự đọc khuyến nghị cho thành viên mới:
 
 1. Đọc mục tiêu, phạm vi và actor trong SRS.
 2. Đọc các functional requirement liên quan đến task được giao.
-3. Đọc guide dành cho vai trò của mình.
-4. Với Developer, tiếp tục phần [Setup](#setup) và [Architecture](#architecture) bên dưới trước khi sửa code.
+3. Đọc guide dành cho vai trò của mình; Lead sử dụng cả hai workflow guide để điều phối vòng review và kiểm thử.
+4. Lead và Developer tiếp tục phần [Setup](#setup) và [Architecture](#architecture) bên dưới trước khi làm việc với mã nguồn.
 
 ## Setup
 
@@ -81,7 +79,7 @@ Tại terminal thứ nhất:
 
 ```bash
 cd backend
-bun run dev:worker
+bun run dev
 ```
 
 Backend mặc định chạy tại `http://localhost:8787`. Có thể kiểm tra bằng:
@@ -96,7 +94,7 @@ Kết quả mong đợi:
 {"status":"ok"}
 ```
 
-> Dùng `dev:worker` cho luồng end-to-end vì lệnh này cung cấp D1, R2 và Queue local. Script `bun run dev` chỉ khởi động Elysia trực tiếp trên cổng `3000` và không có các Cloudflare binding cần cho upload.
+Lệnh `bun run dev` sử dụng Wrangler để chạy Worker và cung cấp các binding D1, R2, Queue trên môi trường local.
 
 ### 4. Chạy frontend
 
@@ -131,7 +129,7 @@ bun run build
 
 | Thư mục | Lệnh | Chức năng |
 | --- | --- | --- |
-| `backend` | `bun run dev:worker` | Chạy Worker cùng D1, R2 và Queue local. |
+| `backend` | `bun run dev` | Chạy Worker cùng D1, R2 và Queue local bằng Wrangler. |
 | `backend` | `bun test` | Chạy test backend. |
 | `backend` | `bun run typecheck` | Kiểm tra kiểu TypeScript. |
 | `backend` | `bun run d1:migrate:local` | Áp dụng migration cho D1 local. |
