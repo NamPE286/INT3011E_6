@@ -5,6 +5,7 @@ import { contextPlugin } from "./plugins/context";
 import { healthModule } from "./modules/health";
 import { uploadModule } from "./modules/upload/upload.route";
 import { processingModule } from "./modules/processing/processing.route";
+import { dummyModule } from "./modules/dummy/dummy.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -19,6 +20,7 @@ export const app = new Elysia({ aot: false })
     .use(healthModule)
     .use(uploadModule)
     .use(processingModule)
+    .use(dummyModule)
     .onError(({ code, error, set }) => {
         if (code === "VALIDATION") {
             set.status = 400;

@@ -64,6 +64,15 @@ bun install
 
 Mỗi ứng dụng có `package.json` và `bun.lock` riêng. Hãy commit thay đổi trong `bun.lock` nếu dependency thay đổi.
 
+Tạo cấu hình môi trường local từ các file mẫu trước khi chạy ứng dụng:
+
+```bash
+cp backend/.env.example backend/.env
+cp web/.env.example web/.env
+```
+
+Không commit các file `.env`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
+
 ### 2. Khởi tạo cơ sở dữ liệu local
 
 ```bash
@@ -86,12 +95,19 @@ Backend mặc định chạy tại `http://localhost:8787`. Có thể kiểm tra
 
 ```bash
 curl http://localhost:8787/health
+curl http://localhost:8787/api/dummy
 ```
 
 Kết quả mong đợi:
 
 ```json
 {"status":"ok"}
+```
+
+Endpoint `/api/dummy` đọc hàng mẫu được seed bởi migration thông qua Drizzle ORM và trả về:
+
+```json
+{"id":1,"message":"Drizzle is connected"}
 ```
 
 Lệnh `bun run dev` sử dụng Wrangler để chạy Worker và cung cấp các binding D1, R2, Queue trên môi trường local.
@@ -132,6 +148,7 @@ bun run build
 | `backend` | `bun run dev` | Chạy Worker cùng D1, R2 và Queue local bằng Wrangler. |
 | `backend` | `bun test` | Chạy test backend. |
 | `backend` | `bun run typecheck` | Kiểm tra kiểu TypeScript. |
+| `backend` | `bun run db:generate` | Sinh migration Drizzle từ schema. |
 | `backend` | `bun run d1:migrate:local` | Áp dụng migration cho D1 local. |
 | `backend` | `bun run d1:migrate:remote` | Áp dụng migration cho D1 remote. |
 | `web` | `bun run dev` | Chạy frontend ở chế độ phát triển. |

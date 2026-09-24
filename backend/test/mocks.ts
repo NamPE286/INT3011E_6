@@ -103,6 +103,14 @@ export function createMockEnv(): MockEnvironment {
                     } as unknown as D1Response;
                 },
                 async all<T = unknown>(): Promise<D1Result<T>> {
+                    if (query.includes("dummy_items")) {
+                        return {
+                            success: true,
+                            meta: {},
+                            results: [{ id: 1, message: "Drizzle is connected" }] as T[],
+                        } as unknown as D1Result<T>;
+                    }
+
                     return {
                         success: true,
                         meta: {},
@@ -110,6 +118,10 @@ export function createMockEnv(): MockEnvironment {
                     } as unknown as D1Result<T>;
                 },
                 async raw<T = unknown[]>(): Promise<T[]> {
+                    if (query.includes("dummy_items")) {
+                        return [[1, "Drizzle is connected"] as T];
+                    }
+
                     return [] as T[];
                 },
             };
@@ -200,4 +212,3 @@ export function createMockEnv(): MockEnvironment {
         queueMessages,
     };
 }
-

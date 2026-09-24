@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from "svelte";
+	import { PUBLIC_BACKEND_URL } from "$env/static/public";
 	import { Button } from "$lib/components/ui/button";
 	import { Badge } from "$lib/components/ui/badge";
 	import {
@@ -12,7 +13,7 @@
 	} from "$lib/components/ui/card";
 	import { Activity, RefreshCw, CheckCircle2, AlertCircle } from "@lucide/svelte";
 
-	let endpoint = $state("http://localhost:3000/health");
+	let endpoint = $state(`${PUBLIC_BACKEND_URL}/health`);
 	let status = $state<"idle" | "loading" | "success" | "error">("idle");
 	let statusCode = $state<number | null>(null);
 	let responseData = $state<Record<string, unknown> | null>(null);
@@ -137,4 +138,3 @@
 		</Card>
 	</div>
 </div>
-

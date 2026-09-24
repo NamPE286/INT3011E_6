@@ -5,16 +5,19 @@
     "dev": "wrangler dev",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "d1:migrate:local": "wrangler d1 migrations apply DB --local --yes",
+    "db:generate": "drizzle-kit generate",
+    "d1:migrate:local": "wrangler d1 migrations apply DB --local",
     "d1:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
+    "drizzle-orm": "^0.45.3",
     "elysia": "latest"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260923.1",
     "bun-types": "latest",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2",
     "wrangler": "^4.136.3"
   },
