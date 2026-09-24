@@ -1,1 +1,1 @@
-Read all rules in `./ai-rules` before editing code
+Read all rules in `./docs/ai-rules` before editing code
