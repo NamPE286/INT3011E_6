@@ -10,7 +10,7 @@
         {
             "binding": "DB",
             "database_name": "int3011e-db",
-            "database_id": "00000000-0000-0000-0000-000000000000",
+            "database_id": "71b70cb7-d61d-49d6-b4ae-3b380d1494ed",
             "migrations_dir": "migrations"
         }
     ],
@@ -36,4 +36,3 @@
         ]
     }
 }
-
