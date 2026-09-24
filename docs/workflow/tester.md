@@ -8,8 +8,8 @@
 3. Test theo Acceptance Criteria + edge cases + regression liên quan.
 4. Test pass → Done.
 5. Test fail → In progress.
-6. Nếu phát hiện bug → tạo sub-issue bằng Bug Report Template.
-7. Bug report phải có reproduce steps, expected, actual, environment và evidence.
+6. Nếu phát hiện bug → tạo sub-issue bằng Mẫu báo cáo lỗi.
+7. Báo cáo lỗi phải có các bước tái hiện, kết quả mong đợi, kết quả thực tế, môi trường và bằng chứng.
 8. Không tự sửa code trong vai trò tester trừ khi đồng thời được assign developer.
 ```
 
@@ -116,7 +116,7 @@ Tester không chuyển trực tiếp từ `Testing` về `Wait to test` khi chư
 
 Mọi bug phát hiện trong quá trình testing phải được tạo thành **sub-issue** của issue đang test.
 
-Sub-issue phải sử dụng **Bug Report Template**.
+Sub-issue phải sử dụng [Mẫu báo cáo lỗi](../template/bug.md).
 
 Ví dụ:
 
@@ -133,44 +133,44 @@ Testing → In progress
 
 ---
 
-## 6. Nội dung Bug Report
+## 6. Nội dung báo cáo lỗi
 
-Bug report tối thiểu phải có:
+Báo cáo lỗi phải sử dụng [Mẫu báo cáo lỗi](../template/bug.md) và có tối thiểu các nội dung sau:
 
 ```md
-## Description
+## Mô tả
 
-Mô tả ngắn gọn bug.
+Mô tả ngắn gọn lỗi.
 
-## Steps to Reproduce
+## Các bước tái hiện
 
 1. ...
 2. ...
 3. ...
 
-## Expected Behavior
+## Kết quả mong đợi
 
 Kết quả mong đợi.
 
-## Actual Behavior
+## Kết quả thực tế
 
 Kết quả thực tế.
 
-## Environment
+## Môi trường
 
-- Branch:
-- Environment:
-- Browser / Device:
-- Version / Commit:
+- Nhánh:
+- Môi trường:
+- Trình duyệt / Thiết bị:
+- Phiên bản / Commit:
 
-## Evidence
+## Bằng chứng
 
-Screenshot, video hoặc log nếu có.
+Ảnh chụp màn hình, video hoặc nhật ký nếu có.
 ```
 
 ### Quy tắc viết bug report
 
-Bug report phải:
+Báo cáo lỗi phải:
 
 - Có thể reproduce được.
 - Viết steps theo thứ tự rõ ràng.
@@ -214,6 +214,6 @@ Tester cần trả lời được:
 - Feature có đúng acceptance criteria không?
 - Có case nào dễ gây lỗi mà chưa được xử lý không?
 - Fix có gây regression không?
-- Bug report có đủ thông tin để developer reproduce không?
+- Báo cáo lỗi có đủ thông tin để developer tái hiện không?
 
 Tester không approve code review thay reviewer, trừ khi tester đồng thời được assign role reviewer.

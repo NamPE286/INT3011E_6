@@ -3,7 +3,7 @@
 ## TL;DR
 
 ```text
-1. Nhận task → Estimate.
+1. Nhận task → Estimate số giờ dự kiến cần để hoàn thành.
 2. To do → In progress.
 3. Tạo branch từ main.
 4. Branch: [tên]/[loại]/[feature]
@@ -47,16 +47,10 @@ Done
 
 Trước khi bắt đầu implementation, developer **bắt buộc phải estimate task**.
 
-Estimate sử dụng convention của team, ví dụ:
+Estimate là **số giờ dự kiến cần để hoàn thành task**. Ghi estimate bằng số giờ, ví dụ:
 
 ```text
-S / M / L
-```
-
-hoặc:
-
-```text
-Story Point: 1 / 2 / 3 / 5 / 8
+Estimate: 4 giờ
 ```
 
 Sau khi estimate xong:
@@ -174,6 +168,8 @@ PR phải:
 - Nêu cách test nếu cần.
 - Pass CI/check bắt buộc.
 - Không chứa thay đổi ngoài scope.
+
+Sau khi mở PR, mọi trao đổi liên quan đến PR phải thực hiện trực tiếp trên PR để lưu lại đầy đủ context. Không nhắn riêng để trao đổi về PR; chỉ được nhắn riêng khi cần nhắc reviewer kiểm tra PR.
 
 Sau khi mở PR:
 
