@@ -25,13 +25,10 @@ Dữ liệu được cung cấp qua Web/API/MCP để AI retrieval trước khi 
 
 Phụ trách:
 
-- kiến trúc;
-- implementation;
-- integration;
-- review code do AI coding agent hỗ trợ;
-- automated test;
-- sửa lỗi;
-- CI/CD và release candidate.
+- thiết kế nghiệp vụ
+- thiết kế kiến trúc
+- triển khai code
+- CI/CD.
 
 ### 5 Tester / Evaluator
 
