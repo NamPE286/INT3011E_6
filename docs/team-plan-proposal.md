@@ -27,6 +27,8 @@ Phụ trách:
 
 - thiết kế nghiệp vụ
 - thiết kế kiến trúc
+- thiết kế UXUI
+- Crawl data
 - triển khai code
 - CI/CD.
 
