@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.4  
+**Version:** 0.5\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -9,7 +9,7 @@
 
 ## 1. Mục tiêu hệ thống
 
-Hệ thống xây dựng cơ sở tri thức về **hành vi vi phạm giao thông và mức xử phạt tương ứng** từ các văn bản trên CSDL quốc gia về văn bản pháp luật (VBPL).
+Hệ thống xây dựng cơ sở tri thức về **hành vi vi phạm giao thông và mức xử phạt tương ứng** từ văn bản pháp luật, ưu tiên CSDL quốc gia về văn bản pháp luật (VBPL). Hệ thống tự xây dựng lược đồ quan hệ từ nội dung và bằng chứng pháp lý; không giả định VBPL hoặc nguồn khác cung cấp graph đầy đủ.
 
 Điểm nhấn của hệ thống là **track hành vi qua nhiều văn bản và nhiều điều khoản khác nhau**.
 
@@ -64,28 +64,26 @@ Nguồn dữ liệu MVP:
 https://vbpl.vn/
 ~~~
 
-Admin chỉ được import bằng URL văn bản từ CSDL VBPL.
+Admin chỉ được import bằng URL văn bản từ CSDL VBPL trong MVP. Hệ thống có thể dùng nguồn chính thức bổ trợ để fetch văn bản được dẫn chiếu, đối chiếu bản gốc và tìm văn bản tác động đến corpus; từng dữ liệu phải giữ provenance riêng. Lược đồ của nhà cung cấp là đầu mối tùy chọn, không phải ground truth hoặc điều kiện bắt buộc để import.
 
-### 2.2. Crawl scope
+### 2.2. Corpus discovery và graph scope
 
-Khi import một văn bản, hệ thống phải crawl recursive các văn bản liên quan được VBPL cung cấp nhằm xây dựng document graph đầy đủ.
+Khi import một văn bản, hệ thống đọc toàn văn để phát hiện dẫn chiếu và câu lệnh pháp lý, resolve identity văn bản đích, rồi xây dựng DocumentRelation có evidence. Discovery và graph building chạy tăng dần: văn bản mới có thể bổ sung cạnh tới văn bản đã xử lý. Metadata/lược đồ nguồn chỉ cung cấp candidate để đối chiếu.
 
-Crawler phải:
+Corpus discovery phải:
 
-- deduplicate theo source identifier / ItemID;
-- chống cycle bằng visited set;
-- lưu relationship giữa các văn bản;
-- snapshot dữ liệu nguồn cần thiết;
-- có retry cho request thất bại;
-- có safety limit để tránh lỗi crawler tạo traversal vô hạn.
+- thu thập văn bản được nhắc trong toàn văn, phần căn cứ, điều khoản sửa đổi/hiệu lực/chuyển tiếp và bản hợp nhất;
+- tìm kiếm ngược theo số hiệu, tên, cơ quan và ngày để tìm văn bản sửa đổi/thay thế/bãi bỏ root, kể cả khi nguồn bỏ sót incoming links;
+- phân biệt canonical Document với source identity `(source, source_item_id)`; hỗ trợ ID số/UUID và alias đã xác minh;
+- lưu snapshot, search query, pagination, thời điểm/cutoff, candidate chưa resolve và lý do dừng;
+- chống refetch cycle bằng visited set nhưng vẫn giữ mọi cạnh tới node đã visited;
+- có retry, cache, checkpoint và safety limit theo discovery policy đã khai báo.
 
-Semantic processing tập trung vào những provision có khả năng:
+Frontier rỗng chỉ nghĩa là đã xử lý hết candidate trong phạm vi lần chạy, không chứng minh tìm thấy tất cả văn bản pháp luật. Safety cap hoặc khoảng thiếu ảnh hưởng đến chuỗi đang xét phải được thể hiện PARTIAL/UNCERTAIN và có thể resume; không ép một graph có nhiều dẫn chiếu thành traversal toàn bộ pháp luật.
 
-- định nghĩa hành vi vi phạm;
-- quy định chế tài;
-- sửa đổi / bổ sung rule;
-- thay thế rule;
-- bãi bỏ rule.
+Document reference/relation extraction chạy trên toàn bộ văn bản trước relevance filtering. Semantic processing chuyên sâu tập trung vào provision định nghĩa hành vi, chế tài hoặc tác động tới sanction rule. Giữ các relation ngoài traffic relevance đã phát hiện để không làm mất căn cứ và đường truy vết.
+
+---
 
 ### 2.3. Out of scope
 
@@ -125,7 +123,7 @@ Admin có thể:
 
 - import một URL từ vbpl.vn;
 - xem trạng thái crawl / process;
-- xem import ở trạng thái READY / PARTIAL / FAILED;
+- xem import ở trạng thái READY / PARTIAL / FAILED, cùng discovery scope, cutoff, coverage và candidate/conflict chưa giải quyết;
 - retry import thất bại;
 - trigger reprocess khi cần.
 
@@ -137,7 +135,8 @@ MVP không có manual review queue bắt buộc.
 
 System tự động:
 
-- crawl document graph;
+- discover corpus từ toàn văn và tìm kiếm ngược;
+- extract dẫn chiếu/câu lệnh pháp lý, resolve document identity và tự build document graph có evidence;
 - parse Điều / Khoản / Điểm;
 - classify provision relevance;
 - extract amendment instructions;
@@ -158,7 +157,7 @@ System tự động:
 
 ### 4.1. Document
 
-Một văn bản trên CSDL VBPL.
+Một văn bản pháp lý có canonical identity nội bộ, có thể có nhiều bản ghi nguồn VBPL/Công báo hoặc nguồn chính thức khác. Source ID không đồng nghĩa domain ID; số hiệu một mình không đủ để merge. Matching phải đối chiếu loại, số/ký hiệu, cơ quan, ngày ban hành và evidence; chưa phân biệt được thì giữ candidate/AMBIGUOUS. Content hash nhận diện snapshot, không thay thế legal identity.
 
 Ví dụ:
 
@@ -190,24 +189,43 @@ Provision là node chính trong provision change graph.
 
 ### 4.3. Document Relation
 
-Quan hệ giữa hai văn bản, lấy chủ yếu từ VBPL.
+Quan hệ có hướng giữa hai văn bản do hệ thống tự xây dựng từ toàn văn và bằng chứng pháp lý. Cạnh tác động chuẩn hóa từ văn bản tác động → văn bản bị tác động; REFERENCES và LEGAL_BASIS từ văn bản đang đọc → văn bản được dẫn chiếu/làm căn cứ. Quan hệ inverse để hiển thị được suy từ cùng cạnh, không tạo một cạnh trùng khác.
 
-Ví dụ:
+Taxonomy tối thiểu:
 
 ~~~text
 AMENDS
 SUPPLEMENTS
+AMENDS_OR_SUPPLEMENTS
 PARTIALLY_REPLACES
 FULLY_REPLACES
+PARTIALLY_REPEALS
+FULLY_REPEALS
 CORRECTS
 REFERENCES
 LEGAL_BASIS
 GUIDES
 DETAILS
+EXPLAINS
 SUSPENDS
+EXTENDS_EFFECT
+RESUMES_EFFECT
+CONTINUES_APPLICATION
+CONSOLIDATES
+UNKNOWN
 ~~~
 
-Document Relation dùng để discover corpus và hỗ trợ resolve thay đổi, nhưng không thay thế Provision Relation.
+AMENDS_OR_SUPPLEMENTS giữ action kết hợp khi evidence chưa tách được sửa/bổ sung; CONTINUES_APPLICATION giữ ngoại lệ tiếp tục áp dụng, khác RESUMES_EFFECT sau đình chỉ. UNKNOWN bảo toàn action chưa phân loại ở candidate, không dùng làm legal effect chắc chắn.
+
+Mỗi candidate giữ raw citation, câu/đoạn evidence, source snapshot/locator, method/version, scope và ngày tác động nếu xác định được. Trạng thái CANDIDATE / UNRESOLVED / AMBIGUOUS / CONFLICT / ACCEPTED / REJECTED tách khỏi confidence và evidence_level. Confidence của model không tự xác nhận một cạnh.
+
+ACCEPTED yêu cầu identity hai đầu đã xác minh và evidence hỗ trợ đúng loại/chiều. Scope, ngoại lệ hoặc ngày tác động chưa đủ evidence phải giữ UNKNOWN/null và giới hạn sử dụng; không được lan truyền legal effect khi thông tin cần thiết còn thiếu. Candidate chỉ từ lược đồ nguồn hoặc semantic similarity không được tự dùng để quyết định hiệu lực hoặc tạo legal history chắc chắn.
+
+Một cặp văn bản có thể có nhiều loại/scope quan hệ. Hợp nhất là CONSOLIDATES riêng, không tự coi là văn bản sửa đổi/thay thế. Scope một phần, ngoại lệ, điều kiện áp dụng và ngày pháp lý phải được giữ; không suy scope từ tên văn bản hoặc ngày ban hành.
+
+Document Relation dùng để discover corpus và hỗ trợ resolve thay đổi, nhưng không thay thế Provision Relation. Có thể tổng hợp DocumentRelation từ ChangeInstruction/ProvisionRelation đã xác minh; không tự tạo correspondence giữa tất cả provisions khi có quan hệ thay thế cấp văn bản.
+
+---
 
 ### 4.4. Provision Relation
 
@@ -326,7 +344,7 @@ STRUCTURED_DERIVATION
 SEMANTIC_INFERENCE
 ~~~
 
-Evidence cấp thấp hơn không được override evidence pháp lý explicit.
+Evidence pháp lý explicit được ưu tiên; structured derivation phải trace về evidence đó. SOURCE_METADATA là observation/đầu mối đối chiếu, không cao hơn nội dung pháp lý và không chứng minh nguồn có đủ cạnh. Semantic inference không được override evidence pháp lý; mâu thuẫn giữa nguồn hoặc câu chữ phải được giữ CONFLICT, không chọn chỉ bằng confidence.
 
 ### 4.7. Sanction
 
@@ -353,7 +371,7 @@ Bãi bỏ khoản 3 Điều 5.
 Bổ sung điểm c vào khoản 4 Điều 7.
 ~~~
 
-ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
+ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đồng thời cung cấp evidence để tự build DocumentRelation. Phải giữ raw target citation, danh sách/range locator, scope, ngoại lệ, câu chữ được trích dẫn và thời điểm/điều kiện áp dụng. Target mơ hồ/không tìm được được giữ unresolved; bổ sung một provision mới không bắt buộc resolve tới provision cũ chưa tồn tại.
 
 ---
 
@@ -370,12 +388,18 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
               fetch + snapshot
                       │
                       ▼
-           Recursive Document Crawler
+        Incremental Corpus Discovery
                       │
-              DocumentRelation graph
+       Structure / Quote Context + Locators
+                      │
+       Full-text References + Legal Clauses
+                      │
+          Identity + Relation Resolution
+                      │
+       Evidence-backed DocumentRelation graph
                       │
                       ▼
-            Provision Segmentation
+         Provision Segmentation Enrichment
                       │
                       ▼
           Provision Relevance Classifier
@@ -422,6 +446,8 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation.
 
 ---
 
+Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve/acquire; incoming links được tính từ graph và tìm kiếm ngược trong corpus, không chờ provider cung cấp. Provision parsing/evidence locators phục vụ graph building trước khi lọc relevance. Lược đồ nguồn chỉ đi vào nhánh observations tùy chọn.
+
 ## 6. Functional Requirements
 
 ## FR-01 — Import from CSDL VBPL
@@ -433,13 +459,13 @@ Input phải là URL hợp lệ thuộc vbpl.vn và resolve được tới một
 System phải:
 
 1. validate source;
-2. resolve source ItemID / identifier;
-3. fetch metadata;
-4. fetch full text;
-5. fetch document relations;
-6. lưu raw source snapshot;
-7. tạo ImportJob;
-8. bắt đầu recursive crawl.
+2. tạo ImportJob và resolve source identifier dạng string;
+3. fetch metadata và full text bằng adapter nguồn;
+4. lưu raw source snapshot và provenance;
+5. parse dẫn chiếu/câu lệnh pháp lý và tạo relation candidates;
+6. resolve document identity, xác minh relations và build graph;
+7. bắt đầu incremental corpus discovery, gồm tìm incoming theo policy;
+8. thu thập source relationship observations nếu có, không coi là điều kiện bắt buộc.
 
 ImportJob tối thiểu có lifecycle:
 
@@ -448,12 +474,15 @@ QUEUED
 → DISCOVERING
 → FETCHING
 → PARSING
+→ BUILDING_GRAPH
 → PROCESSING
 → INDEXING
 → READY
 ~~~
 
-Nếu một phần related documents không thể fetch/process nhưng root corpus vẫn usable:
+READY nghĩa là các bước bắt buộc đã đạt trong discovery policy/cutoff được khai báo, không nghĩa graph pháp lý toàn cục đầy đủ. Job phải báo riêng coverage, candidate/conflict và stop reasons.
+
+Nếu related document không thể fetch/process, safety cap còn frontier, hoặc unresolved/conflict ảnh hưởng chuỗi pháp lý trong phạm vi nhưng root corpus vẫn usable:
 
 ~~~text
 PARTIAL
@@ -471,54 +500,52 @@ Không hỗ trợ file upload trong MVP.
 
 ---
 
-## FR-02 — Recursive Related-document Crawl
+<a id="fr-02--recursive-related-document-crawl"></a>
 
-Từ root document, system phải crawl recursive các document relations mà nguồn VBPL cung cấp.
+## FR-02 — Incremental Corpus Discovery
 
-Traversal:
+Từ root document, system phải discover/acquire văn bản liên quan dựa trên dẫn chiếu và câu lệnh trong toàn văn, kết quả tìm kiếm ngược và source observations tùy chọn. Không giả định graph của VBPL là có sẵn hoặc đầy đủ.
 
 ~~~text
-root
- ↓
-related documents
- ↓
-their related documents
- ↓
-...
-until no unseen document remains
+root snapshot → references/legal clauses → candidate identities
+       ↓                                      ↓
+reverse searches ← corpus index ← acquire resolved new documents
+       ↓                                      ↓
+   new candidates → resolve + evidence-backed graph → repeat by policy
 ~~~
 
 System phải:
 
-- deduplicate document;
-- detect cycle;
-- persist every discovered DocumentRelation;
-- sử dụng source_item_id / canonical source URL làm stable source identity;
-- không refetch document đã hoàn thành nếu snapshot còn hợp lệ;
-- ghi nhận failed nodes để retry;
-- không làm mất toàn bộ import nếu một related document fetch thất bại.
+- resolve document identity trước merge; metadata/URL là đầu mối, không tự merge chỉ bằng số hiệu;
+- thu thập văn bản đích có ID đã resolve; giữ raw citation và lý do cho target chưa tìm được;
+- tìm incoming bằng truy vấn vào corpus index/nguồn được hỗ trợ, lưu query, result pages, cutoff và provenance; nếu nguồn không hỗ trợ/đang lỗi thì ghi coverage gap;
+- xử lý mọi reference phát hiện trong văn bản đã fetch, ghi rõ candidate outside discovery policy thay vì bỏ âm thầm;
+- dùng visited/cache để ngăn refetch, giữ cycle/multi-edge và retry failed nodes;
+- refresh incoming index khi thêm hoặc reprocess văn bản để graph cũ nhận được cạnh mới;
+- stop theo policy có scope/date/depth/document/request limits; lưu frontier/checkpoint cho resume;
+- ghi trạng thái PARTIAL khi khoảng thiếu ảnh hưởng kết quả; frontier rỗng và “không tìm thấy” không được hiểu là chứng minh không có incoming relation.
 
 ---
 
-## FR-03 — VBPL Relationship Preservation
+<a id="fr-03--vbpl-relationship-preservation"></a>
 
-System phải preserve taxonomy quan hệ có ích từ VBPL để render lại cho user.
+## FR-03 — Evidence-backed Document Graph
 
-Document Relation View phải hỗ trợ các nhóm tương ứng như:
+System phải tự build lược đồ quan hệ từ nội dung văn bản. Lược đồ/metadata nguồn được lưu như observations để phát hiện candidate, so sánh và bổ sung evidence; không phải ground truth hoặc input bắt buộc.
 
-- Văn bản được hướng dẫn áp dụng;
-- Văn bản được quy định chi tiết, hướng dẫn thi hành;
-- Văn bản bị tác động hiệu lực một phần;
-- Văn bản bị tác động hiệu lực toàn bộ;
-- Văn bản được đính chính;
-- Văn bản được dẫn chiếu;
-- Căn cứ ban hành;
-- Văn bản được giải thích;
-- Văn bản bị đình chỉ thi hành;
-- Văn bản bị tạm ngưng / gia hạn / công bố tiếp tục còn hiệu lực;
-- các quan hệ inverse tương ứng của văn bản đang xem.
+Pipeline phải:
 
-System có thể normalize tên quan hệ nội bộ nhưng phải giữ source category và provenance.
+1. lấy full text có snapshot và offsets/locator; đọc phần căn cứ, tiêu đề, nội dung, sửa đổi, hiệu lực/chuyển tiếp và hợp nhất;
+2. extract document references và legal-action candidates trên toàn bộ văn bản, trước relevance gate;
+3. resolve target theo số/ký hiệu, loại, ngày, cơ quan và alias; giữ ambiguity, không chọn top-1 nếu chưa đủ evidence;
+4. classify action bằng câu chữ/ngữ cảnh, phân biệt nhắc tới với sửa/bãi bỏ thực tế, nội dung được trích dẫn và ngoại lệ;
+5. xác minh evidence span, identity, direction, scope và effective/applicability conditions; promote thành ACCEPTED theo policy kiểm chứng;
+6. derive incoming groups từ các cạnh đã nhận, giữ candidates/conflicts riêng và cập nhật tăng dần;
+7. tổng hợp cạnh document-level từ ChangeInstruction/ProvisionRelation đã xác minh, dedup không mất multi-edge/evidence.
+
+Rule/regex và deterministic resolver là baseline. LLM có thể hỗ trợ phần khó nhưng chỉ được dùng citation IDs/evidence spans được xác minh từ snapshot; schema validation/confidence không thay thế kiểm chứng nội dung. Có thể abstain UNRESOLVED/AMBIGUOUS/CONFLICT, không yêu cầu manual review cho mọi extraction.
+
+Relation View dùng taxonomy nội bộ ở mục 4.3 và hỗ trợ inverse groups, evidence, scope, status và coverage. Không bắt buộc sao chép 21 nhóm của VBPL; source category/raw label được giữ trong observation khi có, kể cả UNKNOWN.
 
 ---
 
@@ -542,7 +569,8 @@ Mỗi Provision phải giữ:
 - paragraph_no;
 - point_no;
 - raw_text;
-- source anchor nếu có.
+- source anchor nếu có;
+- source_snapshot_id và offsets/locator đủ để truy về evidence gốc, kể cả sau khi normalize text.
 
 Mọi AI output downstream phải trace về Provision.
 
@@ -589,6 +617,8 @@ Output logic:
 }
 ~~~
 
+Output phải có raw citation/target identity, source span, danh sách/range locator, scope, ngoại lệ và effective/applicability conditions; chưa xác định thì giữ null/unresolved. Phân biệt câu lệnh đang thực hiện với citation bên trong nội dung được thay thế hoặc câu mô tả thẩm quyền.
+
 Các operation tối thiểu:
 
 ~~~text
@@ -597,6 +627,7 @@ SUPPLEMENT
 REPLACE
 REPEAL
 CORRECT
+SUBSTITUTE_TEXT
 ~~~
 
 ---
@@ -623,7 +654,7 @@ Mỗi edge phải lưu:
 - resolution method;
 - confidence.
 
-ProvisionRelation là dữ liệu first-class, không được derive tạm thời chỉ khi render UI.
+ProvisionRelation là dữ liệu first-class, không được derive tạm thời chỉ khi render UI. Resolve trực tiếp từ legal text kể cả chưa có DocumentRelation nguồn; cạnh đã xác minh có thể bổ sung lại document graph. Candidate/unresolved targets không được apply vào history/current-rule như quan hệ chắc chắn. Khi bổ sung provision mới, giữ insertion locator thay vì buộc tồn tại target provision cũ.
 
 ---
 
@@ -781,7 +812,7 @@ Với mỗi TrafficViolation, system phải xác định những ViolationRule �
 
 1. document effective status;
 2. effective dates;
-3. explicit DocumentRelation;
+3. ACCEPTED DocumentRelation có legal-text evidence;
 4. explicit ProvisionRelation;
 5. ChangeInstruction;
 6. semantic alignment.
@@ -796,7 +827,7 @@ SUPERSEDED
 UNCERTAIN
 ~~~
 
-Không được đánh dấu CURRENT chỉ vì văn bản chứa provision còn hiệu lực nếu chính provision đã bị sửa hoặc bãi bỏ.
+Không được đánh dấu CURRENT chỉ vì văn bản chứa provision còn hiệu lực nếu chính provision đã bị sửa hoặc bãi bỏ. Không suy “chưa từng bị sửa” từ việc graph không có cạnh. Candidate/conflict hoặc khoảng thiếu discovery ảnh hưởng đến lineage phải khiến kết luận UNCERTAIN; các kết luận hợp lệ khác phải nêu corpus/cutoff đã kiểm chứng.
 
 ### FR-12.1 — Deterministic Current-rule Resolution
 
@@ -874,7 +905,7 @@ User có thể search document bằng:
 - cơ quan ban hành;
 - trạng thái hiệu lực.
 
-Kết quả phải ưu tiên metadata từ nguồn VBPL.
+Kết quả dùng metadata đã đối chiếu theo provenance từng field; ưu tiên nguồn chính thức phù hợp, giữ conflicts thay vì mặc định VBPL luôn đúng.
 
 ---
 
@@ -898,7 +929,9 @@ User có thể mở history từ provision đó.
 
 ### Tab 2 — Quan hệ
 
-Hiển thị relationship groups tương ứng với VBPL.
+Hiển thị lược đồ do hệ thống build theo taxonomy nội bộ, gồm incoming/outgoing, relation type, scope/ngoại lệ, evidence nguồn và trạng thái xác minh. Candidate/source observations được thể hiện riêng với cạnh ACCEPTED; không thể hiện một candidate như thay đổi pháp lý chắc chắn.
+
+Phải hiển thị discovery scope/cutoff, coverage và các khoảng thiếu/conflict ảnh hưởng kết quả. Không có cạnh trong corpus không đồng nghĩa không có quan hệ pháp lý.
 
 Mỗi related document có thể click để mở Document View nội bộ nếu đã crawl.
 
@@ -1141,7 +1174,10 @@ Core model:
 
 ~~~text
 Document
-├── DocumentRelation
+├── DocumentSource / SourceSnapshot
+├── DocumentReference / SourceRelationObservation
+├── DocumentRelationCandidate
+├── DocumentRelation / RelationEvidence
 └── Provision
     ├── ChangeInstruction
     ├── ProvisionRelation
@@ -1179,8 +1215,7 @@ TrafficViolation đóng vai trò semantic identity nối các ViolationRule thu�
 
 ~~~text
 id
-source
-source_item_id
+canonical_identity_status
 document_number
 title
 document_type
@@ -1193,6 +1228,63 @@ source_url
 created_at
 ~~~
 
+### document_source
+
+~~~text
+id
+document_id (nullable until identity resolved)
+source
+source_item_id (string)
+source_url
+canonical_source_url
+source_snapshot_id
+fetched_at
+~~~
+
+### document_reference
+
+~~~text
+id
+source_document_id
+source_snapshot_id
+source_locator / start_offset / end_offset
+raw_citation
+normalized_identifiers_json
+context (PREAMBLE / OPERATIVE / QUOTED / FINAL / OTHER)
+quote_depth / actor_context_json / target_context_json
+resolved_document_id (nullable)
+resolution_status
+~~~
+
+### source_relation_observation
+
+~~~text
+id
+observed_document_source_id
+source_snapshot_id
+raw_category / raw_subtype / source_side
+raw_target_reference
+observed_at
+availability_status
+~~~
+
+### document_relation_candidate
+
+~~~text
+id
+observed_document_id
+actor_document_id / actor_context_json (nullable until resolved)
+raw_target_citation
+resolved_target_document_id (nullable)
+proposed_relation_type
+status (CANDIDATE / UNRESOLVED / AMBIGUOUS / CONFLICT / ACCEPTED / REJECTED)
+resolution_reason
+document_reference_id / source_relation_observation_id (nullable)
+method / extractor_version
+confidence
+source_snapshot_id
+~~~
+
 ### document_relation
 
 ~~~text
@@ -1200,10 +1292,32 @@ id
 from_document_id
 to_document_id
 relation_type
-source_category
-source
-raw_label
+scope_json
+exceptions_json
+effective_from / effective_to (nullable)
+applicability_conditions_json
+verification_status
+extraction_run_id
 ~~~
+
+### relation_evidence
+
+~~~text
+id
+document_relation_id / document_relation_candidate_id
+source_document_id
+source_provision_id (nullable)
+source_snapshot_id
+source_url
+source_locator / start_offset / end_offset
+quoted_text
+content_role / legal_actor_context
+evidence_level
+method / extractor_version
+observed_at
+~~~
+
+Source observations, candidates và accepted edges được giữ riêng về ý nghĩa. Uniqueness edge phải xét action/scope/time; same-pair multi-edge hợp lệ. Identity hai đầu của accepted edge là canonical Document ID; evidence giữ source record/snapshot. Absence/null không được biến thành negative legal assertion.
 
 ### provision
 
@@ -1217,6 +1331,8 @@ point_no
 provision_type
 raw_text
 source_anchor
+source_snapshot_id
+start_offset / end_offset
 ~~~
 
 ### change_instruction
@@ -1224,9 +1340,15 @@ source_anchor
 ~~~text
 id
 source_provision_id
+source_snapshot_id
+source_locator / evidence_span
 operation
-target_document_id
-target_locator_json
+raw_target_citation
+target_document_id (nullable until resolved)
+target_locator_json (lists/ranges/insertion locator supported)
+scope_json / exceptions_json
+effective_from / applicability_conditions_json
+resolution_status
 raw_text
 confidence
 ~~~
@@ -1238,8 +1360,12 @@ id
 from_provision_id
 to_provision_id
 relation_type
-evidence
-method
+change_instruction_id
+verification_status
+scope_json / exceptions_json
+effective_from / applicability_conditions_json
+evidence / evidence_level / source_snapshot_id
+method / extractor_version
 confidence
 ~~~
 
@@ -1323,6 +1449,11 @@ status
 documents_discovered
 documents_processed
 documents_failed
+relations_candidate / relations_accepted / relations_unresolved / relations_conflict
+discovery_policy_json
+corpus_cutoff
+coverage_status / stop_reasons_json
+frontier_checkpoint
 source_snapshot_hash
 started_at
 finished_at
@@ -1333,21 +1464,21 @@ error
 
 ## 9. Processing Flow
 
-### Phase 1 — Crawl
+### Phase 1 — Acquisition, corpus discovery và document graph
 
 ~~~text
-VBPL URL
- ↓
-validate
- ↓
-fetch document
- ↓
-extract metadata + relations
- ↓
-enqueue unseen related documents
- ↓
-repeat until graph exhausted
+VBPL URL → validate + ImportJob → metadata/full-text snapshot
+       ↓
+whole-text reference/legal-clause extraction + structural locators
+       ↓
+identity resolution → evidence validation → own DocumentRelation graph
+       ↓
+acquire new referenced documents + reverse searches into corpus
+       ↓
+repeat within discovery policy; persist frontier/coverage/candidates
 ~~~
+
+Source diagrams là nhánh observations tùy chọn. Khi thêm văn bản, incoming index và graph được cập nhật từ evidence mới; không chờ provider có lược đồ. Stop/READY không khẳng định graph toàn cục đầy đủ.
 
 ### Phase 2 — Provision parsing
 
@@ -1420,22 +1551,17 @@ current rule
 Khi xác định legal change, evidence được ưu tiên:
 
 ~~~text
-1. Explicit VBPL document relation
-2. Explicit amendment / repeal wording
-3. Resolved ProvisionRelation
-4. Effective date / status
-5. Semantic inference
+1. Explicit amendment/repeal wording cùng scope/ngoại lệ/ngày pháp lý
+2. Verified ChangeInstruction / ProvisionRelation trace về legal text
+3. ACCEPTED DocumentRelation và evidence của cạnh
+4. Effective date/status metadata đã đối chiếu
+5. Source relationship observations để tìm candidate/đối chiếu
+6. Semantic inference để đề xuất phần chưa rõ
 ~~~
 
-AI semantic inference không được override explicit legal evidence.
+Đây là các bước đối chiếu evidence, không phải bỏ qua conflict khi hai văn bản pháp lý explicit mâu thuẫn. Semantic inference hoặc provider diagram không được override legal text. Candidate chưa xác minh không được apply vào current rule/history; thiếu ngày/scope/evidence ảnh hưởng đến kết luận phải giữ UNCERTAIN và chỉ rõ lý do.
 
-Nếu semantic inference mâu thuẫn với explicit source metadata hoặc explicit amendment text, system phải giữ explicit evidence và ghi conflict để debug / evaluation.
-
-Nếu evidence không đủ:
-
-~~~text
-UNCERTAIN
-~~~
+Không có incoming edge trong graph hoặc frontier rỗng không chứng minh một provision chưa bị tác động. Kết luận phải xét coverage/cutoff và candidate đang mở trong lineage.
 
 ---
 
@@ -1449,6 +1575,8 @@ GET /documents/:id
 GET /documents/:id/content
 GET /documents/:id/relations
 ~~~
+
+Relation response phải có accepted edges, candidates/status, evidence, incoming/outgoing, scope và coverage/cutoff; client không được tự xem mọi candidate là accepted.
 
 ### Public — Provisions
 
@@ -1481,7 +1609,7 @@ Import payload:
 
 ~~~json
 {
-    "url": "https://vbpl.vn/...ItemID=..."
+    "url": "https://vbpl.vn/van-ban/chi-tiet/<slug>--<source-id>"
 }
 ~~~
 
@@ -1520,7 +1648,7 @@ Affected behavior: Đỗ xe ngoài đô thị
 
 ### 12.3. Document View — Quan hệ
 
-Render theo nhóm quan hệ giống mental model của CSDL VBPL.
+Render graph do hệ thống build theo relation type và chiều. Hiển thị evidence/scope/status từng cạnh; source observations và candidate chưa xác minh tách khỏi accepted graph. Giữ hai tab chính, bổ sung scope/cutoff/coverage và unknown targets trong tab Quan hệ.
 
 ~~~text
 Văn bản được hướng dẫn áp dụng (...)
@@ -1531,6 +1659,8 @@ Văn bản bị tác động hiệu lực toàn bộ (...)
 VĂN BẢN ĐANG XEM
 ...
 Các văn bản tác động / hướng dẫn / thay thế (...)
+Candidate chưa xác minh / target chưa resolve (...)
+Coverage: corpus scope + cutoff + stop reasons
 ~~~
 
 ### 12.4. Violation Search
@@ -1601,6 +1731,8 @@ Click một transition hiển thị provision relation và semantic diff.
 
 ### NFR-01 — Traceability
 
+DocumentRelation phải trace về raw text/source snapshot và locator; evidence ở phần căn cứ hoặc tiêu đề không nhất thiết có Provision ID. Candidate/observation phải trace về nguồn của chính nó và không được hiển thị như legal-effect claim đã xác minh.
+
 100% kết luận về:
 
 - TrafficViolation;
@@ -1630,7 +1762,7 @@ Mà phải chỉ được:
 
 ### NFR-03 — Reproducibility
 
-Source HTML / extracted source snapshot cần được lưu đủ để evaluation có thể tái lập.
+Source HTML / extracted source snapshot cần được lưu đủ để evaluation có thể tái lập. Graph run phải giữ corpus/search snapshot, discovery policy/cutoff, extractor/resolver/model versions, evidence locators và quyết định accept/reject; không chỉ lưu graph cuối.
 
 ### NFR-04 — AI Failure Safety
 
@@ -1650,7 +1782,9 @@ Crawler phải có throttling, retry/backoff và cache phù hợp.
 
 System phải enforce:
 
-- unique source identity cho Document;
+- unique source identity cho DocumentSource và canonical identity merge có evidence;
+- accepted document edges có identity/evidence đã xác minh; multi-edge/cycle hợp lệ không bị xóa;
+- incoming groups là projection từ canonical edges; source observations không bị ép thành accepted edges;
 - không duplicate Provision trong cùng snapshot;
 - không tạo cyclic successor chain trong cùng RuleLineage;
 - effective_from <= effective_to khi effective_to tồn tại;
@@ -1677,7 +1811,7 @@ Mỗi ImportJob phải expose đủ trạng thái để xác định document n�
 - indexed;
 - failed.
 
-Mỗi ExtractionRun phải trace được model / parser version và source snapshot hash để reproduce kết quả.
+Mỗi ExtractionRun phải trace được model / parser version và source snapshot hash để reproduce kết quả. ImportJob phải expose relation candidate/accepted/unresolved/conflict counts, corpus scope/cutoff, search gaps, frontier và stop reasons; processing status và coverage được báo riêng.
 
 ---
 
@@ -1687,6 +1821,11 @@ Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao th
 
 | Task | Metric |
 |---|---|
+| Document Citation Extraction | Span / identity Precision, Recall, F1 |
+| Document Identity Resolution | Accuracy / ambiguous-target error rate |
+| Document Relation Extraction | Type + direction + target Precision, Recall, F1 |
+| Document Relation Scope / Time | Field F1 / evidence-span validity |
+| Corpus Discovery | Recall trên corpus/chain đã gán nhãn; incoming discovery coverage |
 | Relevant Provision Classification | Precision / Recall / F1 |
 | Change Instruction Extraction | Field F1 / Exact Match |
 | Provision Relation Resolution | Precision / Recall / F1 |
@@ -1721,6 +1860,9 @@ Evaluation report phải có error analysis tối thiểu theo nhóm:
 
 ~~~text
 crawler/source failure
+corpus discovery / missing incoming candidates
+document citation / identity resolution
+document relation type / direction / scope / time / evidence
 provision segmentation
 change-target resolution
 violation identity
@@ -1732,23 +1874,39 @@ answer synthesis
 citation
 ~~~
 
+Gold document graph phải được gán nhãn/đối chiếu từ nội dung pháp lý và bản gốc, độc lập với lược đồ provider. Bộ kiểm thử phải có source diagram thiếu/sai/null, citation không phải amendment, quoted replacement text, identity mơ hồ, exception và unresolved target. Report nêu corpus scope/cutoff, abstention/conflict rate, precision/recall của accepted edges và candidate coverage riêng; không công bố recall toàn pháp luật hoặc target số liệu chưa đo.
+
 ### Primary research metrics
 
 ~~~text
+Document Relation F1
 Provision Relation F1
 Critical Change Recall
 Current Rule Accuracy
 ~~~
 
-Ba metric này phản ánh trực tiếp khả năng:
+Bốn metric này phản ánh trực tiếp khả năng:
 
-1. track Điều/Khoản/Điểm nào tác động tới nhau;
-2. detect thay đổi quan trọng;
-3. xác định rule hiện hành cho một hành vi.
+1. tự xác định quan hệ văn bản từ evidence;
+2. track Điều/Khoản/Điểm nào tác động tới nhau;
+3. detect thay đổi quan trọng;
+4. xác định rule hiện hành cho một hành vi.
 
 ---
 
 ## 15. Baselines
+
+### Document graph construction
+
+~~~text
+source diagram only (comparison baseline, not ground truth)
+vs
+rule-based citations + legal actions + deterministic identity resolution
+vs
+rules + retrieval + constrained structured LLM + evidence validation
+~~~
+
+Ablation phải đo tác động của reverse discovery, identity resolution và source observations trên cùng gold corpus; graph frontier rỗng không phải metric completeness pháp lý.
 
 ### Provision relation resolution
 
@@ -1829,8 +1987,8 @@ behavior-centric knowledge base + provision lineage + grounded answer
 MVP hoàn thành khi:
 
 1. Admin import được một URL hợp lệ từ CSDL VBPL.
-2. System recursive crawl được các related documents và chống duplicate/cycle.
-3. Document relationships được lưu và hiển thị.
+2. System discover/acquire được văn bản từ toàn văn và reverse search theo policy, chống refetch duplicate/cycle, báo coverage/frontier/gaps.
+3. System tự build, lưu và hiển thị DocumentRelation có identity/evidence/type/direction/scope, tách candidates khỏi accepted graph; hoạt động khi nguồn không có lược đồ.
 4. System parse được Điều / Khoản / Điểm.
 5. System classify được provision liên quan tới xử phạt hành vi giao thông.
 6. System extract được amendment / repeal instruction.
@@ -1856,6 +2014,7 @@ MVP hoàn thành khi:
 26. Có evaluation dataset độc lập, gồm cả query / QA cases và split tránh lineage leakage.
 27. Có baseline cho các task AI chính, bao gồm retrieval / QA.
 28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
+29. Document graph được đánh giá trên gold corpus từ legal text, có case thiếu incoming/source diagram sai/null; không giả định đủ graph hoặc CURRENT chỉ từ absence of edge.
 
 ---
 
@@ -1864,12 +2023,13 @@ MVP hoàn thành khi:
 ~~~text
 1. Admin import một URL VBPL.
 
-2. System crawl recursive document graph.
+2. System discover corpus từ toàn văn/reverse searches và tự build document graph; lược đồ nguồn có thể thiếu hoặc không có.
 
 3. System parse provisions.
 
-4. System phát hiện:
+4. System phát hiện từ toàn văn, kể cả khi lược đồ nguồn không có cạnh:
    Document B sửa Document A.
+   Evidence span + identity + scope được kiểm chứng; ambiguous giữ candidate.
 
 5. System resolve xuống:
    Provision B AMENDS Provision A.
@@ -1908,7 +2068,7 @@ MVP hoàn thành khi:
 
 16. Tab Nội dung highlight provision cũ là SUPERSEDED.
 
-17. Tab Quan hệ hiển thị graph quan hệ VBPL của document.
+17. Tab Quan hệ hiển thị graph hệ thống tự build, evidence, candidates và scope/cutoff/coverage của document.
 
 18. User hỏi:
     "Mức phạt hành vi này năm 2022 là bao nhiêu?"
@@ -1924,25 +2084,28 @@ MVP hoàn thành khi:
 
 Project không chỉ scrape hoặc hiển thị dữ liệu VBPL.
 
-VBPL cung cấp document-level source và document relationships.
+VBPL và nguồn chính thức bổ trợ cung cấp văn bản/metadata; quan hệ nguồn có thể thiếu/sai hoặc không có. Hệ thống tự dựng document graph từ nội dung, resolve identity và kiểm chứng evidence; đây là một phần của đóng góp nghiên cứu.
 
 Contribution của hệ thống nằm ở việc tự động:
 
-1. resolve thay đổi xuống cấp Điều / Khoản / Điểm;
-2. tạo ProvisionRelation graph;
-3. extract TrafficViolation và Sanction;
-4. nhận diện cùng một hành vi qua nhiều wording / provision;
-5. dùng hành vi làm identity để nối rule qua thời gian;
-6. semantic-diff các rule;
-7. xác định rule hiện hành và reconstruct legal history có traceability;
-8. tách TrafficViolation identity khỏi RuleLineage để không trộn các rule context song song;
-9. hỗ trợ temporal/as-of legal QA;
-10. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
+1. build và đánh giá document graph từ references/legal clauses, gồm discovery incoming và evidence-backed identity/action resolution;
+2. resolve thay đổi xuống cấp Điều / Khoản / Điểm;
+3. tạo ProvisionRelation graph;
+4. extract TrafficViolation và Sanction;
+5. nhận diện cùng một hành vi qua nhiều wording / provision;
+6. dùng hành vi làm identity để nối rule qua thời gian;
+7. semantic-diff các rule;
+8. xác định rule hiện hành và reconstruct legal history có traceability;
+9. tách TrafficViolation identity khỏi RuleLineage để không trộn các rule context song song;
+10. hỗ trợ temporal/as-of legal QA;
+11. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
 
 Core research pipeline:
 
 ~~~text
-Document relationship
+Full text + references + legal actions + identity resolution
+        ↓
+Evidence-backed Document relationship
         ↓
 Provision relationship
         ↓
@@ -1973,10 +2136,13 @@ Adapter tối thiểu:
 getDocument()
 getContent()
 getMetadata()
-getRelations()
+getSourceRelationObservations() // optional, may be unavailable
+searchDocuments() // discovery capability and gaps reported explicitly
 ~~~
 
-Implementation MVP có thể dùng scraping nếu không có public API ổn định.
+DocumentGraphBuilder riêng chịu trách nhiệm extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations() và cập nhật incoming index. Adapter không sinh canonical legal edges hoặc đảm bảo graph đầy đủ.
+
+Implementation MVP có thể dùng public JSON endpoint đã kiểm chứng cho nội dung và scraping nguồn được phép khi cần. Khảo sát mẫu/giới hạn nguồn và thiết kế graph được ghi tại [nghiên cứu build lược đồ](research/document-graph-build.md).
 
 Dữ liệu domain phù hợp với relational database.
 
@@ -2005,7 +2171,7 @@ Không cần graph database trong MVP; DocumentRelation và ProvisionRelation c�
    Một provision có thể chứa 0, 1 hoặc nhiều ViolationRule.
 
 5. **Explicit legal evidence first**  
-   Metadata và amendment text có precedence cao hơn semantic inference.
+   Nội dung pháp lý explicit và derivation được kiểm chứng có precedence cao hơn source relationship metadata/semantic inference; conflicting evidence được giữ rõ.
 
 6. **Semantic diff over text diff**  
    Mục tiêu là phát hiện thay đổi về hành vi, phạm vi và sanction chứ không chỉ text.
@@ -2059,4 +2225,4 @@ Việc giới hạn domain vào xử phạt hành vi giao thông là scope reduc
 
 Điểm nhấn học thuật của project là:
 
-> Từ document-level legal relationships, tự động resolve provision-level changes, dùng traffic-violation identity để reconstruct semantic sanction history, sau đó hỗ trợ cả full-text retrieval và grounded AI question answering có source references.
+> Từ toàn văn và bằng chứng pháp lý, tự build document graph, resolve provision-level changes, dùng traffic-violation identity để reconstruct semantic sanction history, sau đó hỗ trợ full-text retrieval và grounded AI question answering có source references cùng coverage được khai báo.
