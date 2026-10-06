@@ -1,0 +1,206 @@
+{
+    "collection_date": "2026-10-06",
+    "scope": "Road transport keyword/legal-field candidates in declared VBPL metadata snapshot; central/local plus history and selected supporting laws",
+    "completeness_status": "PARTIAL_NOT_CERTIFIED_FULL_LEGAL_CORPUS",
+    "catalog_snapshot_declared_date": "2026-07-23",
+    "selected_candidate_records": 3875,
+    "broader_transport_review_records": 3312,
+    "live_selected_snapshots": 3858,
+    "missing_live_selected_ids": [
+        "154424",
+        "160331",
+        "167505",
+        "185703",
+        "185704",
+        "186920",
+        "187004",
+        "21261",
+        "21834",
+        "21868",
+        "22748",
+        "2346",
+        "45926",
+        "45934",
+        "70348",
+        "70852",
+        "95385"
+    ],
+    "supporting_law_snapshots": 4,
+    "archive_html_records": 3870,
+    "archive_missing_selected_ids": [
+        "187851",
+        "37871",
+        "47572",
+        "78218",
+        "82352"
+    ],
+    "candidate_ids_without_live_or_archive": [],
+    "original_pdf_targets": 2178,
+    "original_pdfs_validated": 2154,
+    "original_pdf_failed": 24,
+    "original_pdf_failed_records": [
+        {
+            "id": "160308",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/160308/VanBanGoc_nghi%20quyet%2010.2023.pdf/download",
+            "error": "Response is not PDF",
+            "http_status": 200
+        },
+        {
+            "id": "187524",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/187524/VanBanGoc_14.2026.Q%C4%90-UBND.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "160257",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/160257/VanBanGoc_09.2023.Q%C4%90.UBND.pdf/download",
+            "error": "Response is not PDF",
+            "http_status": 200
+        },
+        {
+            "id": "171959",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/171959/VanBanGoc_55.2024.pdf/download",
+            "error": "Response is not PDF",
+            "http_status": 200
+        },
+        {
+            "id": "a325dc40-5d6a-11f1-9f1a-2df98d0875f9",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/a325dc40-5d6a-11f1-9f1a-2df98d0875f9/QD_tieuchuandinhmucxechuyendung_TTr42STC_1..%20(1).pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "173353",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/173353/VanBanGoc_QD%20Quy%20%C4%91inh%20th%E1%BB%9Di%20gian%20ho%E1%BA%A1t%20%C4%91%E1%BB%99ng%20c%E1%BB%A7a%20xe%20v%E1%BB%87%20sinh%20m%C3%B4i%20tr%C6%B0%E1%BB%9Dng%2C%20xe%20%C3%B4%20t%C3%B4%20ch%E1%BB%9F%20v%E1%BA%ADt%20li%E1%BB%87u%20x%C3%A2y%20d%E1%BB%B1ng%2C%20ph%E1%BA%BF%20th%E1%BA%A3i%20r%E1%BB%9Di%3B%20ho%E1%BA%A1t%20%C4%91%E1%BB%99ng%20v%E1%BA%ADn%20t%E1%BA%A3i%20%C4%91%C6%B0%E1%BB%9Dng%20b%E1%BB%99%20trong%20%C4%91%C3%B4%20th%E1%BB%8B%20v%C3%A0%20t%E1%BB%B7%20l%E1%BB%87%20ph%C6%B0%C6%A1ng%20ti%E1%BB%87n.signed.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "185944",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/185944/VanBanGoc_Q%C4%90%20138%20ng%C3%A0y%2023.12.2025%20v%E1%BB%81%20s%E1%BB%91%20l%C6%B0%E1%BB%A3ng%2C%20ph%C6%B0%C6%A1ng%20th%E1%BB%A9c%20qu%E1%BA%A3n%20l%C3%BD%20v%C3%A0%20ph%C3%A2n%20c%E1%BA%A5p%20th%E1%BA%A9m%20quy%E1%BB%81n%20Q%C4%90...signed.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "47347",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/47347/VanBanGoc_10.2014.NQ.H%C4%90ND%20quy%20%C4%91%E1%BB%8Bnh%20m%E1%BB%A9c%20thu...%20Ph%C3%AD%20s%E1%BB%AD%20d%E1%BB%A5ng%20%C4%91%C6%B0%E1%BB%9Dng%20b%E1%BB%99%20%C4%91.v%20xe%20m%C3%B4%20t%C3%B4.signed.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "168355",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/168355/VanBanGoc_18.2024.Q%C4%90.UBND..pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "165199",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/165199/VanBanGoc_07..2022..Q%C4%90-UBND.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "182500",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/182500/VanBanGoc_Ph%E1%BB%A5%20l%E1%BB%A5c%20II%20k%C3%A8m%20theo%20Q%C4%90%20so%2023.2025..pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "511e2f30-8595-11f1-9537-d5163eeae6e2",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/511e2f30-8595-11f1-9537-d5163eeae6e2/52.%20Ban%20hanh%20Quy%20dinh%20ve%20quan%20ly%20duong%20bo...%20tren%20dia%20ban%20tinh.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "117196",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/117196/VanBanGoc_26.2016.QD.UBND.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "81833",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/81833/VanBanGoc_VanBanGoc_54.2014.Q%C4%90.UBND%20(1).pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "128206",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/128206/VanBanGoc_01-2018-TT-BTC.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "184680",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/184680/VanBanGoc_NQ%20so%2044.2025.NQ.HDND.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "158973",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/158973/VanBanGoc_QD_QPPL_45_2023.PDF/download",
+            "error": "Response is not PDF",
+            "http_status": 200
+        },
+        {
+            "id": "118402",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/118402/VBHN%20so%2013.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "51956",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/51956/16.2013.Q%C4%90.UBND%20(1).pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "128562",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/128562/VanBanGoc_01%25252F2018%25252FNQ-H%C4%90ND.pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "71856",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/71856/15.2007.CT.UBND.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "51824",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/51824/VanBanGoc_01.2012.Q%C4%90.UBND.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        },
+        {
+            "id": "177773",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/177773/VanBanGoc_2025_377%20%20%20378_191-2025-QH15..pdf/download",
+            "error": "HTTP 400",
+            "http_status": 400
+        },
+        {
+            "id": "118403",
+            "source_url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/118403/tvHienThiToanVan_VBHN%20so%2014.pdf/download",
+            "error": "HTTP 404",
+            "http_status": 404
+        }
+    ],
+    "official_pdf_files_total": 2158,
+    "pdf_all_pages_text_ocr_verified": false,
+    "pdf_downloaded_bytes": 3355878409,
+    "pdf_declared_pages": 23866,
+    "html_quality_counts": {
+        "archive-html:TEXT_PRESENT_NOT_SEMANTICALLY_VALIDATED": 3527,
+        "archive-html:LOW_TEXT_REVIEW": 343,
+        "html:TEXT_PRESENT_NOT_SEMANTICALLY_VALIDATED": 3518,
+        "html:LOW_TEXT_REVIEW": 336
+    },
+    "canonical_identity_or_relevance_gold_validation_performed": false,
+    "header_only_completeness_rejected_by_known_cases": 3,
+    "live_catalog_enumeration": "HTTP403; browser query counts observed, export not obtained; live catalogue not fully enumerated",
+    "sources": [
+        "https://vbpl-bientap-gateway.moj.gov.vn",
+        "https://huggingface.co/datasets/th1nhng0/vietnamese-legal-documents",
+        "https://datafiles.chinhphu.vn",
+        "https://congbaocdn.chinhphu.vn"
+    ]
+}

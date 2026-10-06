@@ -1,0 +1,68 @@
+{
+    "date": "2026-10-06",
+    "header_alone_complete": false,
+    "known_document_change_edges": 3,
+    "found_by_header": 0,
+    "benchmark_scope": "three verified positive document-change cases, not full-corpus recall",
+    "cases": [
+        {
+            "actor": "123/2021/NĐ-CP",
+            "target": "100/2019/NĐ-CP",
+            "source_pdf": "pdf/123-2021-ND-CP.pdf",
+            "page": 46,
+            "legal_clause": "Điều 2",
+            "header_contains_target": false
+        },
+        {
+            "actor": "168/2024/NĐ-CP",
+            "target": "100/2019/NĐ-CP",
+            "source_pdf": "pdf/168-2024-ND-CP-congbao-part2.pdf",
+            "page": 29,
+            "legal_clause": "Điều 52",
+            "header_contains_target": false
+        },
+        {
+            "actor": "100/2019/NĐ-CP",
+            "target": "46/2016/NĐ-CP",
+            "source_pdf": "pdf/140152-original.pdf",
+            "page": 151,
+            "legal_clause": "Điều 84 khoản 2",
+            "header_contains_target": false,
+            "verification": "OCR checked against rendered original page"
+        }
+    ],
+    "pdf_quality": [
+        {
+            "path": "pdf/168-2024-ND-CP-congbao-part1.pdf",
+            "bytes": 1353298,
+            "sha256": "d771ae0ac2c72f03ea5d5e97f5dd463dde73d2a6be8cb0187660873f5232664d",
+            "text_layer": "AVAILABLE"
+        },
+        {
+            "path": "pdf/168-2024-ND-CP-congbao-part2.pdf",
+            "bytes": 520637,
+            "sha256": "1d6debc31b4babd0a043a50d3732be1618734122ef00a6610c5483faad473496",
+            "text_layer": "AVAILABLE"
+        },
+        {
+            "path": "pdf/123-2021-ND-CP.pdf",
+            "bytes": 1150680,
+            "sha256": "664e5d08755e92107886767c5ccd0345b89d5a31b05cb923c2fa123bf1198f4e",
+            "text_layer": "AVAILABLE"
+        },
+        {
+            "path": "pdf/168-2024-ND-CP.pdf",
+            "bytes": 5088723,
+            "sha256": "7bb11b939d162499ab404aa41a940cce05dbf071d9cbae7a8898b00d4b4a48bd",
+            "text_layer": "NONE_NEEDS_OCR"
+        }
+    ],
+    "source_175848_pdf_endpoint": {
+        "url": "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/175848/VanBanGoc_QD%2019.pdf/download",
+        "http_status": 200,
+        "mime": "application/octet-stream",
+        "pdf_structure_readable": true,
+        "doc_172475_original_pdf_tab": "NO_MATCHING_RESULT_IN_CURRENT_UI",
+        "file_name_field": "data.documentContentFileName"
+    }
+}

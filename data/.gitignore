@@ -1,0 +1,7 @@
+*
+!.gitignore
+!README.md
+!manifests/
+/manifests/*
+!/manifests/header-validation.json
+!/manifests/coverage.json

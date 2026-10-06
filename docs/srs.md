@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.5\
+**Version:** 0.6\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -64,7 +64,7 @@ Nguồn dữ liệu MVP:
 https://vbpl.vn/
 ~~~
 
-Admin chỉ được import bằng URL văn bản từ CSDL VBPL trong MVP. Hệ thống có thể dùng nguồn chính thức bổ trợ để fetch văn bản được dẫn chiếu, đối chiếu bản gốc và tìm văn bản tác động đến corpus; từng dữ liệu phải giữ provenance riêng. Lược đồ của nhà cung cấp là đầu mối tùy chọn, không phải ground truth hoặc điều kiện bắt buộc để import.
+Admin import bằng một hoặc nhiều tệp PDF của văn bản pháp luật; URL không còn là input import bắt buộc. Hệ thống giữ PDF gốc/hash và có thể dùng nguồn chính thức để acquire các văn bản đích hoặc đối chiếu bản gốc. URL chỉ là provenance/discovery nội bộ hoặc metadata bổ sung, không phải thao tác nhập bằng link. Header và toàn văn PDF là evidence chính; lược đồ nguồn là observations tùy chọn.
 
 ### 2.2. Corpus discovery và graph scope
 
@@ -94,7 +94,7 @@ MVP không nhằm:
 - tự kết luận một cá nhân có vi phạm hay không;
 - phân tích quy hoạch, hạ tầng hoặc tiêu chuẩn kỹ thuật không liên quan tới xử phạt hành vi;
 - phân tích tổ chức bộ máy và trách nhiệm cơ quan nếu không tác động tới sanction rule;
-- hỗ trợ upload PDF / DOCX / file tùy ý;
+- hỗ trợ upload DOCX hoặc định dạng tùy ý ngoài PDF;
 - thay thế CSDL VBPL chính thức;
 - train foundation model riêng;
 - yêu cầu human review cho mỗi extraction.
@@ -121,7 +121,7 @@ User có thể:
 
 Admin có thể:
 
-- import một URL từ vbpl.vn;
+- upload PDF văn bản pháp luật, gồm các phần/phụ lục khi văn bản có nhiều tệp;
 - xem trạng thái crawl / process;
 - xem import ở trạng thái READY / PARTIAL / FAILED, cùng discovery scope, cutoff, coverage và candidate/conflict chưa giải quyết;
 - retry import thất bại;
@@ -380,12 +380,14 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đ
 ~~~text
                     ADMIN
                       │
-                VBPL document URL
+                 Legal document PDF
                       │
                       ▼
-             VBPL Source Adapter
+              PDF Ingestion Adapter
                       │
-              fetch + snapshot
+       validate + file hash + PDF snapshot
+                      │
+           text layer / OCR + page locators
                       │
                       ▼
         Incremental Corpus Discovery
@@ -450,53 +452,38 @@ Corpus discovery và Document Graph Builder có vòng phản hồi: candidate t�
 
 ## 6. Functional Requirements
 
-## FR-01 — Import from CSDL VBPL
+<a id="fr-01--import-from-csdl-vbpl"></a>
 
-Only Admin can initiate import.
+## FR-01 — Import Legal Document PDF
 
-Input phải là URL hợp lệ thuộc vbpl.vn và resolve được tới một văn bản.
+Only Admin can initiate import. Input là tệp PDF, không phải URL.
 
 System phải:
 
-1. validate source;
-2. tạo ImportJob và resolve source identifier dạng string;
-3. fetch metadata và full text bằng adapter nguồn;
-4. lưu raw source snapshot và provenance;
-5. parse dẫn chiếu/câu lệnh pháp lý và tạo relation candidates;
-6. resolve document identity, xác minh relations và build graph;
-7. bắt đầu incremental corpus discovery, gồm tìm incoming theo policy;
-8. thu thập source relationship observations nếu có, không coi là điều kiện bắt buộc.
+1. nhận multipart upload và tạo ImportJob;
+2. kiểm tra magic bytes/MIME, cấu trúc PDF, khả năng đọc, dung lượng/page/resource limits theo cấu hình; reject file giả PDF/malformed/protected không xử lý được;
+3. lưu PDF gốc, SHA-256, storage key, upload provenance và quan hệ giữa các phần/phụ lục;
+4. extract text từng trang và đánh giá quality; scan/low-text phải đi qua OCR được khai báo, ghi language/engine/version/page/region/quality flags;
+5. parse metadata từ văn bản, phân biệt ngày ban hành với dấu đến/chữ ký số/thời điểm upload; metadata mơ hồ được giữ unresolved;
+6. segment header/preamble/body/quote/effect/transition, extract references và action candidates từ **toàn văn**, trước relevance filtering;
+7. resolve canonical identity, validate evidence và build graph; header không được coi là đầy đủ quan hệ;
+8. acquire related documents theo discovery policy, giữ provenance nội bộ riêng với user PDF upload.
 
-ImportJob tối thiểu có lifecycle:
-
-~~~text
-QUEUED
-→ DISCOVERING
-→ FETCHING
-→ PARSING
-→ BUILDING_GRAPH
-→ PROCESSING
-→ INDEXING
-→ READY
-~~~
-
-READY nghĩa là các bước bắt buộc đã đạt trong discovery policy/cutoff được khai báo, không nghĩa graph pháp lý toàn cục đầy đủ. Job phải báo riêng coverage, candidate/conflict và stop reasons.
-
-Nếu related document không thể fetch/process, safety cap còn frontier, hoặc unresolved/conflict ảnh hưởng chuỗi pháp lý trong phạm vi nhưng root corpus vẫn usable:
+Lifecycle:
 
 ~~~text
-PARTIAL
+QUEUED → VALIDATING → EXTRACTING_TEXT → OCR_IF_NEEDED
+→ PARSING → BUILDING_GRAPH → DISCOVERING
+→ PROCESSING → INDEXING → READY
 ~~~
 
-Nếu root document hoặc processing cốt lõi thất bại:
+Các giai đoạn có thể lặp khi thêm related documents. OCR không cần chạy khi text layer đạt quality policy. Không được thay thế OCR lỗi bằng việc để LLM tự điền nội dung từ trí nhớ.
 
-~~~text
-FAILED
-~~~
+READY chỉ nghĩa các bước bắt buộc đạt trong corpus/discovery policy/cutoff. PARTIAL khi còn phần PDF/phụ lục/trang chưa đọc được, frontier hoặc unresolved/conflict trọng yếu mà dữ liệu gốc vẫn usable; FAILED nếu root PDF hoặc pipeline cốt lõi không xử lý được. Job phải báo riêng file/text quality, part completeness, graph coverage và candidate/conflict.
 
-Import phải idempotent: import lại cùng source snapshot không được tạo duplicate Document / Provision / relation.
+Import cùng PDF/hash nhiều lần không tạo domain duplicate; hai bản PDF khác hash nhưng cùng legal document phải được đối chiếu identity và giữ source snapshots riêng. Không suy legal version/current status chỉ từ tên file hoặc PDF metadata.
 
-Không hỗ trợ file upload trong MVP.
+Không hỗ trợ URL import hoặc DOCX trong MVP; source URL chỉ là metadata/provenance và acquisition nội bộ. [Kiểm chứng header/PDF trên chuỗi giao thông](research/traffic-header-completeness.md) cho thấy header-only bỏ sót quan hệ sửa đổi; full text, quality gates và corpus discovery là bắt buộc.
 
 ---
 
@@ -504,7 +491,7 @@ Không hỗ trợ file upload trong MVP.
 
 ## FR-02 — Incremental Corpus Discovery
 
-Từ root document, system phải discover/acquire văn bản liên quan dựa trên dẫn chiếu và câu lệnh trong toàn văn, kết quả tìm kiếm ngược và source observations tùy chọn. Không giả định graph của VBPL là có sẵn hoặc đầy đủ.
+Từ root document được upload PDF, system phải discover/acquire văn bản liên quan từ full PDF text/OCR, reverse corpus index/search và source observations tùy chọn. Hệ thống có thể crawl/scrape nguồn chính thức hoặc corpus data để lấy related documents; không giả định header hoặc graph nguồn đầy đủ.
 
 ~~~text
 root snapshot → references/legal clauses → candidate identities
@@ -531,7 +518,7 @@ System phải:
 
 ## FR-03 — Evidence-backed Document Graph
 
-System phải tự build lược đồ quan hệ từ nội dung văn bản. Lược đồ/metadata nguồn được lưu như observations để phát hiện candidate, so sánh và bổ sung evidence; không phải ground truth hoặc input bắt buộc.
+System phải tự build lược đồ quan hệ từ header và toàn văn PDF/text-layer/OCR của văn bản. Lược đồ/metadata nguồn được lưu như observations để phát hiện candidate, so sánh và bổ sung evidence; không phải ground truth hoặc input bắt buộc.
 
 Pipeline phải:
 
@@ -569,8 +556,9 @@ Mỗi Provision phải giữ:
 - paragraph_no;
 - point_no;
 - raw_text;
-- source anchor nếu có;
-- source_snapshot_id và offsets/locator đủ để truy về evidence gốc, kể cả sau khi normalize text.
+- PDF page/region và anchor nếu có;
+- source_snapshot_id, original PDF hash, text/OCR method/version và offsets/locator đủ để truy về evidence gốc sau normalize;
+- quality flags và quote/structural context, không chỉ chuỗi text đã làm phẳng.
 
 Mọi AI output downstream phải trace về Provision.
 
@@ -1224,7 +1212,7 @@ issued_at
 effective_from
 effective_to
 effective_status
-source_url
+source_url (nullable; primary provenance only)
 created_at
 ~~~
 
@@ -1233,12 +1221,13 @@ created_at
 ~~~text
 id
 document_id (nullable until identity resolved)
-source
-source_item_id (string)
-source_url
-canonical_source_url
+source (UPLOAD / VBPL / official source / declared archive)
+source_item_id (string; upload dùng PDF hash/storage identity)
+source_url (nullable)
+canonical_source_url (nullable)
+file_sha256 / file_storage_key / original_filename
 source_snapshot_id
-fetched_at
+uploaded_at / fetched_at
 ~~~
 
 ### document_reference
@@ -1308,8 +1297,8 @@ document_relation_id / document_relation_candidate_id
 source_document_id
 source_provision_id (nullable)
 source_snapshot_id
-source_url
-source_locator / start_offset / end_offset
+source_url (nullable for uploads)
+source_locator / PDF page / region / start_offset / end_offset
 quoted_text
 content_role / legal_actor_context
 evidence_level
@@ -1444,7 +1433,10 @@ confidence
 ~~~text
 id
 root_document_id
-source_url
+file_storage_key / file_sha256 / original_filename
+source_url (optional provenance)
+pdf_page_count / file_validation_status
+text_quality / ocr_status / part_completeness
 status
 documents_discovered
 documents_processed
@@ -1467,7 +1459,11 @@ error
 ### Phase 1 — Acquisition, corpus discovery và document graph
 
 ~~~text
-VBPL URL → validate + ImportJob → metadata/full-text snapshot
+PDF upload → validate + ImportJob → original file/hash snapshot
+       ↓
+page text extraction → quality check → OCR if required
+       ↓
+metadata/header + full-text/quote/effect/transition locators
        ↓
 whole-text reference/legal-clause extraction + structural locators
        ↓
@@ -1599,18 +1595,17 @@ POST /violations/chat
 ### Admin
 
 ~~~http
-POST /admin/imports
+POST /admin/imports  (multipart/form-data: PDF files + optional metadata)
 GET  /admin/imports
 GET  /admin/imports/:id
 POST /admin/imports/:id/retry
 ~~~
 
-Import payload:
+Import payload: multipart PDF upload. `files` chứa các PDF của văn bản/phụ lục, `metadata` tùy chọn; không có trường URL làm input import. URLs nếu có chỉ ghi trong source provenance.
 
-~~~json
-{
-    "url": "https://vbpl.vn/van-ban/chi-tiet/<slug>--<source-id>"
-}
+~~~text
+files: [document.pdf, appendix.pdf]
+metadata: { declared_document_number?, part_labels?, source_provenance? }
 ~~~
 
 ---
@@ -1986,7 +1981,7 @@ behavior-centric knowledge base + provision lineage + grounded answer
 
 MVP hoàn thành khi:
 
-1. Admin import được một URL hợp lệ từ CSDL VBPL.
+1. Admin import được PDF hợp lệ; PDF scan đi qua OCR/quality handling, file giả hoặc không đọc được bị reject rõ ràng.
 2. System discover/acquire được văn bản từ toàn văn và reverse search theo policy, chống refetch duplicate/cycle, báo coverage/frontier/gaps.
 3. System tự build, lưu và hiển thị DocumentRelation có identity/evidence/type/direction/scope, tách candidates khỏi accepted graph; hoạt động khi nguồn không có lược đồ.
 4. System parse được Điều / Khoản / Điểm.
@@ -2010,7 +2005,7 @@ MVP hoàn thành khi:
 22. System hỗ trợ as-of query cho ít nhất một historical violation lineage.
 23. System không merge các rule context khác nhau vào cùng history lineage nếu không có evidence.
 24. AI xử lý được query thiếu context bằng cách trả nhiều applicable rule hoặc yêu cầu làm rõ.
-25. Import cùng source snapshot nhiều lần không tạo duplicate domain entities.
+25. Import cùng PDF/hash nhiều lần không tạo duplicate domain entities; PDF khác nhau cùng legal identity giữ source snapshots riêng.
 26. Có evaluation dataset độc lập, gồm cả query / QA cases và split tránh lineage leakage.
 27. Có baseline cho các task AI chính, bao gồm retrieval / QA.
 28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
@@ -2021,7 +2016,7 @@ MVP hoàn thành khi:
 ## 17. Demo Scenario
 
 ~~~text
-1. Admin import một URL VBPL.
+1. Admin upload PDF văn bản giao thông, gồm đủ phần/phụ lục. System nhận diện text layer hoặc OCR và hiển thị quality/coverage.
 
 2. System discover corpus từ toàn văn/reverse searches và tự build document graph; lược đồ nguồn có thể thiếu hoặc không có.
 
@@ -2122,27 +2117,16 @@ Manual search + grounded AI QA
 
 ## 19. Technical Direction
 
-Hệ thống nên giữ abstraction:
+Hệ thống tách PDF ingestion khỏi external acquisition và graph domain:
 
 ~~~text
-VBPLSourceAdapter
+PDFIngestionAdapter: validatePdf(), storeSnapshot(), extractPageText(), assessQuality(), runOcr()
+SourceAcquisitionAdapter: getDocument(), getContent(), getMetadata(), searchDocuments()
+Optional: getSourceRelationObservations()
+DocumentGraphBuilder: extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations()
 ~~~
 
-thay vì phụ thuộc trực tiếp vào HTML structure ở domain layer.
-
-Adapter tối thiểu:
-
-~~~text
-getDocument()
-getContent()
-getMetadata()
-getSourceRelationObservations() // optional, may be unavailable
-searchDocuments() // discovery capability and gaps reported explicitly
-~~~
-
-DocumentGraphBuilder riêng chịu trách nhiệm extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations() và cập nhật incoming index. Adapter không sinh canonical legal edges hoặc đảm bảo graph đầy đủ.
-
-Implementation MVP có thể dùng public JSON endpoint đã kiểm chứng cho nội dung và scraping nguồn được phép khi cần. Khảo sát mẫu/giới hạn nguồn và thiết kế graph được ghi tại [nghiên cứu build lược đồ](research/document-graph-build.md).
+PDF adapter phải giữ page/region/hash/text-method provenance; engine OCR có thể khác theo môi trường nhưng không bỏ quality policy. Nguồn scrape/JSON phục vụ acquisition/corpus enrichment, không trở thành URL import UI hoặc canonical relation provider. Corpus thu thập lưu ở `data/` với source/snapshot/hash/status/coverage manifests; không gọi snapshot/keyword matches là toàn bộ pháp luật hiện tại.
 
 Dữ liệu domain phù hợp với relational database.
 
