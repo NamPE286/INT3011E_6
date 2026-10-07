@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.6\
+**Version:** 0.7\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -346,6 +346,43 @@ SEMANTIC_INFERENCE
 
 Evidence pháp lý explicit được ưu tiên; structured derivation phải trace về evidence đó. SOURCE_METADATA là observation/đầu mối đối chiếu, không cao hơn nội dung pháp lý và không chứng minh nguồn có đủ cạnh. Semantic inference không được override evidence pháp lý; mâu thuẫn giữa nguồn hoặc câu chữ phải được giữ CONFLICT, không chọn chỉ bằng confidence.
 
+### 4.6.4. Domain Vocabulary
+
+Domain Vocabulary là registry có version dùng để chuẩn hóa các giá trị semantic được LLM/extractor sử dụng khi tạo Behavior Signature và ViolationRule IR.
+
+Vocabulary tối thiểu có thể phân loại theo:
+
+~~~text
+ACTION
+SUBJECT
+VEHICLE
+TARGET
+LOCATION
+CONDITION
+EXCEPTION
+~~~
+
+Mỗi vocabulary entry phải có canonical ID, type, canonical label, aliases nếu có, provenance, thời điểm tạo và vocabulary version/run có liên quan. Vocabulary là knowledge dùng lại qua nhiều import, không đồng nhất với TrafficViolation; nhiều TrafficViolation/ViolationRule có thể tham chiếu cùng vocabulary entry.
+
+Trong import pipeline, LLM phải ưu tiên reuse vocabulary hiện có trước khi đề xuất tạo vocabulary mới. Vocabulary được expose cho LLM qua MCP server với đúng hai tool:
+
+~~~text
+list_vocab(type?, query?, limit?)
+add_vocab(type, canonical_label, aliases?, definition?, evidence, source_provision_id)
+~~~
+
+`list_vocab` là retrieval/search có filter, không phải dump toàn bộ registry vào context. `add_vocab` chỉ được gọi sau khi đã tra vocabulary hiện có và chỉ khi candidate biểu diễn một semantic value thực sự mới, không chỉ khác wording.
+
+`add_vocab` phải re-check duplicate/alias/similarity ở server và có thể trả:
+
+~~~text
+EXISTING
+CREATED
+AMBIGUOUS
+~~~
+
+LLM không được tự tạo canonical vocabulary vô điều kiện. `AMBIGUOUS` phải giữ candidate/chờ resolver thay vì ép tạo entry mới. Mọi entry mới phải trace được về legal evidence và Provision nguồn đã làm phát sinh candidate.
+
 ### 4.7. Sanction
 
 Chế tài áp dụng cho ViolationRule.
@@ -449,6 +486,8 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đ
 ---
 
 Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve/acquire; incoming links được tính từ graph và tìm kiếm ngược trong corpus, không chờ provider cung cấp. Provision parsing/evidence locators phục vụ graph building trước khi lọc relevance. Lược đồ nguồn chỉ đi vào nhánh observations tùy chọn.
+
+Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields. Chỉ khi `list_vocab` không trả candidate tương đương đủ mạnh mới được gọi `add_vocab`; server vẫn phải deduplicate và có quyền trả `EXISTING` hoặc `AMBIGUOUS`. MCP là interface truy cập registry, không phải nơi lưu canonical data.
 
 ## 6. Functional Requirements
 
@@ -686,6 +725,41 @@ Một Provision có thể:
 
 Không được giả định Provision = TrafficViolation.
 
+### FR-08.1 — Vocabulary-guided LLM Extraction
+
+Khi LLM được dùng trong import để extract/classify các dimension của ViolationRule, system phải cung cấp Domain Vocabulary qua MCP để giảm việc tạo label/concept trùng nghĩa.
+
+Flow bắt buộc cho mỗi semantic candidate cần canonicalize:
+
+~~~text
+extract candidate from Provision
+→ list_vocab(type, query, limit)
+→ reuse existing vocab nếu semantic meaning tương đương
+→ nếu chưa có candidate phù hợp: add_vocab(...)
+→ MCP server re-check duplicate
+→ EXISTING | CREATED | AMBIGUOUS
+→ attach canonical vocab ID hoặc giữ unresolved
+~~~
+
+Yêu cầu cho `list_vocab`:
+
+- hỗ trợ filter theo `type`;
+- hỗ trợ `query` để retrieve vocab/alias liên quan;
+- hỗ trợ `limit`;
+- trả canonical ID, canonical label, aliases và metadata cần cho classification;
+- không yêu cầu đưa toàn bộ vocabulary registry vào LLM context.
+
+Yêu cầu cho `add_vocab`:
+
+- chỉ được gọi sau một lần lookup phù hợp bằng `list_vocab`;
+- input phải có `type`, `canonical_label`, legal evidence và `source_provision_id`; aliases/definition là optional;
+- không tạo entry mới chỉ vì wording khác nếu semantic meaning đã có trong registry;
+- server phải kiểm tra duplicate/alias/similarity trước khi insert;
+- kết quả có thể là `EXISTING`, `CREATED` hoặc `AMBIGUOUS`;
+- `AMBIGUOUS` không được tự động tạo canonical identity mới.
+
+Mọi ExtractionRun phải ghi vocabulary version và các canonical vocab IDs đã sử dụng hoặc tạo để có thể reproduce và audit kết quả.
+
 ---
 
 ## FR-09 — Sanction Extraction
@@ -726,6 +800,7 @@ Flow ưu tiên:
 
 ~~~text
 normalize
+→ vocabulary retrieval / canonical vocab IDs
 → canonical / alias match
 → structured field match
 → lexical / semantic retrieval
@@ -1738,6 +1813,8 @@ DocumentRelation phải trace về raw text/source snapshot và locator; evidenc
 
 phải trace được về ít nhất một Provision nguồn.
 
+Vocabulary entry được tạo trong import phải trace được về evidence span/Provision làm phát sinh candidate và extraction run đã tạo hoặc reuse entry đó.
+
 ### NFR-02 — Explainability
 
 System không được chỉ trả:
@@ -1757,7 +1834,7 @@ Mà phải chỉ được:
 
 ### NFR-03 — Reproducibility
 
-Source HTML / extracted source snapshot cần được lưu đủ để evaluation có thể tái lập. Graph run phải giữ corpus/search snapshot, discovery policy/cutoff, extractor/resolver/model versions, evidence locators và quyết định accept/reject; không chỉ lưu graph cuối.
+Source HTML / extracted source snapshot cần được lưu đủ để evaluation có thể tái lập. Graph run phải giữ corpus/search snapshot, discovery policy/cutoff, extractor/resolver/model versions, evidence locators và quyết định accept/reject; không chỉ lưu graph cuối. Extraction run dùng Domain Vocabulary phải giữ vocabulary version cùng vocab IDs/result status (`EXISTING` / `CREATED` / `AMBIGUOUS`) cần thiết để tái lập quyết định canonicalization.
 
 ### NFR-04 — AI Failure Safety
 
@@ -1768,6 +1845,8 @@ UNCERTAIN
 ~~~
 
 thay vì ép một mapping hoặc legal status.
+
+Nếu `list_vocab` trả nhiều candidate không phân biệt được hoặc `add_vocab` phát hiện ambiguity, system phải giữ `AMBIGUOUS`/unresolved thay vì để LLM tự tạo canonical vocab mới.
 
 ### NFR-05 — Source Respect
 
@@ -1781,6 +1860,7 @@ System phải enforce:
 - accepted document edges có identity/evidence đã xác minh; multi-edge/cycle hợp lệ không bị xóa;
 - incoming groups là projection từ canonical edges; source observations không bị ép thành accepted edges;
 - không duplicate Provision trong cùng snapshot;
+- không tạo duplicate canonical vocabulary chỉ do wording/alias khác; `add_vocab` phải re-check existing entries trước insert;
 - không tạo cyclic successor chain trong cùng RuleLineage;
 - effective_from <= effective_to khi effective_to tồn tại;
 - CURRENT rules trong cùng lineage không được overlap nếu context giống nhau, trừ khi trạng thái UNCERTAIN được ghi rõ.
@@ -1825,6 +1905,7 @@ Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao th
 | Change Instruction Extraction | Field F1 / Exact Match |
 | Provision Relation Resolution | Precision / Recall / F1 |
 | Violation Extraction | Field Precision / Recall / F1 |
+| Vocabulary Resolution | Existing-vocab reuse accuracy / new-vocab precision / duplicate-creation rate |
 | Sanction Extraction | Field F1 / Whole-record Exact Match |
 | Violation Identity Resolution | Accuracy / Macro F1 |
 | Semantic Change Detection | Precision / Recall / F1 |
@@ -1860,6 +1941,7 @@ document citation / identity resolution
 document relation type / direction / scope / time / evidence
 provision segmentation
 change-target resolution
+vocabulary resolution / duplicate vocab
 violation identity
 rule-lineage resolution
 sanction extraction
@@ -1931,7 +2013,11 @@ vs
 embedding Top-1
 vs
 structured retrieval + LLM
+vs
+structured retrieval + LLM + MCP vocabulary reuse
 ~~~
+
+Ablation cho MCP vocabulary phải tách ít nhất: existing-vocab reuse accuracy, duplicate-vocab creation rate và precision của vocab mới được tạo.
 
 ### Change detection
 
@@ -2010,6 +2096,7 @@ MVP hoàn thành khi:
 27. Có baseline cho các task AI chính, bao gồm retrieval / QA.
 28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
 29. Document graph được đánh giá trên gold corpus từ legal text, có case thiếu incoming/source diagram sai/null; không giả định đủ graph hoặc CURRENT chỉ từ absence of edge.
+30. Import-time LLM phải dùng `list_vocab` trước khi `add_vocab`; vocabulary mới có provenance/evidence/Provision nguồn, được server deduplicate và có thể giữ `AMBIGUOUS` thay vì ép tạo canonical entry.
 
 ---
 
@@ -2124,6 +2211,8 @@ PDFIngestionAdapter: validatePdf(), storeSnapshot(), extractPageText(), assessQu
 SourceAcquisitionAdapter: getDocument(), getContent(), getMetadata(), searchDocuments()
 Optional: getSourceRelationObservations()
 DocumentGraphBuilder: extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations()
+VocabularyRegistry: searchVocab(), resolveExisting(), addVocab(), version()
+VocabularyMCPServer: list_vocab(), add_vocab()
 ~~~
 
 PDF adapter phải giữ page/region/hash/text-method provenance; engine OCR có thể khác theo môi trường nhưng không bỏ quality policy. Nguồn scrape/JSON phục vụ acquisition/corpus enrichment, không trở thành URL import UI hoặc canonical relation provider. Corpus thu thập lưu ở `data/` với source/snapshot/hash/status/coverage manifests; không gọi snapshot/keyword matches là toàn bộ pháp luật hiện tại.
@@ -2135,6 +2224,8 @@ Raw HTML / snapshots có thể lưu object storage.
 Manual behavior search dùng full-text search.
 
 AI chat dùng retrieval layer tách biệt với answer generation; có thể kết hợp full-text, alias, structured filters và embedding. Answer generator chỉ nhận retrieved legal evidence và phải giữ reference IDs tới Provision.
+
+Domain Vocabulary Registry là canonical store cho vocabulary; MCP server chỉ là adapter để LLM trong import pipeline truy cập registry. MCP expose đúng hai tool `list_vocab` và `add_vocab`. Backend/resolver có thể gọi VocabularyRegistry trực tiếp; canonical state không phụ thuộc vào transport/protocol MCP.
 
 Không cần graph database trong MVP; DocumentRelation và ProvisionRelation có thể model bằng relational tables.
 
@@ -2183,6 +2274,9 @@ Không cần graph database trong MVP; DocumentRelation và ProvisionRelation c�
 
 14. **Evaluation must avoid legal-lineage leakage**  
     Dataset split phải tránh việc amendment chain gần như giống nhau xuất hiện ở cả train/dev và test.
+
+15. **Reuse vocabulary before creation**  
+    Import-time LLM phải retrieve canonical vocabulary trước khi đề xuất vocabulary mới; khác wording không đồng nghĩa concept mới. Canonical vocab mới chỉ được tạo khi server không resolve được entry tương đương và phải giữ provenance/evidence.
 
 ---
 
