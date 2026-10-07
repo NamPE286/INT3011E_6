@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.7\
+**Version:** 0.8\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -49,8 +49,8 @@ Hệ thống xử lý các dữ liệu cần thiết để xác định:
 - chủ thể / loại phương tiện;
 - địa điểm, điều kiện và ngoại lệ;
 - mức phạt tiền;
-- trừ điểm giấy phép lái xe nếu có;
-- hình thức xử phạt bổ sung liên quan trực tiếp;
+- trạng thái áp dụng cơ chế trừ điểm giấy phép lái xe và số điểm bị trừ nếu có;
+- hình thức xử phạt bổ sung liên quan trực tiếp, được chuẩn hóa theo loại;
 - biện pháp khắc phục hậu quả liên quan trực tiếp;
 - hiệu lực của rule;
 - rule áp dụng tại một thời điểm cụ thể (as-of date);
@@ -387,14 +387,48 @@ LLM không được tự tạo canonical vocabulary vô điều kiện. `AMBIGUO
 
 Chế tài áp dụng cho ViolationRule.
 
+Sanction phải lưu có cấu trúc, không dùng một chuỗi `additional_sanction` duy nhất để biểu diễn mọi hình thức xử phạt bổ sung.
+
 Tối thiểu hỗ trợ:
 
-- fine_min;
-- fine_max;
-- currency;
-- points_deducted;
-- additional_sanction;
-- remedial_measure.
+~~~text
+fine_min
+fine_max
+currency
+
+point_deduction_applicability:
+    APPLIES
+    NOT_APPLICABLE
+    UNKNOWN
+
+points_deducted
+
+additional_sanctions[]
+remedial_measures[]
+~~~
+
+`point_deduction_applicability` là trạng thái pháp lý explicit của rule tại effective period tương ứng:
+
+- `APPLIES`: provision quy định áp dụng trừ điểm GPLX; `points_deducted` phải có giá trị dương;
+- `NOT_APPLICABLE`: rule không áp dụng cơ chế trừ điểm GPLX trong context/effective period đó;
+- `UNKNOWN`: evidence chưa đủ để kết luận có hay không áp dụng trừ điểm.
+
+Không được suy `NOT_APPLICABLE` chỉ vì `points_deducted = null`. Null có thể là dữ liệu chưa extract được hoặc evidence chưa đủ.
+
+Hình thức xử phạt bổ sung được lưu thành các `SanctionEffect` typed. Taxonomy tối thiểu:
+
+~~~text
+LICENSE_SUSPENSION
+LICENSE_POINT_DEDUCTION
+VEHICLE_CONFISCATION
+OTHER
+~~~
+
+`LICENSE_POINT_DEDUCTION` phải nhất quán với `point_deduction_applicability = APPLIES` và `points_deducted`. `LICENSE_SUSPENSION` phải lưu được khoảng thời gian tước quyền sử dụng GPLX; `VEHICLE_CONFISCATION` phải phân biệt với tạm giữ phương tiện.
+
+Tạm giữ phương tiện/GPLX để xác minh hoặc bảo đảm thi hành là biện pháp thủ tục/ngăn chặn, không được tự map thành `SanctionEffect` hoặc `remedial_measure` trong MVP.
+
+Mọi additional sanction/effect phải truy vấn được trạng thái `point_deduction_applicability` của parent Sanction để UI/history thể hiện rõ rule đó thuộc cơ chế trừ điểm, không trừ điểm hay chưa xác định. Không duplicate trạng thái này xuống từng effect nếu có thể suy duy nhất từ parent Sanction.
 
 ### 4.8. Change Instruction
 
@@ -764,7 +798,7 @@ Mọi ExtractionRun phải ghi vocabulary version và các canonical vocab IDs �
 
 ## FR-09 — Sanction Extraction
 
-System phải extract sanction áp dụng cho từng ViolationRule.
+System phải extract sanction áp dụng cho từng ViolationRule dưới dạng structured fields.
 
 Tối thiểu:
 
@@ -772,10 +806,39 @@ Tối thiểu:
 fine_min
 fine_max
 currency
+
+point_deduction_applicability
 points_deducted
-additional_sanction
-remedial_measure
+
+additional_sanctions[]
+remedial_measures[]
 ~~~
+
+`point_deduction_applicability` bắt buộc nhận một trong:
+
+~~~text
+APPLIES
+NOT_APPLICABLE
+UNKNOWN
+~~~
+
+Quy tắc consistency:
+
+- `APPLIES` → phải có evidence cho cơ chế trừ điểm và `points_deducted > 0`;
+- `NOT_APPLICABLE` → không được tạo `LICENSE_POINT_DEDUCTION`; `points_deducted` phải null;
+- `UNKNOWN` → không được suy ra “không trừ điểm” chỉ từ field null hoặc absence của keyword;
+- nếu evidence mâu thuẫn, giữ `UNKNOWN`/conflict thay vì chọn bằng confidence.
+
+Additional sanction phải được normalize thành `SanctionEffect[]`, tối thiểu phân biệt:
+
+~~~text
+LICENSE_SUSPENSION
+LICENSE_POINT_DEDUCTION
+VEHICLE_CONFISCATION
+OTHER
+~~~
+
+Mỗi effect phải giữ type, structured attributes phù hợp (ví dụ duration/target), raw text/evidence và source Provision. Tạm giữ phương tiện/GPLX mang tính thủ tục không được classify thành `VEHICLE_CONFISCATION` hoặc `LICENSE_SUSPENSION`.
 
 Sanction phải gắn với ViolationRule, không gắn trực tiếp một mức phạt duy nhất vào TrafficViolation.
 
@@ -787,6 +850,8 @@ Cùng hành vi có thể có sanction khác nhau theo:
 - condition;
 - consequence;
 - effective period.
+
+History/as-of query phải trả được cả `point_deduction_applicability` để phân biệt rõ rule thời kỳ chưa áp dụng cơ chế trừ điểm, rule có trừ điểm và trường hợp chưa đủ evidence.
 
 ---
 
@@ -945,7 +1010,10 @@ LOCATION_SCOPE_CHANGED
 SANCTION_INCREASE
 SANCTION_DECREASE
 SANCTION_CHANGED
+POINT_DEDUCTION_APPLICABILITY_CHANGED
 POINT_DEDUCTION_CHANGED
+LICENSE_SUSPENSION_CHANGED
+VEHICLE_CONFISCATION_CHANGED
 ADDITIONAL_SANCTION_CHANGED
 
 REPEALED
@@ -1246,6 +1314,7 @@ Document
     ├── ProvisionRelation
     └── ViolationRule
         └── Sanction
+            └── SanctionEffect[]
 
 TrafficViolation
 ├── ViolationAlias
@@ -1485,10 +1554,31 @@ violation_rule_id
 fine_min
 fine_max
 currency
-points_deducted
-additional_sanction
-remedial_measure
+point_deduction_applicability (APPLIES / NOT_APPLICABLE / UNKNOWN)
+points_deducted (nullable)
+remedial_measures_json
 ~~~
+
+Không dùng `points_deducted IS NULL` như một negative fact. Trạng thái có/không áp dụng trừ điểm phải đọc từ `point_deduction_applicability`.
+
+### sanction_effect
+
+~~~text
+id
+sanction_id
+effect_type (LICENSE_SUSPENSION / LICENSE_POINT_DEDUCTION / VEHICLE_CONFISCATION / OTHER)
+duration_min (nullable)
+duration_max (nullable)
+duration_unit (nullable)
+points (nullable)
+target_json (nullable)
+raw_text
+source_provision_id
+evidence_locator
+confidence
+~~~
+
+`LICENSE_POINT_DEDUCTION` phải khớp với parent `sanction.point_deduction_applicability = APPLIES` và số điểm tương ứng. Additional effects dùng chung trạng thái point-deduction của parent Sanction thay vì duplicate một boolean riêng trên từng row.
 
 ### change_event
 
@@ -1863,6 +1953,9 @@ System phải enforce:
 - không tạo duplicate canonical vocabulary chỉ do wording/alias khác; `add_vocab` phải re-check existing entries trước insert;
 - không tạo cyclic successor chain trong cùng RuleLineage;
 - effective_from <= effective_to khi effective_to tồn tại;
+- `point_deduction_applicability = APPLIES` yêu cầu `points_deducted > 0` và effect/evidence nhất quán;
+- `point_deduction_applicability = NOT_APPLICABLE` yêu cầu `points_deducted = null` và không có `LICENSE_POINT_DEDUCTION`;
+- `UNKNOWN` không được materialize thành negative fact “không trừ điểm”;
 - CURRENT rules trong cùng lineage không được overlap nếu context giống nhau, trừ khi trạng thái UNCERTAIN được ghi rõ.
 
 ### NFR-07 — Grounded AI Answers
@@ -1906,7 +1999,7 @@ Dataset evaluation tập trung vào các chuỗi quy định xử phạt giao th
 | Provision Relation Resolution | Precision / Recall / F1 |
 | Violation Extraction | Field Precision / Recall / F1 |
 | Vocabulary Resolution | Existing-vocab reuse accuracy / new-vocab precision / duplicate-creation rate |
-| Sanction Extraction | Field F1 / Whole-record Exact Match |
+| Sanction / Point-deduction Extraction | Field F1 / Whole-record Exact Match / point-applicability accuracy |
 | Violation Identity Resolution | Accuracy / Macro F1 |
 | Semantic Change Detection | Precision / Recall / F1 |
 | Critical Change Detection | Critical-change Recall |
@@ -2075,7 +2168,7 @@ MVP hoàn thành khi:
 6. System extract được amendment / repeal instruction.
 7. System tạo được ProvisionRelation giữa các điều khoản ở cùng hoặc khác văn bản.
 8. System extract được TrafficViolation từ provision.
-9. System extract được ít nhất sanction dạng tiền phạt.
+9. System extract được sanction dạng tiền phạt và lưu explicit `point_deduction_applicability` cho ViolationRule/Sanction; không suy “không trừ điểm” chỉ từ null.
 10. Nhiều ViolationRule cùng hành vi được map về một TrafficViolation identity.
 11. System xác định được current ViolationRule.
 12. User search được văn bản.
@@ -2097,6 +2190,8 @@ MVP hoàn thành khi:
 28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
 29. Document graph được đánh giá trên gold corpus từ legal text, có case thiếu incoming/source diagram sai/null; không giả định đủ graph hoặc CURRENT chỉ từ absence of edge.
 30. Import-time LLM phải dùng `list_vocab` trước khi `add_vocab`; vocabulary mới có provenance/evidence/Provision nguồn, được server deduplicate và có thể giữ `AMBIGUOUS` thay vì ép tạo canonical entry.
+31. Additional sanction được lưu thành typed `SanctionEffect`; tối thiểu phân biệt tước GPLX, trừ điểm GPLX và tịch thu phương tiện.
+32. History/as-of query thể hiện được trạng thái `APPLIES / NOT_APPLICABLE / UNKNOWN` của cơ chế trừ điểm và semantic diff khi trạng thái này thay đổi.
 
 ---
 
@@ -2120,11 +2215,21 @@ MVP hoàn thành khi:
    TrafficViolation "Đỗ xe ngoài đô thị".
 
 7. System extract:
-   Rule A: 400k–600k
-   Rule B: 800k–1m
+   Rule A:
+     Fine: 400k–600k
+     Point deduction: NOT_APPLICABLE
+     Additional effect: LICENSE_SUSPENSION 1–3 tháng
+
+   Rule B:
+     Fine: 800k–1m
+     Point deduction: APPLIES, 4 điểm
+     Additional effect: LICENSE_POINT_DEDUCTION
 
 8. Semantic diff:
-   SANCTION_INCREASE.
+   SANCTION_INCREASE
+   POINT_DEDUCTION_APPLICABILITY_CHANGED
+   POINT_DEDUCTION_CHANGED
+   LICENSE_SUSPENSION_CHANGED.
 
 9. User dùng Manual Search:
    "đỗ xe ngoài đô thị"
@@ -2267,7 +2372,7 @@ Không cần graph database trong MVP; DocumentRelation và ProvisionRelation c�
     Rule cho ô tô, xe máy hoặc context khác nhau có thể cùng TrafficViolation nhưng phải nằm ở lineage riêng nếu chúng không trực tiếp kế thừa nhau.
 
 12. **Temporal correctness is first-class**  
-    CURRENT chỉ là trường hợp đặc biệt của query theo thời gian; mọi rule phải có effective interval rõ nhất có thể.
+    CURRENT chỉ là trường hợp đặc biệt của query theo thời gian; mọi rule phải có effective interval rõ nhất có thể. Trạng thái áp dụng cơ chế trừ điểm cũng là temporal data và phải được lưu explicit cho từng rule/effective period.
 
 13. **Prefer ambiguity over false certainty**  
     Khi context hoặc evidence chưa đủ, hệ thống giữ AMBIGUOUS / UNCERTAIN thay vì ép merge, ép lineage hoặc chọn một sanction tùy ý.
