@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.8\
+**Version:** 0.9\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -446,7 +446,75 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đ
 
 ---
 
-## 5. High-level Architecture
+<a id="5-high-level-architecture"></a>
+<a id="5-system-design"></a>
+
+## 5. System Design — Thiết kế hệ thống
+
+Chương này mô tả kiến trúc đích của MVP, đặt trước functional requirements để người đọc hiểu cách các thành phần phối hợp. Mục 6 xác định hành vi cần đáp ứng; mục 7–8 chi tiết hóa dữ liệu; mục 9 mô tả các phase xử lý; mục 11 là hợp đồng API sơ bộ. Thiết kế không đồng nghĩa mọi thành phần đã được triển khai trong repository.
+
+### 5.1. System context và ranh giới
+
+Hệ thống có hai luồng chính: Admin nhập PDF và theo dõi xử lý bất đồng bộ; User tra cứu văn bản, hành vi, lịch sử và hỏi AI trên cơ sở tri thức đã được kiểm chứng.
+
+```mermaid
+flowchart LR
+    Admin["Admin"] -->|"Upload PDF / retry / xem job"| System["Traffic Sanction Intelligence"]
+    User["User"] -->|"Search / history / as-of / AI chat"| System
+    System -->|"Acquire văn bản / reverse search"| Source["VBPL và nguồn chính thức"]
+    System -->|"Trang cần OCR"| OCR["OCR engine"]
+    System -->|"Structured extraction / grounded answer"| LLM["LLM provider"]
+```
+
+PDF là đầu vào import chính thức. VBPL và nguồn bổ trợ cung cấp văn bản/metadata cho acquisition nội bộ; graph nguồn chỉ là observations. OCR/LLM là external boundaries: kết quả phải được kiểm tra schema, quality và evidence trước khi sử dụng trong canonical knowledge base. Lựa chọn engine/model cụ thể phải được ghi theo ExtractionRun, không gắn cứng vào domain.
+
+### 5.2. Kiến trúc thành phần và triển khai
+
+MVP tổ chức backend theo module trong cùng codebase, tách HTTP request khỏi xử lý nền bằng Queue. Chưa cần tách mỗi bước Legal NLP thành một microservice. Frontend SvelteKit gọi API Elysia trên Cloudflare Worker; Worker dùng D1 cho dữ liệu có cấu trúc, R2 cho tệp/snapshots và Queues cho công việc nền.
+
+```mermaid
+flowchart TB
+    Web["SvelteKit Web"] -->|"HTTP API"| API["Elysia API / Cloudflare Worker"]
+    API -->|"PDF và source snapshots"| R2["R2 object storage"]
+    API -->|"Jobs / domain queries"| DB["D1 relational store"]
+    API -->|"Job reference"| Queue["Processing Queue"]
+    Queue --> Consumer["Queue consumer / pipeline orchestration"]
+    Consumer -->|"Read snapshots / write artifacts"| R2
+    Consumer -->|"Checkpoint / validated domain writes"| DB
+    Consumer --> Acquisition["Source Acquisition Adapter"]
+    Consumer --> PDF["PDF Ingestion Adapter / OCR"]
+    Consumer --> Extraction["Graph / provision / violation extraction"]
+    Extraction -->|"list_vocab / add_vocab"| MCP["Vocabulary MCP Server"]
+    MCP --> Registry["Domain Vocabulary Registry"]
+    Registry --> DB
+    Acquisition --> Source["Official sources"]
+    PDF --> OCR["OCR engine"]
+    Extraction --> LLM["LLM provider"]
+    API --> Retrieval["Search / temporal resolver / evidence retrieval"]
+    Retrieval --> DB
+    Retrieval --> Index["Derived search indexes"]
+    Consumer -->|"Index validated records"| Index
+    API --> Answer["Grounded answer generator"]
+    Retrieval -->|"Evidence + reference IDs"| Answer
+    Answer --> LLM
+```
+
+Các module trong sơ đồ là ranh giới trách nhiệm, không bắt buộc là các dịch vụ deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi PDF/OCR cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
+
+| Thành phần | Trách nhiệm và đầu ra | Yêu cầu liên quan |
+| --- | --- | --- |
+| Web UI | Upload PDF, theo dõi job, Document View hai tab, search, detail/history và AI citations. | FR-01, FR-14–18 |
+| API / authorization | Xác thực Admin cho import/retry/reprocess; validate request; cung cấp read API và chat. | FR-01, mục 3 và 11 |
+| Pipeline orchestration | Điều phối phase, retry/resume, checkpoint, trạng thái xử lý và coverage. | FR-01–02, NFR-08 |
+| PDF Ingestion / Source Acquisition | Giữ bản gốc/hash; text/OCR có page locator; acquire related documents theo policy. | FR-01–02, FR-04 |
+| Document Graph Builder | Full-text references, identity resolution, candidates, accepted edges và relation evidence. | FR-03 |
+| Provision / legal extraction | Hierarchy, relevance, ChangeInstruction, ProvisionRelation và ViolationRule IR có nguồn. | FR-04–09 |
+| Vocabulary Registry / MCP | Canonical vocab có version, retrieve trước create, server dedup và ambiguity. | FR-08.1, NFR-03/06 |
+| Violation / lineage / temporal engine | Behavior identity, lineage theo context, semantic diff, current/as-of resolution. | FR-10–13 |
+| Search / evidence retrieval | Document/violation FTS, structured filters, rule/history và Provision references. | FR-14, FR-16, FR-19 |
+| Answer generator | Chỉ sinh câu trả lời từ retrieved evidence; không ghi canonical domain data. | FR-16.2–16.3, NFR-07 |
+
+### 5.3. Pipeline nghiệp vụ
 
 ~~~text
                     ADMIN
@@ -522,6 +590,83 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đ
 Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve/acquire; incoming links được tính từ graph và tìm kiếm ngược trong corpus, không chờ provider cung cấp. Provision parsing/evidence locators phục vụ graph building trước khi lọc relevance. Lược đồ nguồn chỉ đi vào nhánh observations tùy chọn.
 
 Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields. Chỉ khi `list_vocab` không trả candidate tương đương đủ mạnh mới được gọi `add_vocab`; server vẫn phải deduplicate và có quyền trả `EXISTING` hoặc `AMBIGUOUS`. MCP là interface truy cập registry, không phải nơi lưu canonical data.
+
+### 5.4. Thiết kế lưu trữ và quyền sở hữu dữ liệu
+
+| Nơi lưu | Nội dung | Quy tắc sử dụng |
+| --- | --- | --- |
+| R2 | PDF gốc, source snapshots, extracted text/OCR artifacts và output cần tái lập. | Tham chiếu bằng storage key + hash; giữ page/region/offset và phương pháp trích text, không dùng tên file làm legal identity. |
+| D1 | Canonical Document/Provision, relation candidates/evidence, TrafficViolation, RuleLineage, ViolationRule/Sanction, vocabulary và job/run metadata. | Là nguồn chuẩn của domain và trạng thái xử lý; constraints/transactions bảo vệ invariants tại NFR-06. |
+| Queue | Tham chiếu job/task để consumer tiếp tục xử lý. | Không chứa toàn PDF hoặc toàn corpus; không dùng message làm nguồn chuẩn cho trạng thái/progress. |
+| Search indexes | Projection từ văn bản, alias, rule/context và evidence đã được chấp nhận. | Có thể rebuild; hit phải resolve về canonical IDs và phiên bản dữ liệu tương ứng trước khi trả kết luận. |
+
+Quan hệ lưu bằng relational tables trong MVP, không cần graph database. Document graph có thể có cycle/multi-edge hợp lệ; successor chain trong cùng RuleLineage phải được kiểm tra để không tạo cycle. Domain Vocabulary Registry sở hữu canonical vocab; MCP chỉ expose hai tool và kiểm soát truy cập vào registry.
+
+Kết quả extraction chưa được kiểm chứng đi vào candidate/run artifacts. Chỉ promote khi identity, locator, evidence và domain constraints đạt policy; giữ `UNRESOLVED / AMBIGUOUS / CONFLICT` riêng với accepted facts. Hash chống duplicate snapshot, còn legal identity cần đối chiếu loại, số/ký hiệu, cơ quan và ngày; hai khái niệm này không được thay thế cho nhau.
+
+Reprocess tạo run có parser/model/vocabulary version và provenance riêng, không ghi đè bản gốc. Bước publish cập nhật dữ liệu được chấp nhận và đánh dấu index cần rebuild; read path dùng cùng generation/run đã publish hoặc báo index chưa sẵn sàng, tránh ghép rule mới với citations từ snapshot cũ. Generation/checkpoint là metadata kỹ thuật cần bổ sung khi triển khai, không phải khẳng định schema hiện tại đã có.
+
+### 5.5. Luồng import, retry và publication
+
+1. API kiểm tra quyền Admin và giới hạn upload, validate PDF, tính SHA-256, lưu snapshot R2 rồi ghi ImportJob trong D1. Job tham chiếu đầy đủ các phần/phụ lục nếu có.
+2. Enqueue tham chiếu job; trả job ID để UI theo dõi qua API trạng thái. Không chờ toàn bộ OCR/Legal NLP trong HTTP upload request.
+3. Consumer đọc snapshot và checkpoint, chạy text/OCR quality gate, parse cấu trúc và extract full-text references trước relevance filtering.
+4. Discovery resolve/acquire candidates và tìm kiếm ngược theo policy; checkpoint giữ visited/frontier, cutoff, queries, gaps và lý do dừng. Văn bản mới quay lại bước text/parse/graph, giữ cạnh tới node đã visited.
+5. Semantic processing dùng vocabulary retrieval, extract provision changes/rules/sanctions, resolve behavior và lineage; temporal engine tính history/current từ evidence đã xác minh.
+6. Persist kết quả được chấp nhận, publish generation và cập nhật search index. Job chỉ đạt READY khi các bước bắt buộc hoàn thành trong policy/cutoff; báo PARTIAL hoặc FAILED theo FR-01, độc lập với phần trăm tiến độ.
+
+R2, D1 và Queue không được giả định có một transaction chung. Thiết kế đích cần lưu enqueue intent/checkpoint bền vững để có thể gửi lại khi Queue lỗi; cleanup chỉ xóa object được xác định là không còn được job/snapshot nào tham chiếu. Không để job tiếp tục chạy với PDF đã bị xóa sau lỗi enqueue.
+
+Consumer phải xử lý được message trùng và execution bị ngắt. Idempotency dựa trên job/run/stage cùng snapshot hash và phiên bản xử lý; canonical dedup dựa trên identity/constraints, không dựa riêng vào job ID. Claim/checkpoint phải ngăn hai consumer cùng publish một stage; retry tiếp tục từ bước bền vững gần nhất. Lỗi tạm thời dùng retry/backoff có giới hạn; dữ liệu không hợp lệ hoặc evidence mơ hồ được ghi thành lỗi/candidate tương ứng. Hết retry cần expose lỗi và cho Admin retry/resume, không bỏ job âm thầm.
+
+### 5.6. Luồng search, current/as-of và AI chat
+
+Manual search hoạt động độc lập với LLM: query → full-text/alias retrieval → structured context filters → canonical document/violation IDs → detail/history có references. Search hit không tự chứng minh rule đang có hiệu lực.
+
+Current/as-of resolver nhận thời điểm T và vehicle/subject/context, lấy RuleLineage phù hợp, xét effective intervals và accepted provision relations theo FR-12. Thiếu context thì giữ nhiều rule hoặc yêu cầu làm rõ; thiếu incoming coverage hoặc có conflict trọng yếu thì trả UNCERTAIN thay vì suy CURRENT từ absence of edge. Ngày tra cứu pháp lý được tách khỏi thời điểm import/run.
+
+```mermaid
+sequenceDiagram
+    participant U as User / Web
+    participant A as API
+    participant R as Retrieval + temporal resolver
+    participant D as Canonical store + indexes
+    participant G as Answer generator
+    U->>A: Câu hỏi + context + as_of nếu có
+    A->>R: Query đã validate
+    R->>D: Retrieve behavior / lineage / rules / evidence
+    D-->>R: Records + Provision IDs + coverage/cutoff
+    R-->>A: Applicable rules / uncertainty + evidence bundle
+    A->>G: Retrieved evidence + reference IDs
+    G-->>A: Answer + citations hoặc yêu cầu làm rõ
+    A-->>U: Câu trả lời đã kiểm tra references + coverage
+```
+
+Evidence bundle gồm context, effective interval, sanction fields, history transitions, Provision IDs, snapshot locators và coverage/cutoff liên quan. Answer generator không được gọi tool ghi vocabulary/domain trong luồng chat. Backend kiểm tra reference ID thuộc evidence bundle và locator truy được về snapshot; kiểm tra ID hợp lệ chưa đủ chứng minh claim đúng, nên citation support/correctness vẫn phải được đánh giá theo mục 14. Thiếu căn cứ thì trả không đủ evidence; lỗi model không làm hỏng manual search hoặc dữ liệu canonical.
+
+### 5.7. Bảo mật, khả năng vận hành và mở rộng
+
+- **Authorization:** Admin-only cho import/retry/reprocess; kiểm tra quyền server-side với từng job/snapshot được client tham chiếu. OCR/LLM/source credentials chỉ nằm ở backend; user xem PDF/evidence qua đường truy cập được kiểm soát.
+- **Validation:** Tệp upload, source responses và model/tool output đều là untrusted input. Text trong PDF chỉ là dữ liệu pháp lý, không được thay đổi system instructions hoặc cấp quyền gọi tool ngoài allowlist. `add_vocab` phải xác minh source provision/evidence và dedup tại server.
+- **Bounded processing:** Giới hạn page/resource, discovery depth/document/request và model/OCR budget theo policy; task lớn được chia theo phase/document/page và resume từ checkpoint. Chạm cap phải ghi stop reason và coverage gap.
+- **Observability:** Correlate log theo job/run/document/stage; lưu duration, retry/error, quality flags, candidate/accepted/conflict counts, frontier và index readiness. Không log credentials hoặc toàn bộ PDF/model payload mặc định.
+- **Recovery:** Bản gốc và run provenance cho phép reprocess/rebuild index. Tách dữ liệu/config của local, test và remote; migration đi theo repository workflow. Khả năng phục hồi phải được kiểm tra trước khi coi pipeline là hoàn chỉnh.
+- **Capacity:** Đo upload latency, queue backlog, stage duration và search/chat latency trên corpus MVP trước khi đặt SLA hoặc tách service. Không tuyên bố throughput, OCR quality hoặc legal accuracy khi chưa có evaluation.
+
+### 5.8. Hiện trạng repository và lộ trình tới thiết kế đích
+
+| Khía cạnh | Hiện có trong code | Thiết kế đích cần triển khai |
+| --- | --- | --- |
+| Upload | `POST /api/uploads`: kiểm tra file không rỗng, tên và giới hạn 50 MB; lưu R2, tạo `processing_jobs`, gửi `{ jobId }`. | Admin PDF import nhiều phần/phụ lục, magic bytes/structure/quality gates, hash dedup và provenance. |
+| Job tracking | `GET /api/jobs/:jobId`, frontend polling mỗi giây; trạng thái `queued / processing / completed / failed`. | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
+| Consumer | Pipeline mô phỏng bằng các stage/delay rồi cập nhật tiến độ D1. | PDF/OCR, discovery/graph, semantic extraction, checkpoint/retry và publish/index thật. |
+| Domain storage | Migration hiện có lưu dummy record và processing job. | Schema domain theo mục 7–8, registry/run artifacts, constraints và indexes. |
+| Auth | `authPlugin` là placeholder, trả `user: null`. | Xác thực session/token và authorization Admin ở backend. |
+| Search / chat | Chưa triển khai knowledge base retrieval và grounded QA. | FTS trước; temporal/history APIs; AI retrieval/answers dùng chung evidence. |
+
+Các route `/api/uploads` và `/api/jobs/:jobId` là hợp đồng demo hiện tại; `/admin/imports` và các read/chat API tại mục 11 là hợp đồng đích sơ bộ. Việc bổ sung tài liệu này không đổi endpoint hoặc runtime hiện có. Thứ tự triển khai: hoàn thiện authorization + PDF ingestion/job recovery → graph/provision/domain persistence → rule/history/FTS → grounded chat và evaluation. Mỗi bước phải đáp ứng acceptance criteria liên quan trước khi mở rộng.
+
+---
 
 ## 6. Functional Requirements
 
