@@ -1,0 +1,8 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "int3011e-web",
+    "pages_build_output_dir": ".svelte-kit/cloudflare",
+    // Latest date supported by the pinned Wrangler 4.136.3 local runtime.
+    "compatibility_date": "2026-09-28",
+    "compatibility_flags": ["nodejs_compat"]
+}

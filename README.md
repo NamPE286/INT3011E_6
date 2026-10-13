@@ -166,6 +166,10 @@ bun run build
 | `web` | `bun run build` | Build frontend cho production. |
 | `web` | `bun run preview` | Xem thử production build. |
 
+## CI/CD
+
+GitHub Actions kiểm tra backend và frontend trên pull request vào `main`; sau khi merge, workflow deploy backend lên Cloudflare Workers và frontend lên Cloudflare Pages. Xem [hướng dẫn CI/CD](docs/deployment.md) để thiết lập environment `production`, secrets, variables và tài nguyên Cloudflare trước lần deploy đầu tiên.
+
 ## Architecture
 
 ### Kiến trúc hiện tại trong repository
