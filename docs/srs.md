@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.9\
+**Version:** 0.10\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -173,11 +173,10 @@ Một văn bản sửa đổi hoặc thay thế được model thành một Docu
 
 Đơn vị pháp lý có thể tham chiếu:
 
-~~~text
-Điều
-Khoản
-Điểm
-~~~
+```mermaid
+flowchart TB
+    Article["Điều"] --> Paragraph["Khoản"] --> Point["Điểm"]
+```
 
 Ví dụ:
 
@@ -245,11 +244,10 @@ MERGES_INTO
 
 Ví dụ:
 
-~~~text
-Nghị định A — Điểm a Khoản 2 Điều 6
-        ↓ AMENDED_BY
-Nghị định B — Khoản 3 Điều 1
-~~~
+```mermaid
+flowchart TB
+    A["Nghị định A — Điểm a Khoản 2 Điều 6"] -->|"AMENDED_BY"| B["Nghị định B — Khoản 3 Điều 1"]
+```
 
 Hệ thống phải lưu evidence chỉ ra vì sao hai provision được nối.
 
@@ -281,15 +279,12 @@ CONDITIONS:
 
 Một rule cụ thể gắn TrafficViolation với một Provision trong một context pháp lý nhất định.
 
-~~~text
-TrafficViolation
-      ↓
-ViolationRule
-      ↓
-Provision
-      ↓
-Sanction
-~~~
+```mermaid
+flowchart TB
+    V["TrafficViolation"] --> R["ViolationRule"]
+    R --> P["Provision nguồn"]
+    R --> S["Sanction"]
+```
 
 ### 4.6.1. Rule Lineage
 
@@ -301,17 +296,15 @@ System phải duy trì **RuleLineage** để biểu diễn một chuỗi rule m�
 
 Ví dụ:
 
-~~~text
-TrafficViolation: Vượt đèn đỏ
-
-├── RuleLineage: Ô tô
-│   ├── Rule A
-│   └── Rule B [CURRENT]
-│
-└── RuleLineage: Xe máy
-    ├── Rule C
-    └── Rule D [CURRENT]
-~~~
+```mermaid
+flowchart TB
+    V["TrafficViolation: Vượt đèn đỏ"] --> Car["RuleLineage: Ô tô"]
+    V --> Bike["RuleLineage: Xe máy"]
+    Car --> A["Rule A"]
+    A --> B["Rule B — CURRENT"]
+    Bike --> C["Rule C"]
+    C --> D["Rule D — CURRENT"]
+```
 
 Semantic diff chỉ được thực hiện giữa các rule thuộc cùng lineage hoặc có ProvisionRelation / legal evidence chứng minh quan hệ kế thừa.
 
@@ -473,33 +466,20 @@ PDF là đầu vào import chính thức. VBPL và nguồn bổ trợ cung cấp
 MVP tổ chức backend theo module trong cùng codebase, tách HTTP request khỏi xử lý nền bằng Queue. Chưa cần tách mỗi bước Legal NLP thành một microservice. Frontend SvelteKit gọi API Elysia trên Cloudflare Worker; Worker dùng D1 cho dữ liệu có cấu trúc, R2 cho tệp/snapshots và Queues cho công việc nền.
 
 ```mermaid
-flowchart TB
-    Web["SvelteKit Web"] -->|"HTTP API"| API["Elysia API / Cloudflare Worker"]
-    API -->|"PDF và source snapshots"| R2["R2 object storage"]
-    API -->|"Jobs / domain queries"| DB["D1 relational store"]
-    API -->|"Job reference"| Queue["Processing Queue"]
-    Queue --> Consumer["Queue consumer / pipeline orchestration"]
-    Consumer -->|"Read snapshots / write artifacts"| R2
-    Consumer -->|"Checkpoint / validated domain writes"| DB
-    Consumer --> Acquisition["Source Acquisition Adapter"]
-    Consumer --> PDF["PDF Ingestion Adapter / OCR"]
-    Consumer --> Extraction["Graph / provision / violation extraction"]
-    Extraction -->|"list_vocab / add_vocab"| MCP["Vocabulary MCP Server"]
-    MCP --> Registry["Domain Vocabulary Registry"]
-    Registry --> DB
-    Acquisition --> Source["Official sources"]
-    PDF --> OCR["OCR engine"]
-    Extraction --> LLM["LLM provider"]
-    API --> Retrieval["Search / temporal resolver / evidence retrieval"]
-    Retrieval --> DB
-    Retrieval --> Index["Derived search indexes"]
-    Consumer -->|"Index validated records"| Index
-    API --> Answer["Grounded answer generator"]
-    Retrieval -->|"Evidence + reference IDs"| Answer
-    Answer --> LLM
+flowchart LR
+    Web["SvelteKit Web"] <-->|"Upload / job status / search / chat"| API["Cloudflare Worker<br/>Elysia API"]
+    API <-->|"Jobs / domain data"| D1["Cloudflare D1"]
+    API <-->|"PDF / snapshots"| R2["Cloudflare R2"]
+    API -->|"Enqueue job"| Queue["Cloudflare Queues"]
+    Queue -->|"Deliver job"| Consumer["Cloudflare Worker<br/>Queue consumer / Legal AI pipeline"]
+    Consumer <-->|"Checkpoints / validated results"| D1
+    Consumer <-->|"Source files / artifacts"| R2
+    Consumer <-->|"Acquire / discover"| Source["VBPL / official sources"]
+    Consumer <-->|"OCR / structured extraction"| AI["OCR / LLM providers"]
+    API <-->|"Grounded answer"| AI
 ```
 
-Các module trong sơ đồ là ranh giới trách nhiệm, không bắt buộc là các dịch vụ deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi PDF/OCR cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
+Sơ đồ chỉ thể hiện các component triển khai và đường tương tác chính. Search/temporal resolver, vocabulary registry/MCP và answer generator là các module logic của backend, được mô tả trong bảng bên dưới; không bắt buộc deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi PDF/OCR cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
 
 | Thành phần | Trách nhiệm và đầu ra | Yêu cầu liên quan |
 | --- | --- | --- |
@@ -516,74 +496,31 @@ Các module trong sơ đồ là ranh giới trách nhiệm, không bắt buộc 
 
 ### 5.3. Pipeline nghiệp vụ
 
-~~~text
-                    ADMIN
-                      │
-                 Legal document PDF
-                      │
-                      ▼
-              PDF Ingestion Adapter
-                      │
-       validate + file hash + PDF snapshot
-                      │
-           text layer / OCR + page locators
-                      │
-                      ▼
-        Incremental Corpus Discovery
-                      │
-       Structure / Quote Context + Locators
-                      │
-       Full-text References + Legal Clauses
-                      │
-          Identity + Relation Resolution
-                      │
-       Evidence-backed DocumentRelation graph
-                      │
-                      ▼
-         Provision Segmentation Enrichment
-                      │
-                      ▼
-          Provision Relevance Classifier
-                      │
-          ┌───────────┴───────────┐
-          │                       │
-     irrelevant               relevant
-                                  │
-                       ┌──────────┴──────────┐
-                       ▼                     ▼
-              Change Instruction      Violation/Sanction
-                  Extraction              Extraction
-                       │                     │
-                       ▼                     ▼
-                ProvisionRelation     ViolationRule IR
-                       │                     │
-                       └──────────┬──────────┘
-                                  ▼
-                         Violation Resolver
-                                  │
-                                  ▼
-                       TrafficViolation identity
-                                  │
-                                  ▼
-                           Rule Lineage
-                                  │
-                                  ▼
-                         Semantic Change Engine
-                                  │
-                                  ▼
-                      Current Rule + History
-                                  │
-                    ┌─────────────┴────────────────────────┐
-                    ▼                                      ▼
-              Document Search                      Violation Retrieval
-                                                          │
-                                             ┌────────────┴────────────┐
-                                             ▼                         ▼
-                                      Manual Full-text Search       AI Chat RAG
-                                                                       │
-                                                                       ▼
-                                                           Answer + Provision References
-~~~
+```mermaid
+flowchart TB
+    PDF["Admin upload PDF"] --> Ingest["Validate / hash / snapshot / text hoặc OCR"]
+    Ingest --> Discovery["Corpus discovery / structure / quote context / locators"]
+    Discovery --> Graph["Full-text references / legal clauses / identity và relation resolution"]
+    Graph --> DG["Evidence-backed DocumentRelation graph"]
+    DG --> Parse["Provision segmentation enrichment"]
+    Parse --> Relevance{"Provision relevance"}
+    Relevance -->|"Irrelevant"| Skip["Giữ nguồn và relations đã phát hiện"]
+    Relevance -->|"Relevant"| Change["ChangeInstruction extraction"]
+    Relevance -->|"Relevant"| Extract["Violation / Sanction extraction"]
+    Change --> PR["ProvisionRelation"]
+    Extract --> IR["ViolationRule IR"]
+    PR --> Resolver["Violation Resolver"]
+    IR --> Resolver
+    Resolver --> Violation["TrafficViolation identity"]
+    Violation --> Lineage["RuleLineage"]
+    Lineage --> Diff["Semantic Change Engine"]
+    Diff --> History["Current Rule + History"]
+    History --> Docs["Document Search"]
+    History --> Retrieval["Violation Retrieval"]
+    Retrieval --> FTS["Manual Full-text Search"]
+    Retrieval --> RAG["AI Chat RAG"]
+    RAG --> Answer["Answer + Provision References"]
+```
 
 ---
 
@@ -689,11 +626,23 @@ System phải:
 
 Lifecycle:
 
-~~~text
-QUEUED → VALIDATING → EXTRACTING_TEXT → OCR_IF_NEEDED
-→ PARSING → BUILDING_GRAPH → DISCOVERING
-→ PROCESSING → INDEXING → READY
-~~~
+```mermaid
+flowchart TB
+    Q["QUEUED"] --> V["VALIDATING"]
+    V --> T["EXTRACTING_TEXT"]
+    T --> Quality{"Text quality đạt policy?"}
+    Quality -->|"Có"| P["PARSING"]
+    Quality -->|"Không"| OCR["OCR_IF_NEEDED"]
+    OCR --> P
+    P --> G["BUILDING_GRAPH"]
+    G --> D["DISCOVERING"]
+    D -->|"Có văn bản mới"| T
+    D -->|"Kết thúc trong policy"| Process["PROCESSING"]
+    Process --> I["INDEXING"]
+    I --> R["READY / PARTIAL theo quality và coverage"]
+    V -.->|"Root PDF không usable"| F["FAILED"]
+    OCR -.->|"Pipeline cốt lõi thất bại"| F
+```
 
 Các giai đoạn có thể lặp khi thêm related documents. OCR không cần chạy khi text layer đạt quality policy. Không được thay thế OCR lỗi bằng việc để LLM tự điền nội dung từ trí nhớ.
 
@@ -711,13 +660,20 @@ Không hỗ trợ URL import hoặc DOCX trong MVP; source URL chỉ là metadat
 
 Từ root document được upload PDF, system phải discover/acquire văn bản liên quan từ full PDF text/OCR, reverse corpus index/search và source observations tùy chọn. Hệ thống có thể crawl/scrape nguồn chính thức hoặc corpus data để lấy related documents; không giả định header hoặc graph nguồn đầy đủ.
 
-~~~text
-root snapshot → references/legal clauses → candidate identities
-       ↓                                      ↓
-reverse searches ← corpus index ← acquire resolved new documents
-       ↓                                      ↓
-   new candidates → resolve + evidence-backed graph → repeat by policy
-~~~
+```mermaid
+flowchart TB
+    Root["Root snapshot"] --> Extract["References / legal clauses"]
+    Extract --> Candidate["Candidate identities"]
+    Candidate --> Resolve["Resolve identity + evidence-backed graph"]
+    Resolve --> Acquire["Acquire resolved new documents"]
+    Acquire --> Index["Corpus index"]
+    Index --> Reverse["Reverse searches"]
+    Reverse --> Candidate
+    Acquire --> Extract
+    Resolve --> Stop{"Tiếp tục theo discovery policy?"}
+    Stop -->|"Có"| Acquire
+    Stop -->|"Không"| Checkpoint["Persist frontier / coverage / stop reasons"]
+```
 
 System phải:
 
@@ -758,13 +714,11 @@ Relation View dùng taxonomy nội bộ ở mục 4.3 và hỗ trợ inverse gro
 
 System phải parse hierarchy:
 
-~~~text
-Chương
-Mục
-Điều
-Khoản
-Điểm
-~~~
+```mermaid
+flowchart TB
+    Chapter["Chương"] --> Section["Mục"] --> Article["Điều"]
+    Article --> Paragraph["Khoản"] --> Point["Điểm"]
+```
 
 Mỗi Provision phải giữ:
 
@@ -844,10 +798,10 @@ System phải resolve ChangeInstruction thành edge giữa provision nguồn và
 
 Ví dụ:
 
-~~~text
-Provision B
-  └── AMENDS → Provision A
-~~~
+```mermaid
+flowchart LR
+    B["Provision B"] -->|"AMENDS"| A["Provision A"]
+```
 
 Mỗi edge phải lưu:
 
@@ -910,15 +864,21 @@ Khi LLM được dùng trong import để extract/classify các dimension của 
 
 Flow bắt buộc cho mỗi semantic candidate cần canonicalize:
 
-~~~text
-extract candidate from Provision
-→ list_vocab(type, query, limit)
-→ reuse existing vocab nếu semantic meaning tương đương
-→ nếu chưa có candidate phù hợp: add_vocab(...)
-→ MCP server re-check duplicate
-→ EXISTING | CREATED | AMBIGUOUS
-→ attach canonical vocab ID hoặc giữ unresolved
-~~~
+```mermaid
+flowchart TB
+    Extract["Extract candidate from Provision"] --> List["list_vocab(type, query, limit)"]
+    List --> Match{"Có vocabulary tương đương?"}
+    Match -->|"Có"| Reuse["Reuse existing canonical vocab ID"]
+    Match -->|"Không"| Add["add_vocab(...)"]
+    Add --> Dedup["MCP server re-check duplicate"]
+    Dedup --> Existing["EXISTING"]
+    Dedup --> Created["CREATED"]
+    Dedup --> Ambiguous["AMBIGUOUS"]
+    Existing --> Attach["Attach canonical vocab ID"]
+    Created --> Attach
+    Reuse --> Attach
+    Ambiguous --> Unresolved["Giữ unresolved candidate"]
+```
 
 Yêu cầu cho `list_vocab`:
 
@@ -1008,14 +968,20 @@ Các ViolationRule từ nhiều văn bản phải được resolve về cùng m�
 
 Flow ưu tiên:
 
-~~~text
-normalize
-→ vocabulary retrieval / canonical vocab IDs
-→ canonical / alias match
-→ structured field match
-→ lexical / semantic retrieval
-→ LLM resolver khi cần
-~~~
+```mermaid
+flowchart TB
+    N0["Normalize"]
+    N1["Vocabulary retrieval / canonical vocab IDs"]
+    N2["Canonical / alias match"]
+    N3["Structured field match"]
+    N4["Lexical / semantic retrieval"]
+    N5["LLM resolver khi cần"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+```
 
 Ví dụ:
 
@@ -1047,18 +1013,15 @@ TrafficViolation là identity trung tâm của history.
 
 System phải reconstruct:
 
-~~~text
-TrafficViolation
-   │
-   ├── ViolationRule A
-   │       └── Provision A
-   │
-   ├── ViolationRule B
-   │       └── Provision B
-   │
-   └── ViolationRule C
-           └── Provision C
-~~~
+```mermaid
+flowchart TB
+    V["TrafficViolation"] --> A["ViolationRule A"]
+    V --> B["ViolationRule B"]
+    V --> C["ViolationRule C"]
+    A --> PA["Provision A"]
+    B --> PB["Provision B"]
+    C --> PC["Provision C"]
+```
 
 Provision graph phải cho biết:
 
@@ -1068,10 +1031,15 @@ A --AMENDED_BY--> B --REPLACED_BY--> C
 
 Behavior history phải cho biết theo từng RuleLineage:
 
-~~~text
-Lineage 1: Rule A → Rule B → Rule C
-Lineage 2: Rule D → Rule E
-~~~
+```mermaid
+flowchart LR
+    subgraph L1["Lineage 1"]
+        A["Rule A"] --> B["Rule B"] --> C["Rule C"]
+    end
+    subgraph L2["Lineage 2"]
+        D["Rule D"] --> E["Rule E"]
+    end
+```
 
 Hai graph phải liên kết được với nhau.
 
@@ -1273,24 +1241,24 @@ AI phải tự:
 
 Pipeline:
 
-~~~text
-User question
-      ↓
-Query understanding
-      ↓
-Hybrid retrieval
-(FTS + alias + structured + semantic)
-      ↓
-TrafficViolation candidates
-      ↓
-ViolationRule / Sanction / History retrieval
-      ↓
-Source Provision retrieval
-      ↓
-LLM answer synthesis
-      ↓
-Answer + references
-~~~
+```mermaid
+flowchart TB
+    N0["User question"]
+    N1["Query understanding"]
+    N2["Hybrid retrieval: FTS + alias + structured + semantic"]
+    N3["TrafficViolation candidates"]
+    N4["ViolationRule / Sanction / History retrieval"]
+    N5["Source Provision retrieval"]
+    N6["LLM answer synthesis"]
+    N7["Answer + references"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+    N5 --> N6
+    N6 --> N7
+```
 
 AI chat phải theo nguyên tắc **retrieval-first, answer-last**.
 
@@ -1319,13 +1287,18 @@ phải reference về ít nhất một Provision nguồn.
 
 Reference tối thiểu phải cho phép user mở:
 
-~~~text
-Document
-→ Điều
-→ Khoản
-→ Điểm
-→ raw provision text
-~~~
+```mermaid
+flowchart TB
+    N0["Document"]
+    N1["Điều"]
+    N2["Khoản"]
+    N3["Điểm"]
+    N4["Raw provision text"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+```
 
 Ví dụ presentation:
 
@@ -1362,21 +1335,11 @@ Nếu có nhiều current rules do khác vehicle/context, UI phải hiển thị
 
 History phải hiển thị theo thời gian:
 
-~~~text
-Provision A
-Fine: 400k–600k
-[SUPERSEDED]
-      ↓ AMENDED
-
-Provision B
-Fine: 600k–800k
-[SUPERSEDED]
-      ↓ REPLACED
-
-Provision C
-Fine: 800k–1m
-[CURRENT]
-~~~
+```mermaid
+flowchart TB
+    A["Provision A<br/>Fine: 400k–600k<br/>SUPERSEDED"] -->|"AMENDED"| B["Provision B<br/>Fine: 600k–800k<br/>SUPERSEDED"]
+    B -->|"REPLACED"| C["Provision C<br/>Fine: 800k–1m<br/>CURRENT"]
+```
 
 Mỗi transition phải cho biết:
 
@@ -1448,39 +1411,41 @@ Không có human_verified requirement bắt buộc trong MVP.
 
 Core model:
 
-~~~text
-Document
-├── DocumentSource / SourceSnapshot
-├── DocumentReference / SourceRelationObservation
-├── DocumentRelationCandidate
-├── DocumentRelation / RelationEvidence
-└── Provision
-    ├── ChangeInstruction
-    ├── ProvisionRelation
-    └── ViolationRule
-        └── Sanction
-            └── SanctionEffect[]
-
-TrafficViolation
-├── ViolationAlias
-└── RuleLineage
-    └── ViolationRule
-
-ExtractionRun
-ChangeEvent
-ImportJob
-SourceSnapshot
-~~~
+```mermaid
+flowchart TB
+    Document["Document"] --> DS["DocumentSource"]
+    DS --> Snapshot["SourceSnapshot"]
+    Document --> Ref["DocumentReference"]
+    Document --> Observation["SourceRelationObservation"]
+    Document --> Candidate["DocumentRelationCandidate"]
+    Document --> DR["DocumentRelation"]
+    DR --> Evidence["RelationEvidence"]
+    Document --> Provision["Provision"]
+    Provision --> Instruction["ChangeInstruction"]
+    Provision --> PR["ProvisionRelation"]
+    Provision --> Rule["ViolationRule"]
+    Rule --> Sanction["Sanction"]
+    Sanction --> Effect["SanctionEffect"]
+    Violation["TrafficViolation"] --> Alias["ViolationAlias"]
+    Violation --> Lineage["RuleLineage"]
+    Lineage --> Rule
+    Run["ExtractionRun / provenance"] -.-> Snapshot
+    Run -.-> Rule
+    Event["ChangeEvent"] -.-> PR
+    Job["ImportJob"] -.-> Document
+```
 
 Hai graph quan trọng:
 
-~~~text
-Document Graph
-Document ──relation──> Document
-
-Provision Graph
-Provision ──AMENDS/REPLACES/...──> Provision
-~~~
+```mermaid
+flowchart LR
+    subgraph DG["Document Graph"]
+        DA["Document nguồn"] -->|"Relation"| DB["Document đích"]
+    end
+    subgraph PG["Provision Graph"]
+        PA["Provision tác động"] -->|"AMENDS / REPLACES / ..."| PB["Provision bị tác động"]
+    end
+```
 
 TrafficViolation đóng vai trò semantic identity nối các ViolationRule thuộc nhiều provision khác nhau.
 
@@ -1768,87 +1733,89 @@ error
 
 ### Phase 1 — Acquisition, corpus discovery và document graph
 
-~~~text
-PDF upload → validate + ImportJob → original file/hash snapshot
-       ↓
-page text extraction → quality check → OCR if required
-       ↓
-metadata/header + full-text/quote/effect/transition locators
-       ↓
-whole-text reference/legal-clause extraction + structural locators
-       ↓
-identity resolution → evidence validation → own DocumentRelation graph
-       ↓
-acquire new referenced documents + reverse searches into corpus
-       ↓
-repeat within discovery policy; persist frontier/coverage/candidates
-~~~
+```mermaid
+flowchart TB
+    PDF["PDF upload"] --> Validate["Validate + ImportJob"]
+    Validate --> Snapshot["Original file / hash snapshot"]
+    Snapshot --> Text["Page text extraction"]
+    Text --> Quality{"Quality check"}
+    Quality -->|"OCR required"| OCR["OCR"]
+    Quality -->|"Text đạt policy"| Locators["Metadata / header / full-text / quote / effect / transition locators"]
+    OCR --> Locators
+    Locators --> Extract["Whole-text reference / legal-clause extraction + structural locators"]
+    Extract --> Identity["Identity resolution"]
+    Identity --> Evidence["Evidence validation"]
+    Evidence --> Graph["Own DocumentRelation graph"]
+    Graph --> Discover["Acquire referenced documents + reverse searches into corpus"]
+    Discover --> Policy{"Tiếp tục trong discovery policy?"}
+    Policy -->|"Có văn bản mới"| Snapshot
+    Policy -->|"Dừng"| Save["Persist frontier / coverage / candidates"]
+```
 
 Source diagrams là nhánh observations tùy chọn. Khi thêm văn bản, incoming index và graph được cập nhật từ evidence mới; không chờ provider có lược đồ. Stop/READY không khẳng định graph toàn cục đầy đủ.
 
 ### Phase 2 — Provision parsing
 
-~~~text
-Documents
- ↓
-segment Điều / Khoản / Điểm
- ↓
-classify relevance
-~~~
+```mermaid
+flowchart TB
+    N0["Documents"]
+    N1["Segment Điều / Khoản / Điểm"]
+    N2["Classify relevance"]
+    N0 --> N1
+    N1 --> N2
+```
 
 ### Phase 3 — Legal change graph
 
-~~~text
-Amendment / repeal provisions
- ↓
-extract ChangeInstruction
- ↓
-resolve target provision
- ↓
-create ProvisionRelation
-~~~
+```mermaid
+flowchart TB
+    N0["Amendment / repeal provisions"]
+    N1["Extract ChangeInstruction"]
+    N2["Resolve target provision"]
+    N3["Create ProvisionRelation"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+```
 
 ### Phase 4 — Traffic violation extraction
 
-~~~text
-Relevant sanction provisions
- ↓
-extract ViolationRule
- ↓
-extract Sanction
-~~~
+```mermaid
+flowchart TB
+    N0["Relevant sanction provisions"]
+    N1["Extract ViolationRule"]
+    N2["Extract Sanction"]
+    N0 --> N1
+    N1 --> N2
+```
 
 ### Phase 5 — Behavior resolution
 
-~~~text
-ViolationRule
- ↓
-normalize
- ↓
-retrieve candidate TrafficViolation
- ↓
-resolve identity
- ↓
-attach rule
- ↓
-resolve RuleLineage
-~~~
+```mermaid
+flowchart TB
+    N0["ViolationRule"]
+    N1["Normalize"]
+    N2["Retrieve candidate TrafficViolation"]
+    N3["Resolve identity"]
+    N4["Attach rule"]
+    N5["Resolve RuleLineage"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+```
 
 ### Phase 6 — History reconstruction
 
-~~~text
-ProvisionRelation
-+
-TrafficViolation identity
-+
-effective dates
- ↓
-Violation history
- ↓
-semantic diff
- ↓
-current rule
-~~~
+```mermaid
+flowchart TB
+    PR["ProvisionRelation"] --> History["Violation history"]
+    V["TrafficViolation identity"] --> History
+    Dates["Effective dates"] --> History
+    History --> Diff["Semantic diff"]
+    Diff --> Current["Current rule"]
+```
 
 ---
 
@@ -1936,97 +1903,79 @@ Result hiển thị:
 
 ### 12.2. Document View — Nội dung
 
-~~~text
-Document metadata
-
-[Nội dung] [Quan hệ]
-
-Điều 1
-Điều 2
-
-⚠ Điểm a Khoản 2 Điều 6
-Rule status: SUPERSEDED
-Affected behavior: Đỗ xe ngoài đô thị
-[View history]
-[View rule at date]
-~~~
+```mermaid
+flowchart TB
+    Metadata["Document metadata"] --> Content["Tab: Nội dung"]
+    Metadata --> Relations["Tab: Quan hệ"]
+    Content --> Articles["Điều 1 / Điều 2 / ..."]
+    Articles --> Point["Điểm a Khoản 2 Điều 6<br/>SUPERSEDED<br/>Hành vi: Đỗ xe ngoài đô thị"]
+    Point --> History["View history"]
+    Point --> Date["View rule at date"]
+```
 
 ### 12.3. Document View — Quan hệ
 
 Render graph do hệ thống build theo relation type và chiều. Hiển thị evidence/scope/status từng cạnh; source observations và candidate chưa xác minh tách khỏi accepted graph. Giữ hai tab chính, bổ sung scope/cutoff/coverage và unknown targets trong tab Quan hệ.
 
-~~~text
-Văn bản được hướng dẫn áp dụng (...)
-Văn bản được quy định chi tiết, hướng dẫn thi hành (...)
-Văn bản bị tác động hiệu lực một phần (...)
-Văn bản bị tác động hiệu lực toàn bộ (...)
-...
-VĂN BẢN ĐANG XEM
-...
-Các văn bản tác động / hướng dẫn / thay thế (...)
-Candidate chưa xác minh / target chưa resolve (...)
-Coverage: corpus scope + cutoff + stop reasons
-~~~
+```mermaid
+flowchart TB
+    Document["VĂN BẢN ĐANG XEM"] --> Guided["Văn bản được hướng dẫn áp dụng"]
+    Document --> Detailed["Văn bản được quy định chi tiết / hướng dẫn thi hành"]
+    Document --> Partial["Văn bản bị tác động hiệu lực một phần"]
+    Document --> Full["Văn bản bị tác động hiệu lực toàn bộ"]
+    Incoming["Các văn bản tác động / hướng dẫn / thay thế"] --> Document
+    Document -.-> Candidates["Candidate chưa xác minh / target chưa resolve"]
+    Document -.-> Coverage["Corpus scope / cutoff / stop reasons"]
+```
 
 ### 12.4. Violation Search
 
 UI phải cho phép user chọn giữa hai mode:
 
-~~~text
-[ Search ] [ Ask AI ]
-~~~
+```mermaid
+flowchart LR
+    Mode{"Chọn mode"} --> Search["Search"]
+    Mode --> AI["Ask AI"]
+```
 
 Manual Search:
 
-~~~text
-Search:
-[ vượt đèn đỏ ]
-
-Results:
-- Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
-  Current sanction: ...
-  Source: ...
-~~~
+```mermaid
+flowchart TB
+    N0["Search: vượt đèn đỏ"]
+    N1["Results: Không chấp hành hiệu lệnh của đèn tín hiệu giao thông"]
+    N2["Current sanction + source"]
+    N0 --> N1
+    N1 --> N2
+```
 
 Ask AI:
 
-~~~text
-User:
-Vượt đèn đỏ hiện giờ phạt bao nhiêu và trước đây thay đổi thế nào?
-
-AI:
-<answer tổng hợp từ retrieved rules>
-
-References:
-[1] Nghị định ..., Điều ..., Khoản ..., Điểm ...
-[2] Nghị định ..., Điều ..., Khoản ..., Điểm ...
-~~~
+```mermaid
+flowchart TB
+    User["User: Vượt đèn đỏ hiện giờ phạt bao nhiêu và trước đây thay đổi thế nào?"] --> AI["AI: Answer tổng hợp từ retrieved rules"]
+    AI --> R1["Reference 1: Nghị định / Điều / Khoản / Điểm"]
+    AI --> R2["Reference 2: Nghị định / Điều / Khoản / Điểm"]
+```
 
 Reference phải click được để mở đúng provision trong Document View.
 
 ### 12.5. Violation Detail
 
-~~~text
-Không chấp hành hiệu lệnh của đèn tín hiệu giao thông
-
-Current sanction
-...
-
-Current provisions
-...
-
-[View history]
-~~~
+```mermaid
+flowchart TB
+    V["Không chấp hành hiệu lệnh của đèn tín hiệu giao thông"] --> Sanction["Current sanction"]
+    V --> Provisions["Current provisions"]
+    V --> History["View history"]
+```
 
 ### 12.6. Violation History
 
-~~~text
-2019 ───────── 2021 ───────── 2025 ───── Current
-Rule A          Rule B          Rule C
-6–8m            8–10m          18–20m
-     ↑                ↑
- AMENDED          REPLACED
-~~~
+```mermaid
+flowchart LR
+    A["2019 — Rule A<br/>6–8m"] -->|"AMENDED"| B["2021 — Rule B<br/>8–10m"]
+    B -->|"REPLACED"| C["2025–Current — Rule C<br/>18–20m"]
+```
 
 Click một transition hiển thị provision relation và semantic diff.
 
@@ -2213,91 +2162,90 @@ Bốn metric này phản ánh trực tiếp khả năng:
 
 ### Document graph construction
 
-~~~text
-source diagram only (comparison baseline, not ground truth)
-vs
-rule-based citations + legal actions + deterministic identity resolution
-vs
-rules + retrieval + constrained structured LLM + evidence validation
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["source diagram only (comparison baseline, not ground truth)"]
+    Compare --- B1["rule-based citations + legal actions + deterministic identity resolution"]
+    Compare --- B2["rules + retrieval + constrained structured LLM + evidence validation"]
+```
 
 Ablation phải đo tác động của reverse discovery, identity resolution và source observations trên cùng gold corpus; graph frontier rỗng không phải metric completeness pháp lý.
 
 ### Provision relation resolution
 
-~~~text
-explicit locator / regex only
-vs
-text retrieval
-vs
-structured extraction + resolver
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["explicit locator / regex only"]
+    Compare --- B1["text retrieval"]
+    Compare --- B2["structured extraction + resolver"]
+```
 
 ### Violation extraction
 
-~~~text
-regex / keyword
-vs
-LLM zero-shot
-vs
-structured parser
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["regex / keyword"]
+    Compare --- B1["LLM zero-shot"]
+    Compare --- B2["structured parser"]
+```
 
 ### Violation identity resolution
 
-~~~text
-exact match
-vs
-embedding Top-1
-vs
-structured retrieval + LLM
-vs
-structured retrieval + LLM + MCP vocabulary reuse
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["exact match"]
+    Compare --- B1["embedding Top-1"]
+    Compare --- B2["structured retrieval + LLM"]
+    Compare --- B3["structured retrieval + LLM + MCP vocabulary reuse"]
+```
 
 Ablation cho MCP vocabulary phải tách ít nhất: existing-vocab reuse accuracy, duplicate-vocab creation rate và precision của vocab mới được tạo.
 
 ### Change detection
 
-~~~text
-raw text diff
-vs
-sanction-field diff
-vs
-ViolationRule structural semantic diff
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["raw text diff"]
+    Compare --- B1["sanction-field diff"]
+    Compare --- B2["ViolationRule structural semantic diff"]
+```
 
 ### Current rule determination
 
-~~~text
-document effective status only
-vs
-document relation graph
-vs
-document + provision relation + behavior history
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["document effective status only"]
+    Compare --- B1["document relation graph"]
+    Compare --- B2["document + provision relation + behavior history"]
+```
 
 ### AI chat retrieval / QA
 
-~~~text
-FTS Top-K + template answer
-vs
-vector retrieval + LLM
-vs
-hybrid retrieval + structured legal context + LLM
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["FTS Top-K + template answer"]
+    Compare --- B1["vector retrieval + LLM"]
+    Compare --- B2["hybrid retrieval + structured legal context + LLM"]
+```
 
 AI QA evaluation phải tách retrieval quality khỏi answer quality để phân biệt lỗi tìm sai evidence và lỗi sinh câu trả lời.
 
 ### End-to-end current sanction QA
 
-~~~text
-direct LLM over raw provision corpus
-vs
-RAG over provision text
-vs
-behavior-centric knowledge base + provision lineage + grounded answer
-~~~
+```mermaid
+flowchart TB
+    Compare["So sánh baseline"]
+    Compare --- B0["direct LLM over raw provision corpus"]
+    Compare --- B1["RAG over provision text"]
+    Compare --- B2["behavior-centric knowledge base + provision lineage + grounded answer"]
+```
 
 ---
 
@@ -2342,7 +2290,6 @@ MVP hoàn thành khi:
 
 ## 17. Demo Scenario
 
-~~~text
 1. Admin upload PDF văn bản giao thông, gồm đủ phần/phụ lục. System nhận diện text layer hoặc OCR và hiển thị quality/coverage.
 
 2. System discover corpus từ toàn văn/reverse searches và tự build document graph; lược đồ nguồn có thể thiếu hoặc không có.
@@ -2388,7 +2335,7 @@ MVP hoàn thành khi:
 11. User mở History.
 
 12. System hiển thị:
-    Provision A → Provision B → ...
+    Chuỗi kế thừa provision như sơ đồ dưới đây:
     cùng relation, effective date và mức phạt từng thời kỳ.
 
 13. User chuyển sang Ask AI:
@@ -2408,7 +2355,11 @@ MVP hoàn thành khi:
 19. System sử dụng as-of resolution để trả historical rule và reference đúng provision tại thời điểm đó.
 
 20. Với câu hỏi thiếu vehicle/context, AI hiển thị nhiều applicable rules hoặc yêu cầu bổ sung context thay vì tự chọn một rule.
-~~~
+
+```mermaid
+flowchart LR
+    A["Provision A"] --> B["Provision B"] --> Next["Các provision kế tiếp"]
+```
 
 ---
 
@@ -2434,21 +2385,22 @@ Contribution của hệ thống nằm ở việc tự động:
 
 Core research pipeline:
 
-~~~text
-Full text + references + legal actions + identity resolution
-        ↓
-Evidence-backed Document relationship
-        ↓
-Provision relationship
-        ↓
-TrafficViolation identity
-        ↓
-Semantic rule change
-        ↓
-Current sanction + legal history
-        ↓
-Manual search + grounded AI QA
-~~~
+```mermaid
+flowchart TB
+    N0["Full text + references + legal actions + identity resolution"]
+    N1["Evidence-backed Document relationship"]
+    N2["Provision relationship"]
+    N3["TrafficViolation identity"]
+    N4["Semantic rule change"]
+    N5["Current sanction + legal history"]
+    N6["Manual search + grounded AI QA"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+    N5 --> N6
+```
 
 ---
 
