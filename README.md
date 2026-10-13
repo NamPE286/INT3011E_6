@@ -12,16 +12,17 @@ Tài liệu nguồn của dự án nằm trong thư mục [`docs`](docs):
 
 | Vai trò | Tài liệu nên đọc | Mục đích |
 | --- | --- | --- |
-| Lead | [Software Requirements Specification](docs/srs.md), đặc biệt các mục 1–6, 13, 16 và 19–21 | Nắm toàn bộ định hướng sản phẩm và kỹ thuật; quản lý phạm vi, phân rã yêu cầu, duyệt thiết kế và review thay đổi trước khi chuyển sang kiểm thử. |
+| Lead | [Software Requirements Specification](docs/srs.md), đặc biệt các mục 1–6 (bao gồm System Design tại mục 5), 13, 16 và 19–21 | Nắm toàn bộ định hướng sản phẩm và kỹ thuật; quản lý phạm vi, phân rã yêu cầu, duyệt thiết kế và review thay đổi trước khi chuyển sang kiểm thử. |
 | Developer | [SRS](docs/srs.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Hiểu yêu cầu của task trước khi triển khai; tuân thủ quy trình estimate, branch, pull request, review và Definition of Done. |
 | Tester | [SRS](docs/srs.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria; kiểm tra happy path, edge case, regression và báo lỗi đúng mẫu. |
 
 Thứ tự đọc:
 
 1. Đọc mục tiêu, phạm vi và actor trong SRS.
-2. Đọc các functional requirement liên quan đến task được giao.
-3. Đọc guide dành cho vai trò của mình; Lead sử dụng cả hai workflow guide để điều phối vòng review và kiểm thử.
-4. Lead và Developer tiếp tục phần [Setup](#setup) và [Architecture](#architecture) bên dưới trước khi làm việc với mã nguồn.
+2. Đọc [System Design](docs/srs.md#5-system-design) để nắm thành phần, luồng dữ liệu, lưu trữ, retry và ranh giới giữa demo hiện có với kiến trúc đích.
+3. Đọc các functional requirement liên quan đến task được giao.
+4. Đọc guide dành cho vai trò của mình; Lead sử dụng cả hai workflow guide để điều phối vòng review và kiểm thử.
+5. Lead và Developer tiếp tục phần [Setup](#setup) và [Architecture](#architecture) bên dưới trước khi làm việc với mã nguồn.
 
 ## Setup
 
@@ -237,6 +238,6 @@ Các binding được khai báo tại [`backend/wrangler.jsonc`](backend/wrangle
 
 ### Kiến trúc đích
 
-Theo [SRS](docs/srs.md#5-high-level-architecture), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật, trích text/OCR và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
+Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật, trích text/OCR và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
 
 Khi triển khai feature mới, SRS là nguồn quyết định cho nghiệp vụ; README này mô tả trạng thái kỹ thuật đang có để hỗ trợ chạy và phát triển local.
