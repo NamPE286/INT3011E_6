@@ -42,10 +42,15 @@ describe("POST /api/uploads", () => {
     it("successfully uploads file, saves to R2, writes to D1, and enqueues to Queue", async () => {
         const mockEnv = createMockEnv();
         const formData = new FormData();
-        const fileContent = "Sample document contents for testing";
-        const testFile = new File([fileContent], "test_contract.pdf", {
-            type: "application/pdf",
-        });
+        const pdfBytes = await Bun.file(
+            new URL("./fixtures/sample.pdf", import.meta.url)
+        ).arrayBuffer();
+
+        const testFile = new File(
+            [pdfBytes],
+            "test_contract.pdf",
+            { type: "application/pdf" }
+        );
         formData.append("file", testFile);
 
         const request = new Request("http://localhost/api/uploads", {

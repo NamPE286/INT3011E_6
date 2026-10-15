@@ -41,6 +41,14 @@ export async function processUpload(
         throw new UploadValidationError("File exceeds maximum limit of 50MB");
     }
 
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+        throw new UploadValidationError("Only .pdf files are supported");
+    }
+    const signature = new TextDecoder().decode(await file.slice(0, 5).arrayBuffer());
+    if (signature !== "%PDF-") {
+        throw new UploadValidationError("File does not have a valid PDF header");
+    }
+
     const jobId = crypto.randomUUID();
     const safeFilename = sanitizeFilename(file.name);
     const r2Key = `uploads/${jobId}/${safeFilename}`;

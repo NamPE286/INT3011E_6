@@ -1,29 +1,37 @@
 import type { MessageBatch } from "@cloudflare/workers-types";
 import type { Env, ProcessingQueueMessage } from "../../types/env";
-import type { Sleep } from "./processing.types";
-import { executeProcessingPipeline, defaultSleep } from "./processing.service";
+import { executeProcessingPipeline } from "./processing.service";
+import { NeedsReviewError } from "./legal-types";
 
 export async function handleProcessingBatch(
-    batch: MessageBatch<ProcessingQueueMessage>,
-    env: Env,
-    sleepFn: Sleep = defaultSleep
+    batch: MessageBatch<ProcessingQueueMessage>, env: Env,
 ): Promise<void> {
     for (const message of batch.messages) {
-        const { jobId } = message.body;
-        if (!jobId || typeof jobId !== "string") {
-            console.warn("[QueueConsumer] Skipping invalid message body:", message.body);
+        const { jobId } = message.body ?? {};
+        if (typeof jobId !== "string" || !jobId) {
+            console.warn("[Queue] Invalid message:", message.body);
             message.ack();
             continue;
         }
-
         try {
-            await executeProcessingPipeline(env.DB, jobId, sleepFn);
+            await executeProcessingPipeline(env, jobId);
             message.ack();
-        } catch (error: unknown) {
-            console.error(`[QueueConsumer] Failed to process job ${jobId}:`, error);
-            // We acknowledge or retry based on message failure
-            message.retry();
+        } catch (error) {
+            if (error instanceof NeedsReviewError) {
+                console.warn(
+                `[Queue] ACK permanent error: ${jobId}`,
+                error.message
+                );
+
+                message.ack();
+            } else {
+                console.error(
+                `[Queue] Retrying temporary error: ${jobId}`,
+                error
+                );
+
+                message.retry();
+            }
         }
     }
 }
-
