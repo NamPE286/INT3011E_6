@@ -14,6 +14,7 @@ export function toJobResponse(job: ProcessingJobRecord): JobResponse {
     return {
         id: job.id,
         filename: job.original_filename,
+        fileSize: job.file_size,
         status: job.status,
         step: job.step,
         progress: job.progress,
@@ -34,6 +35,14 @@ export async function getJobById(
         .first<ProcessingJobRecord>();
 
     return record ?? null;
+}
+
+export async function getRecentJobs(db: D1Database): Promise<ProcessingJobRecord[]> {
+    const result = await db
+        .prepare("SELECT * FROM processing_jobs ORDER BY created_at DESC LIMIT 100")
+        .all<ProcessingJobRecord>();
+
+    return result.results ?? [];
 }
 
 export async function insertJob(
