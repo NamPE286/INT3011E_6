@@ -21,7 +21,7 @@
         ArrowRight
     } from "@lucide/svelte";
 
-    type UIState = "idle" | "uploading" | "processing" | "completed" | "failed";
+    type UIState = "idle" | "uploading" | "processing" | "completed" | "failed" | "needs_review";
     type StepState = "done" | "active" | "pending" | "failed";
 
     const DEFAULT_BACKEND_URL = PUBLIC_BACKEND_URL;
@@ -197,6 +197,12 @@
                 uiState = "completed";
                 currentStep = "completed";
                 processingProgress = 100;
+            } else if (jobResponse.status === "needs_review") {
+                stopPolling();
+                uiState = "needs_review";
+                currentStep = "needs_review";
+                errorMessage = jobResponse.error?.trim()
+                    || "This PDF requires manual review. Check the source document before trying again.";
             } else if (jobResponse.status === "failed") {
                 fail(jobResponse.error || "Processing failed in queue consumer");
             }
@@ -310,6 +316,11 @@
                     <CheckCircle2 class="size-3" />
                     Completed
                 </Badge>
+            {:else if uiState === "needs_review"}
+                <Badge variant="outline" class="gap-1">
+                    <AlertCircle class="size-3" />
+                    Needs review
+                </Badge>
             {:else if uiState === "failed"}
                 <Badge variant="destructive" class="gap-1">
                     <AlertCircle class="size-3" />
@@ -391,7 +402,7 @@
         {/if}
 
         <!-- Processing & Step Visualizer -->
-        {#if uiState === "processing" || uiState === "completed" || (uiState === "failed" && jobId)}
+        {#if uiState === "processing" || uiState === "completed" || ((uiState === "failed" || uiState === "needs_review") && jobId)}
             <div class="space-y-4 border rounded-lg p-4 bg-muted/20">
                 <div class="flex items-center justify-between text-xs">
                     <span class="text-muted-foreground font-mono">Job ID: {jobId}</span>
@@ -441,6 +452,18 @@
                         </div>
                     {/each}
                 </div>
+            </div>
+        {/if}
+
+        <!-- Permanent review state; no more polling, but the job ID and reason stay visible. -->
+        {#if uiState === "needs_review"}
+            <div role="status" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-1">
+                <div class="font-semibold flex items-center gap-1.5">
+                    <AlertCircle class="size-4" />
+                    Manual review required
+                </div>
+                <p>{errorMessage || "The document could not be processed automatically."}</p>
+                <p class="font-mono text-muted-foreground">Job ID: {jobId}</p>
             </div>
         {/if}
 

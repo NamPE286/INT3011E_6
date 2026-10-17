@@ -108,3 +108,47 @@ test("rejects an article heading silently dropped by the LLM", () => {
   expect(() => buildLegalDocument(bad, pages, lines, "snap", SHA))
     .toThrow("not assigned to a node");
 });
+
+test("retains wrapped Khoản and Điểm text without duplicating child content", () => {
+  const wrappedPages: PdfPage[] = [{
+    page_number: 1, method: "TEXT_LAYER", quality: "GOOD",
+    text: [
+      "NGHỊ ĐỊNH KIỂM TRA",
+      "Điều 1. Xử phạt",
+      "1. Phạt tiền từ",
+      "1.000.000 đến 2.000.000 đồng",
+      "đối với người vi phạm.",
+      "a) Biện pháp",
+      "khắc phục bổ sung.",
+      "b) Điều kiện khác.",
+    ].join("\n"),
+  }];
+  const wrappedLines = createSourceLines(wrappedPages);
+  const wrappedStructure: Segmentation = {
+    document_title: "NGHỊ ĐỊNH KIỂM TRA",
+    parts: [], chapters: [], sections: [],
+    articles: [{
+      number: "1", title: "Xử phạt", start_line: 2, heading_end_line: 2, end_line: 8,
+      clauses: [{
+        number: "1", title: null, start_line: 3, heading_end_line: 4, end_line: 8,
+        points: [
+          { number: "a", title: null, start_line: 6, heading_end_line: 7, end_line: 7 },
+          { number: "b", title: null, start_line: 8, heading_end_line: 8, end_line: 8 },
+        ],
+      }],
+    }],
+  };
+
+  const document = buildLegalDocument(wrappedStructure, wrappedPages, wrappedLines, "wrap-job", SHA);
+  const clause = document.articles[0].clauses[0];
+  expect(clause.content).toBe("Phạt tiền từ\n1.000.000 đến 2.000.000 đồng\nđối với người vi phạm.");
+  expect(clause.points[0].content).toBe("Biện pháp\nkhắc phục bổ sung.");
+  expect(clause.points[1].content).toBe("Điều kiện khác.");
+  expect(clause.content).not.toContain("Biện pháp");
+
+  // A child heading must not start inside the parent's wrapped heading.
+  const overlapping = structuredClone(wrappedStructure);
+  overlapping.articles[0].clauses[0].heading_end_line = 6;
+  expect(() => buildLegalDocument(overlapping, wrappedPages, wrappedLines, "wrap-job", SHA))
+    .toThrow("outside parent heading/content range");
+});

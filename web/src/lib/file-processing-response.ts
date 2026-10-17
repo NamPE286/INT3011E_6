@@ -4,10 +4,11 @@ export type ProcessingStep =
     | "extracting"
     | "analyzing"
     | "finalizing"
-    | "completed";
+    | "completed"
+    | "needs_review";
 
 export type JobResponse = {
-    status: "queued" | "processing" | "completed" | "failed";
+    status: "queued" | "processing" | "completed" | "failed" | "needs_review";
     step: ProcessingStep | null;
     progress: number;
     error: string | null;
@@ -37,7 +38,8 @@ function isProcessingStep(value: unknown): value is ProcessingStep {
         || value === "extracting"
         || value === "analyzing"
         || value === "finalizing"
-        || value === "completed";
+        || value === "completed"
+        || value === "needs_review";
 }
 
 export function parseUploadResponse(responseText: string): UploadResponse | null {
@@ -68,7 +70,8 @@ export function isJobResponse(value: unknown): value is JobResponse {
     const hasValidStatus = value.status === "queued"
         || value.status === "processing"
         || value.status === "completed"
-        || value.status === "failed";
+        || value.status === "failed"
+        || value.status === "needs_review";
     const hasValidStep = value.step === null || isProcessingStep(value.step);
     const hasValidProgress = typeof value.progress === "number" && Number.isFinite(value.progress);
     const hasValidError = value.error === null || typeof value.error === "string";

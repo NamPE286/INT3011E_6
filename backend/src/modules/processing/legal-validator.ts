@@ -49,7 +49,7 @@ function validateNodeTree(
   const item = node;
   const n = lines.length;
   ensure(item.start_line >= 1 && item.heading_end_line >= item.start_line && item.end_line >= item.heading_end_line && item.end_line <= n, `${kind} range ${item.start_line}..${item.end_line} outside input`);
-  if (parent) ensure(item.start_line > parent.start_line && item.end_line <= parent.end_line, `${kind} outside parent range`);
+  if (parent) ensure(item.start_line > parent.heading_end_line && item.end_line <= parent.end_line, `${kind} outside parent heading/content range`);
   const heading = lines[item.start_line - 1].text.trim();
   const found = RULES[kind].exec(heading);
   ensure(found !== null && normalize(found[1]) === normalize(item.number), `${kind} ${item.number}: heading does not match source line ${item.start_line}`);
@@ -102,6 +102,13 @@ function directContent(seg: Segment, kind: Kind, lines: SourceLine[], pages: Pdf
     const match = RULES[kind].exec(heading);
     const tail = match ? heading.slice(match[0].length) : "";
     if (tail && (kind !== "article" || seg.title === null)) parts.push(tail);
+  }
+  // Wrapped Khoản/Điểm heading lines are legal content, not just presentation.
+  // Children must begin after heading_end_line, so these lines cannot be duplicated.
+  if (kind === "clause" || kind === "point" || (kind === "article" && seg.title === null)) {
+    for (let id = seg.start_line + 1; id <= seg.heading_end_line; id++) {
+      parts.push(lines[id - 1].text);
+    }
   }
   for (const id of directLineIds) parts.push(lines[id - 1].text);
   const content = parts.join("\n").trim();

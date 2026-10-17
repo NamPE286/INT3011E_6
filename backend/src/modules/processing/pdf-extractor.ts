@@ -15,7 +15,8 @@ export async function extractPdfText(buffer: ArrayBuffer): Promise<PdfPage[]> {
     throw new NeedsReviewError("File is not a valid PDF header");
   }
 
-  const pdf = await getDocumentProxy(new Uint8Array(buffer), {
+  // PDF.js may transfer/detach its input; keep the original bytes for the R2 snapshot.
+  const pdf = await getDocumentProxy(new Uint8Array(buffer.slice(0)), {
     maxImageSize: 16_777_216,
   });
   try {
