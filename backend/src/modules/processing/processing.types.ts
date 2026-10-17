@@ -1,4 +1,4 @@
-export type JobStatus = "queued" | "processing" | "completed" | "failed";
+export type JobStatus = "queued" | "processing" | "completed" | "failed" | "needs_review";
 
 export type ProcessingStep =
     | "queued"
@@ -6,7 +6,8 @@ export type ProcessingStep =
     | "extracting"
     | "analyzing"
     | "finalizing"
-    | "completed";
+    | "completed"
+    | "needs_review";
 
 export interface ProcessingJobRecord {
     id: string;

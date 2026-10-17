@@ -9,6 +9,31 @@ export default {
         env: Env,
         ctx: ExecutionContext
     ): Promise<Response> {
+        const url = new URL(request.url);
+
+        if (
+            request.method === "POST" &&
+            url.pathname === "/__queue-test" &&
+            url.hostname === "127.0.0.1"
+        ) {
+            const jobId = url.searchParams.get("jobId");
+
+            if (!jobId) {
+                return Response.json(
+                    { error: "Thiếu jobId của job đã tồn tại trong D1" },
+                    { status: 400 }
+                );
+            }
+
+            await env.PROCESSING_QUEUE.send({ jobId });
+
+            console.log("[Queue test] Đã gửi job:", jobId);
+
+            return Response.json(
+                { queued: true, jobId },
+                { status: 202 }
+            );
+        }
         const enrichedRequest = request as unknown as {
             env?: unknown;
             ctx?: unknown;

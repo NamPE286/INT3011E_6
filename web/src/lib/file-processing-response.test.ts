@@ -35,3 +35,26 @@ describe("file processing responses", () => {
         expect(isJobResponse(response)).toBeFalse();
     });
 });
+
+test("accepts needs_review with backend explanation or no explanation", () => {
+    expect(isJobResponse({
+        status: "needs_review",
+        step: "needs_review",
+        progress: 55,
+        error: "Text layer is unreadable"
+    })).toBeTrue();
+
+    expect(isJobResponse({
+        status: "needs_review",
+        step: "needs_review",
+        progress: 30,
+        error: null
+    })).toBeTrue();
+
+    expect(isJobResponse({
+        status: "unknown",
+        step: "needs_review",
+        progress: 30,
+        error: null
+    })).toBeFalse();
+});

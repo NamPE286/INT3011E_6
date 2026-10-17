@@ -6,6 +6,8 @@ export interface ProcessingQueueMessage {
 
 export interface Env {
     DB: D1Database;
+    OPENAI_API_KEY?: string;
+    OPENAI_MODEL?: string;
     FILE_STORAGE: R2Bucket;
     PROCESSING_QUEUE: Queue<ProcessingQueueMessage>;
 }

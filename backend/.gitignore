@@ -44,3 +44,16 @@ yarn-error.log*
 package-lock.json
 **/*.bun
 .wrangler
+
+# Environment variables and secrets
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# Keep example configuration files
+!.env.example
+!.dev.vars.example
+
+# Cloudflare local state
+.wrangler/

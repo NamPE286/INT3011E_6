@@ -1,4 +1,11 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import type { Env } from "../../types/env";
+import { extractPdfText } from "./pdf-extractor";
+import { createSourceLines } from "./source-lines";
+import { segmentLegalText } from "./legal-llm.service";
+import { buildLegalDocument } from "./legal-validator";
+import { saveLegalDocument } from "./legal-persistence";
+import { NeedsReviewError } from "./legal-types";
 import type {
     ProcessingJobRecord,
     JobResponse,
@@ -132,68 +139,69 @@ export async function updateJobStage(
         .run();
 }
 
-interface ProcessingStage {
-    status?: JobStatus;
-    step: ProcessingStep;
-    progress: number;
-    delayMs: number;
-}
-
-const PROCESSING_STAGES: readonly ProcessingStage[] = [
-    { status: "processing", step: "preparing", progress: 10, delayMs: 0 },
-    { step: "extracting", progress: 30, delayMs: 3000 },
-    { step: "analyzing", progress: 55, delayMs: 3000 },
-    { step: "analyzing", progress: 75, delayMs: 3000 },
-    { step: "finalizing", progress: 90, delayMs: 3000 },
-];
-
-export async function executeProcessingPipeline(
-    db: D1Database,
-    jobId: string,
-    sleepFn: Sleep = defaultSleep
-): Promise<void> {
+/** Real PDF → text → LLM boundaries → exact legal content/locators → D1 pipeline. */
+export async function executeProcessingPipeline(env: Env, jobId: string): Promise<void> {
+    const db = env.DB;
     const job = await getJobById(db, jobId);
     if (!job) {
-        console.warn(`[Processing] Job ${jobId} not found in D1, skipping.`);
-        return;
+        // Invalid/unresolvable job is not a temporary error; do not loop forever.
+        throw new NeedsReviewError(`Job ${jobId} does not exist in D1`);
     }
-
-    if (job.status === "completed") {
-        console.info(`[Processing] Job ${jobId} is already completed. Skipping.`);
-        return;
+    if (job.status === "completed" || job.status === "needs_review") {
+        return; // Idempotent for messages delivered more than once.
     }
 
     try {
-        for (const stage of PROCESSING_STAGES) {
-            if (stage.delayMs > 0) {
-                await sleepFn(stage.delayMs);
+        await updateJobStage(db, jobId, {
+            status: "processing", step: "preparing", progress: 10,
+            errorMessage: null,
+        });
+        const snapshotKey = `snapshots/${jobId}.pdf`;
+        const textKey = `snapshots/${jobId}.extracted.json`;
+        // If snapshot creation succeeded but a previous D1 operation failed, retry from it.
+        const object = await env.FILE_STORAGE.get(job.file_key) ?? await env.FILE_STORAGE.get(snapshotKey);
+        if (!object) throw new NeedsReviewError(`PDF missing in R2: ${job.file_key}`);
+        const rawPdf = await object.arrayBuffer();
+        const hashBytes = await crypto.subtle.digest("SHA-256", rawPdf);
+        const pdfSha256 = Array.from(new Uint8Array(hashBytes), (b) => b.toString(16).padStart(2, "0")).join("");
+
+        await updateJobStage(db, jobId, { step: "extracting", progress: 30 });
+        const pages = await extractPdfText(rawPdf);
+        const lines = createSourceLines(pages);
+        if (!lines.length) throw new NeedsReviewError("No readable text in PDF");
+
+        await updateJobStage(db, jobId, { step: "analyzing", progress: 55 });
+        const segmentation = await segmentLegalText(lines, env.OPENAI_API_KEY ?? "", env.OPENAI_MODEL);
+        const document = buildLegalDocument(segmentation, pages, lines, jobId, pdfSha256);
+
+        await updateJobStage(db, jobId, { step: "finalizing", progress: 90 });
+        // Preserve evidence FIRST. Only the temporary upload key will be removed.
+        await env.FILE_STORAGE.put(snapshotKey, rawPdf, {
+            httpMetadata: { contentType: "application/pdf" },
+        });
+        await env.FILE_STORAGE.put(textKey, JSON.stringify({
+            extraction_version: "unpdf-v1",
+            pages,
+        }), { httpMetadata: { contentType: "application/json" } });
+        await saveLegalDocument(db, jobId, snapshotKey, textKey, document);
+        // Safe to remove temporary upload after D1 committed; keep snapshot indefinitely.
+        if (job.file_key !== snapshotKey) {
+            try {
+                await env.FILE_STORAGE.delete(job.file_key);
+            } catch (cleanupError) {
+                console.warn(`[Processing] Temp R2 cleanup failed for ${jobId}`, cleanupError);
             }
-
-            await updateJobStage(db, jobId, {
-                status: stage.status,
-                step: stage.step,
-                progress: stage.progress,
-            });
         }
-
-        // Final 3-second delay before completion
-        await sleepFn(3000);
-
-        const completedAt = new Date().toISOString();
-        await updateJobStage(db, jobId, {
-            status: "completed",
-            step: "completed",
-            progress: 100,
-            completedAt,
-        });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Unexpected processing error";
-        console.error(`[Processing] Job ${jobId} failed:`, message);
-
+        const detail = error instanceof Error ? error.message : "Unknown PDF processing error";
+        const review = error instanceof NeedsReviewError;
+        console.error(`[Processing] ${review ? "Needs review" : "Failed"}: ${jobId}`, detail);
         await updateJobStage(db, jobId, {
-            status: "failed",
-            errorMessage: message,
+            status: review ? "needs_review" : "failed",
+            step: review ? "needs_review" : "finalizing",
+            errorMessage: detail.slice(0, 1000),
         });
+        // Temporary errors bubble to Queue consumer, which requests a retry.
+        if (!review) throw error;
     }
 }
-
