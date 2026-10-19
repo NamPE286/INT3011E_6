@@ -23,11 +23,17 @@ export const processingJobs = sqliteTable("processing_jobs", {
 export const legalDocuments = sqliteTable("legal_documents", {
     id: text("id").primaryKey(),
     jobId: text("job_id").notNull().unique(),
-    documentTitle: text("document_title").notNull(),
+    documentTitle: text("document_title"),
     jsonContent: text("json_content").notNull(),
     snapshotR2Key: text("snapshot_r2_key").notNull(),
-    extractedTextR2Key: text("extracted_text_r2_key").notNull(),
+    artifactR2Key: text("artifact_r2_key").notNull(),
     pdfSha256: text("pdf_sha256").notNull(),
+    reviewStatus: text("review_status").notNull().default("ACCEPTED"),
+    validationIssues: text("validation_issues").notNull().default("[]"),
+    pageCount: integer("page_count"),
+    extractionModel: text("extraction_model"),
+    promptVersion: text("prompt_version"),
+    schemaVersion: text("schema_version"),
     createdAt: text("created_at").notNull(),
 });
 

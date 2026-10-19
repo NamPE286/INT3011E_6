@@ -1,170 +1,103 @@
-## Summary
+# PDF → Legal JSON pipeline
 
-Triển khai luồng upload và xử lý tài liệu PDF pháp luật thành JSON có cấu trúc bằng Cloudflare Workers, R2, Queues, D1 và OpenAI API.
+Tài liệu mô tả luồng hiện có trong code cho issue [#33](https://github.com/NamPE286/INT3011E_6/issues/33): Admin upload PDF văn bản pháp luật (kể cả bản scan), hệ thống dùng LLM đọc PDF và tạo JSON phân cấp theo contract v1 của issue.
 
-Luồng xử lý:
+```text
+POST /api/uploads ─► R2 uploads/{jobId}/{file}.pdf (snapshot bất biến) ─► D1 processing_jobs ─► Queue {jobId}
+Queue consumer ─► chia PDF thành cụm trang ─► LLM đọc từng cụm (checkpoint R2) ─► ghép + kiểm tra deterministic ─► D1 legal_documents
+```
 
-`Client → Upload API → R2 → D1 Processing Job → Queue → Consumer → PDF Extraction → LLM → JSON Validation → D1`
+## Thiết kế
 
-## Changes
+| Bước | File | Ghi chú |
+| --- | --- | --- |
+| Validate upload | `processing/pdf-document.ts`, `upload/upload.service.ts` | Kiểm tra `%PDF-`, parse được bằng `pdf-lib`, không mã hóa, 1–300 trang, ≤ 50 MB. File lỗi bị từ chối ngay ở HTTP 400. |
+| Chia trang | `pdf-document.ts` | Copy nguyên trang PDF vào file con (`PDF_CHUNK_PAGES`, mặc định 3 trang); không render/OCR. |
+| Đọc bằng LLM | `processing/legal-llm.service.ts` | OpenAI Responses API, input là file PDF, output JSON theo schema strict. LLM chỉ chép **nguyên văn** từng block theo thứ tự đọc và ký hiệu đầu dòng (`marker`: "Điều 6.", "Chương II", "a)"). |
+| Phân loại cấp | `legal-llm.service.ts` (`classifyMarker`) | Cấp Phần/Chương/Mục/Điều/Khoản/Điểm được backend suy ra từ `marker` bằng regex, không tin nhãn của model. |
+| Ghép cây + kiểm tra | `processing/legal-assembler.ts` | Ghép block qua ranh giới cụm trang, gắn `source_locator` (trang, quote, quality), kiểm tra số thứ tự (Điều liên tục, Khoản 1..n, Điểm a, b, c, d, đ, e...), độ phủ trang, chất lượng đọc, tiêu đề, phần ký/kết thúc. |
+| Lưu | `processing/legal-persistence.ts` | `legal_documents` lưu JSON, `review_status`, `validation_issues`, model, prompt/schema version, số trang. |
 
-- Triển khai API upload PDF, kiểm tra file đầu vào và lưu file vào Cloudflare R2.
-- Tạo processing job trong D1 và gửi message vào Cloudflare Queue.
-- Consumer nhận job và thực hiện xử lý bất đồng bộ.
-- Trích xuất nội dung văn bản từ PDF có text layer.
-- Gọi LLM để phân tích cấu trúc văn bản pháp luật theo Phần, Chương, Mục, Điều, Khoản và Điểm.
-- Kiểm tra hierarchy, nội dung, numbering và `source_locator`.
-- Lưu kết quả JSON cùng thông tin nguồn vào bảng `legal_documents`.
-- Hỗ trợ theo dõi trạng thái xử lý và xử lý các trường hợp lỗi.
-- Bổ sung migration và các bài kiểm thử liên quan.
+### Checkpoint, retry, idempotency
 
-## How to Use Upload PDF API
+- Mỗi cụm trang lưu tại `runs/{jobId}/{sha256[0:16]}-{model}-{prompt}-{schema}/chunks/{start}-{end}.json`. Khi queue retry, các cụm đã có sẽ không gọi LLM lại.
+- Lỗi tạm thời (HTTP 408/429/5xx, mạng) → job `failed` tạm thời, message được `retry()` (tối đa 3 lần, sau đó vào DLQ).
+- Output LLM sai schema được thử lại 1 lần. Nếu vẫn sai, các trang của cụm đó bị đánh dấu `UNREADABLE` (không lặp vô hạn, không bịa nội dung).
+- Lỗi vĩnh viễn (PDF hỏng, thiếu `OPENAI_API_KEY`, không tìm thấy cấu trúc) → `needs_review`, message được `ack()`.
+- Message trùng cho job đã `completed`/`needs_review` được bỏ qua.
 
-### 1. Prerequisites
+### Mức độ issue
 
-- Cài đặt Bun và các dependencies của Backend.
-- Cấu hình các binding `DB`, `FILE_STORAGE` và `PROCESSING_QUEUE` trong Wrangler.
-- Cấu hình `OPENAI_API_KEY` và `OPENAI_MODEL` trong `.dev.vars` để chạy local.
-- Áp dụng D1 migrations.
+| Severity | Ý nghĩa | Ví dụ |
+| --- | --- | --- |
+| `ERROR` | Không publish âm thầm: job `needs_review`, document `REVIEW_REQUIRED` (vẫn lưu để kiểm tra) | `NUMBERING_GAP`, `ORPHAN_NODE`, `PAGE_UNREADABLE`, `PAGE_NOT_REPORTED`, `CHUNK_FAILED`, `TITLE_MISSING`, `CLOSING_MISSING` |
+| `WARNING` | Sửa lỗi đọc deterministic, có ghi lại | `MARKER_REPAIRED` ("1." → "l)", "d)" lặp → "đ)"), `MARKER_DROPPED` (marker bịa trên đoạn nối tiếp chữ thường) |
 
-Chạy trong thư mục `backend`:
+`CLOSING_MISSING` thường nghĩa là PDF chỉ là **một phần** của văn bản (ví dụ `100.signed_01.pdf` dừng giữa Điều 30).
+
+## Chạy local
 
 ```bash
+cd backend
+cp .dev.vars.example .dev.vars   # điền OPENAI_API_KEY
 bun install
-bunx wrangler d1 migrations apply DB --local
-bunx wrangler dev --local --ip 127.0.0.1 --port 8790
+bun run d1:migrate:local
+bun run dev                      # http://localhost:8787
 ```
 
-Sau khi khởi động, API local chạy tại:
+| Biến | Bắt buộc | Mặc định | Ý nghĩa |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | Có | | Key gọi OpenAI. Chỉ đặt trong `.dev.vars`/secret, không commit. |
+| `OPENAI_MODEL` | Không | `gpt-5.4` | Model đọc PDF. `gpt-5.4-mini` nhanh hơn nhưng nhầm marker nhiều hơn trên bản scan. |
+| `PDF_CHUNK_PAGES` | Không | `3` | Số trang mỗi lần gọi LLM (1–20). |
 
-`http://127.0.0.1:8790`
+## API
 
-### 2. Upload a PDF
-
-**Endpoint:** `POST /api/uploads`
-
-**Request:** `multipart/form-data`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `file` | File | Yes | File PDF cần xử lý |
-
-**Windows PowerShell:**
-
-```powershell
-curl.exe --noproxy "*" -i -X POST "http://127.0.0.1:8790/api/uploads" -F "file=@D:\path\to\document.pdf;type=application/pdf"
-```
-
-Thay `D:\path\to\document.pdf` bằng đường dẫn PDF thật trên máy.
-
-**macOS/Linux:**
+### Upload
 
 ```bash
-curl -i -X POST "http://127.0.0.1:8790/api/uploads" -F "file=@./document.pdf;type=application/pdf"
+curl -X POST http://localhost:8787/api/uploads -F "file=@./nd100.pdf;type=application/pdf"
+# {"jobId":"...","status":"queued"}
 ```
 
-**Postman:**
+### Theo dõi job
 
-1. Chọn method `POST`.
-2. Nhập URL `http://127.0.0.1:8790/api/uploads`.
-3. Chọn **Body → form-data**.
-4. Thêm key `file`, chọn loại `File`.
-5. Chọn file PDF và nhấn **Send**.
-
-Không cần truyền OpenAI API key trong request upload. Token được cấu hình phía Backend.
-
-**Expected result:**
-
-- API trả HTTP `200 OK` khi upload thành công.
-- Response chứa thông tin job, bao gồm `jobId`.
-- PDF được lưu vào R2.
-- Job được tạo trong D1 và gửi đến Queue để Consumer xử lý.
-
-**Important:** HTTP 200 ở bước upload chỉ xác nhận upload và enqueue thành công, không có nghĩa JSON đã được tạo.
-
-### 3. Check Processing Status
-
-**Endpoint:** `GET /api/jobs/:jobId`
-
-Ví dụ:
-
-```powershell
-curl.exe --noproxy "*" -i "http://127.0.0.1:8790/api/jobs/YOUR_JOB_ID"
+```bash
+curl http://localhost:8787/api/jobs/JOB_ID      # một job
+curl http://localhost:8787/api/jobs             # 100 job gần nhất
 ```
 
-Thay `YOUR_JOB_ID` bằng `jobId` từ response upload.
+`status`: `queued` → `processing` (`step`: `preparing` → `extracting` → `analyzing` → `finalizing`) → `completed` | `needs_review`; `failed` là lỗi tạm thời đang chờ queue retry.
 
-Các trạng thái xử lý:
+### Lấy JSON kết quả
 
-| Status | Meaning |
-|---|---|
-| `queued` | Job đang chờ xử lý |
-| `processing` | Consumer đang xử lý |
-| `completed` | Xử lý hoàn thành |
-| `needs_review` | Nội dung hoặc kết quả cần kiểm tra |
-| `failed` | Xử lý gặp lỗi kỹ thuật |
-
-Client nên sử dụng endpoint này để kiểm tra kết quả xử lý bất đồng bộ.
-
-### 4. Verify Generated JSON
-
-Sau khi job `completed`, JSON được lưu trong bảng D1 `legal_documents`.
-
-**Kiểm tra kết quả trong D1 local:**
-
-```powershell
-bunx wrangler d1 execute DB --local --command "SELECT job_id, document_title, json_valid(json_content) AS valid_json FROM legal_documents ORDER BY created_at DESC LIMIT 5;"
+```bash
+curl http://localhost:8787/api/jobs/JOB_ID/document
 ```
 
-**Xem JSON theo job ID:**
-
-```powershell
-bunx wrangler d1 execute DB --local --command "SELECT json_content FROM legal_documents WHERE job_id = 'YOUR_JOB_ID';"
+```json
+{
+    "jobId": "...",
+    "reviewStatus": "ACCEPTED | REVIEW_REQUIRED",
+    "issues": [{ "severity": "ERROR", "code": "CLOSING_MISSING", "message": "...", "page": 76 }],
+    "extraction": { "model": "gpt-5.4", "promptVersion": "pdf-blocks-v3", "schemaVersion": "legal-json-v1", "pageCount": 76, "pdfSha256": "...", "createdAt": "..." },
+    "document": { "document_title": "...", "content": "...", "source": {}, "parts": [], "chapters": [], "sections": [], "articles": [] }
+}
 ```
 
-Thay `YOUR_JOB_ID` bằng ID thực tế.
+## Kết quả kiểm thử thực tế (Nghị định 100/2019/NĐ-CP, phần 1)
 
-Hiện tại, `GET /api/jobs/:jobId` là API theo dõi trạng thái. Chưa có endpoint HTTP lấy JSON kết quả riêng được xác nhận trong phạm vi thay đổi này.
+File scan 76 trang (`100.signed_01.pdf`, không có text layer), model `gpt-5.4`, 3 trang/cụm:
 
-### 5. Current Limitations
+- Thời gian xử lý khoảng 3 phút (26 lần gọi LLM, chạy song song 4).
+- Cấu trúc: 2 Chương, 6 Mục (đủ tên), Điều 1–30, 185 Khoản, 723 Điểm; tiêu đề, số hiệu, ngày ban hành và căn cứ nằm ở `content` gốc.
+- Validation: 1 `ERROR` `CLOSING_MISSING` (đúng, vì file chỉ là phần 1), 1 `WARNING` sửa "d)" → "đ)" ở trang 76.
+- Đối chiếu thủ công: trang 2–4 và trang 44 khớp từng chữ. Trang 76 có 2 lỗi chép trong danh sách tham chiếu ("điểm d" thay vì "điểm g"; lặp "điểm c"). Hệ thống chưa phát hiện được loại lỗi này. Cần bộ gold fixture và metric `legal_text_fidelity` theo mục A6 của #33 trước khi coi kết quả là chính xác.
 
-- Hỗ trợ PDF có text layer; chưa triển khai OCR đầy đủ cho PDF scan.
-- Giới hạn hiện tại: tối đa 12 MB và 35 trang.
-- LLM xử lý theo single-request với giới hạn khoảng 650 dòng hoặc 38.000 ký tự.
-- Văn bản dài cần cơ chế chia chunk để xử lý đầy đủ.
-- Kết quả không khớp với nguồn sẽ được chuyển `needs_review` thay vì lưu JSON không đáng tin cậy.
+## Giới hạn đã biết
 
-## Testing
-
-- [ ] `bun run typecheck` passed
-- [ ] `bun test` passed
-- [x] Upload PDF hợp lệ trả HTTP 200
-- [x] Consumer nhận message từ Queue
-- [x] LLM API được gọi và trả kết quả để validator kiểm tra
-- [ ] Job PDF thật hoàn thành với trạng thái `completed`
-- [ ] JSON được lưu thành công trong `legal_documents`
-- [ ] Kết quả JSON được đối chiếu với PDF gốc
-- [ ] CI checks passed
-
-Chỉ đánh dấu thêm các checkbox khi đã xác nhận bằng kết quả thực tế.
-
-## Known Issues / Pending Work
-
-- Lần kiểm thử PDF thật gần nhất bị `needs_review` do lỗi phân loại heading Phần/Chương.
-- Cần kiểm thử lại toàn bộ unit test sau các thay đổi.
-- Chưa hỗ trợ đầy đủ OCR và chia chunk cho PDF dài.
-- Cần xác minh tính chính xác của `source_locator` trên PDF thực tế.
-
-## Review Checklist
-
-Nhờ reviewer kiểm tra:
-
-- API upload và file validation.
-- Cloudflare R2, Queue Consumer và D1 bindings.
-- Xử lý lỗi, ACK/retry và tránh xử lý trùng job.
-- Prompt LLM và quy tắc phân loại hierarchy.
-- Validation, source locator và việc giữ nguyên câu chữ tiếng Việt.
-- D1 migrations và lưu trữ kết quả.
-- Các giới hạn còn lại so với acceptance criteria của issue.
-
-**Current status:** Chờ hoàn thiện kiểm thử end-to-end và CI trước khi đánh dấu sẵn sàng review.
+- Chưa có pass kiểm chứng thứ hai cho lỗi chép trong câu (chỉ kiểm tra cấu trúc và số thứ tự).
+- `regions`/bbox luôn rỗng, `source_quote` được dựng từ bản chép của LLM.
+- Mỗi lần upload tạo một bản ghi mới; chưa dedup theo `pdf_sha256` (tiêu chí MVP 25).
+- Chưa ghép nhiều file PDF thành một văn bản (`part_index` luôn bằng 1).
+- Endpoint admin chưa có xác thực (#4).

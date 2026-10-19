@@ -18,7 +18,7 @@ export class DocumentRepository {
                         document_title,
                         json_content,
                         snapshot_r2_key,
-                        extracted_text_r2_key,
+                        artifact_r2_key,
                         pdf_sha256,
                         created_at
                     FROM legal_documents
@@ -61,7 +61,7 @@ export class DocumentRepository {
                 document_title,
                 json_content,
                 snapshot_r2_key,
-                extracted_text_r2_key,
+                artifact_r2_key,
                 pdf_sha256,
                 created_at
             FROM legal_documents
@@ -83,7 +83,7 @@ export class DocumentRepository {
                     document_title,
                     json_content,
                     snapshot_r2_key,
-                    extracted_text_r2_key,
+                    artifact_r2_key,
                     pdf_sha256,
                     created_at
                 FROM legal_documents

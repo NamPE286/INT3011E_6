@@ -36,6 +36,3 @@ export interface JobResponse {
     updatedAt: string;
     completedAt: string | null;
 }
-
-export type Sleep = (milliseconds: number) => Promise<void>;
-

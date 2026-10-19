@@ -14,6 +14,13 @@ export type JobResponse = {
     error: string | null;
 };
 
+export type JobSummary = JobResponse & {
+    id: string;
+    filename: string;
+    fileSize: number;
+    createdAt: string;
+};
+
 export type UploadResponse = {
     jobId: string;
 };
@@ -77,4 +84,30 @@ export function isJobResponse(value: unknown): value is JobResponse {
     const hasValidError = value.error === null || typeof value.error === "string";
 
     return hasValidStatus && hasValidStep && hasValidProgress && hasValidError;
+}
+
+function isJobSummary(value: unknown): value is JobSummary {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    const hasIdentity = typeof value.id === "string"
+        && typeof value.filename === "string"
+        && typeof value.fileSize === "number"
+        && typeof value.createdAt === "string";
+
+    return hasIdentity && isJobResponse(value);
+}
+
+/** Parses GET /api/jobs; one malformed row is skipped instead of hiding the whole list. */
+export function parseJobList(value: unknown): JobSummary[] | null {
+    if (!isRecord(value) || !Array.isArray(value.jobs)) {
+        return null;
+    }
+
+    return value.jobs.filter(isJobSummary);
+}
+
+export function isJobActive(job: JobResponse): boolean {
+    return job.status === "queued" || job.status === "processing";
 }

@@ -1,92 +1,81 @@
 import { describe, expect, it } from "bun:test";
+import { PDFDocument } from "pdf-lib";
 import { app } from "../src/app";
-import { createMockEnv } from "./mocks";
+import { getJobById } from "../src/modules/processing/job.repository";
+import { createMockEnv, withEnv, type MockEnvironment } from "./mocks";
+
+async function upload(env: MockEnvironment, file?: File): Promise<Response> {
+    const formData = new FormData();
+
+    if (file) {
+        formData.append("file", file);
+    }
+
+    const request = new Request("http://localhost/api/uploads", { method: "POST", body: formData });
+
+    return app.fetch(withEnv(request, env));
+}
 
 describe("POST /api/uploads", () => {
-    it("rejects request when no file is provided", async () => {
-        const mockEnv = createMockEnv();
-        const formData = new FormData();
+    it("rejects a request without a file", async () => {
+        const response = await upload(createMockEnv());
 
-        const request = new Request("http://localhost/api/uploads", {
-            method: "POST",
-            body: formData,
-        });
-        (request as unknown as { env: unknown }).env = mockEnv;
-
-        const response = await app.fetch(request);
         expect(response.status).toBe(400);
-
-        const body = (await response.json()) as { message?: string };
-        expect(body.message).toBeDefined();
     });
 
-    it("rejects request when uploaded file is empty (0 bytes)", async () => {
-        const mockEnv = createMockEnv();
-        const formData = new FormData();
-        const emptyFile = new File([], "empty.pdf", { type: "application/pdf" });
-        formData.append("file", emptyFile);
+    it("rejects an empty file", async () => {
+        const response = await upload(createMockEnv(), new File([], "empty.pdf", { type: "application/pdf" }));
+        const body = (await response.json()) as { message: string };
 
-        const request = new Request("http://localhost/api/uploads", {
-            method: "POST",
-            body: formData,
-        });
-        (request as unknown as { env: unknown }).env = mockEnv;
-
-        const response = await app.fetch(request);
         expect(response.status).toBe(400);
-
-        const body = (await response.json()) as { message?: string };
         expect(body.message).toContain("empty");
     });
 
-    it("successfully uploads file, saves to R2, writes to D1, and enqueues to Queue", async () => {
-        const mockEnv = createMockEnv();
-        const formData = new FormData();
-        const pdfBytes = await Bun.file(
-            new URL("./fixtures/sample.pdf", import.meta.url)
-        ).arrayBuffer();
+    it("rejects a file that only pretends to be a PDF", async () => {
+        const env = createMockEnv();
+        const response = await upload(env, new File(["hello"], "fake.pdf", { type: "application/pdf" }));
+        const body = (await response.json()) as { message: string };
 
-        const testFile = new File(
-            [pdfBytes],
-            "test_contract.pdf",
-            { type: "application/pdf" }
-        );
-        formData.append("file", testFile);
+        expect(response.status).toBe(400);
+        expect(body.message).toContain("PDF header");
+        expect(env.r2Store.size).toBe(0);
+    });
 
-        const request = new Request("http://localhost/api/uploads", {
-            method: "POST",
-            body: formData,
-        });
-        (request as unknown as { env: unknown }).env = mockEnv;
+    it("rejects a malformed PDF body behind a valid header", async () => {
+        const env = createMockEnv();
+        const response = await upload(env, new File(["%PDF-1.7 broken"], "broken.pdf", { type: "application/pdf" }));
+        const body = (await response.json()) as { message: string };
 
-        const response = await app.fetch(request);
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(400);
+        expect(body.message).toContain("cannot be parsed");
+        expect(env.queueMessages).toHaveLength(0);
+    });
 
+    it("stores the snapshot in R2, records the job in D1 and enqueues it", async () => {
+        const env = createMockEnv();
+        const pdfBytes = await Bun.file(new URL("./fixtures/sample.pdf", import.meta.url)).arrayBuffer();
+        const response = await upload(env, new File([pdfBytes], "test contract.pdf", { type: "" }));
         const body = (await response.json()) as { jobId: string; status: string };
-        expect(body.jobId).toBeDefined();
-        expect(typeof body.jobId).toBe("string");
+
+        expect(response.status).toBe(200);
         expect(body.status).toBe("queued");
 
-        // 1. Verify R2 storage
-        expect(mockEnv.r2Store.size).toBe(1);
-        const [r2Key, r2Item] = Array.from(mockEnv.r2Store.entries())[0];
-        expect(r2Key).toContain(body.jobId);
-        expect(r2Key).toContain("test_contract.pdf");
+        const [r2Key, r2Item] = Array.from(env.r2Store.entries())[0];
+        expect(r2Key).toBe(`uploads/${body.jobId}/test_contract.pdf`);
         expect(r2Item.contentType).toBe("application/pdf");
 
-        // 2. Verify D1 database
-        const d1Job = mockEnv.d1Store.get(body.jobId);
-        expect(d1Job).toBeDefined();
-        expect(d1Job?.id).toBe(body.jobId);
-        expect(d1Job?.original_filename).toBe("test_contract.pdf");
-        expect(d1Job?.status).toBe("queued");
-        expect(d1Job?.step).toBe("queued");
-        expect(d1Job?.progress).toBe(0);
-        expect(d1Job?.file_key).toBe(r2Key);
+        const job = await getJobById(env.DB, body.jobId);
+        expect(job?.status).toBe("queued");
+        expect(job?.file_key).toBe(r2Key);
+        expect(env.queueMessages).toEqual([{ jobId: body.jobId }]);
+    });
 
-        // 3. Verify Cloudflare Queue message
-        expect(mockEnv.queueMessages.length).toBe(1);
-        expect(mockEnv.queueMessages[0].jobId).toBe(body.jobId);
+    it("accepts a generated multi-page PDF", async () => {
+        const pdf = await PDFDocument.create();
+        pdf.addPage();
+        pdf.addPage();
+        const response = await upload(createMockEnv(), new File([(await pdf.save()).slice()], "two-pages.pdf"));
+
+        expect(response.status).toBe(200);
     });
 });
-

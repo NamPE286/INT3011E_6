@@ -8,9 +8,11 @@ import type { SearchLegalDocumentsResponse } from "../src/modules/documents/docu
 import type { AddVocabResponse, VocabSnapshotResponse } from "../src/modules/vocabulary/vocabulary.types";
 import type { Env } from "../src/types/env";
 import { createTestD1Database } from "./d1-test-db";
+import { insertVocabEntry, setVocabularyVersion } from "./vocab-fixtures";
 import { createMockEnv } from "./mocks";
 
 const TEST_MCP_TOKEN = "secret-mcp-token-test-12345";
+const TEST_MCP_WRITE_TOKEN = "secret-mcp-write-token-test-67890";
 
 describe("MCP Streamable HTTP /mcp route", () => {
     let testDb: D1Database;
@@ -26,6 +28,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
             ...baseMock,
             DB: testDb,
             INTERNAL_MCP_TOKEN: TEST_MCP_TOKEN,
+            INTERNAL_MCP_WRITE_TOKEN: TEST_MCP_WRITE_TOKEN,
         };
     });
 
@@ -112,14 +115,14 @@ describe("MCP Streamable HTTP /mcp route", () => {
             expect(res.status).toBe(200);
         });
 
-        it("accepts request with valid X-Internal-Token header (legacy fallback)", async () => {
+        it("rejects the removed legacy X-Internal-Token header", async () => {
             const req = createMcpRequest(
                 { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
                 { "X-Internal-Token": TEST_MCP_TOKEN }
             );
 
             const res = await app.handle(req);
-            expect(res.status).toBe(200);
+            expect(res.status).toBe(401);
         });
 
         it("accepts request with valid Authorization Bearer header", async () => {
@@ -231,14 +234,14 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
 
         it("executes tools/call for get_vocab_snapshot and returns full snapshot with status OK", async () => {
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "ACT_001",
                 type: "ACTION",
                 canonical_label: "vượt tốc độ",
                 aliases: ["chạy quá tốc độ"],
             });
 
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "VEH_001",
                 type: "VEHICLE",
                 canonical_label: "xe máy",
@@ -281,7 +284,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
 
         it("executes tools/call with matching version and returns status NOT_MODIFIED and empty entries (cache hit)", async () => {
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "ACT_001",
                 type: "ACTION",
                 canonical_label: "dừng xe trái phép",
@@ -370,7 +373,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                         },
                     },
                 },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+                { "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN }
             );
 
             const res = await app.handle(req);
@@ -395,7 +398,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
 
         it("executes tools/call for add_vocab returning status EXISTING on duplicate", async () => {
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "VEH_001",
                 type: "VEHICLE",
                 canonical_label: "xe ô tô",
@@ -418,7 +421,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                         },
                     },
                 },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+                { "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN }
             );
 
             const res = await app.handle(req);
@@ -437,7 +440,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
 
         it("executes tools/call for add_vocab returning status AMBIGUOUS on collision", async () => {
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "ACT_001",
                 type: "ACTION",
                 canonical_label: "không chấp hành hiệu lệnh",
@@ -460,7 +463,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                         },
                     },
                 },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+                { "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN }
             );
 
             const res = await app.handle(req);
@@ -479,7 +482,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
 
         it("executes tools/call for add_vocab returning status STALE_VERSION on outdated base_version", async () => {
-            await repository.setPersistedVersion(4);
+            await setVocabularyVersion(testDb, 4);
 
             const req = createMcpRequest(
                 {
@@ -497,7 +500,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                         },
                     },
                 },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+                { "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN }
             );
 
             const res = await app.handle(req);
@@ -532,7 +535,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                         },
                     },
                 },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+                { "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN }
             );
 
             const res = await app.handle(req);
@@ -630,170 +633,70 @@ describe("MCP Streamable HTTP /mcp route", () => {
     });
 
     describe("Write Tool Authorization (add_vocab)", () => {
-        it("denies add_vocab when client has explicit read-only scope, but permits get_vocab_snapshot", async () => {
-            const writeReq = createMcpRequest(
-                {
-                    jsonrpc: "2.0",
-                    id: 60,
-                    method: "tools/call",
-                    params: {
-                        name: "add_vocab",
-                        arguments: {
-                            type: "ACTION",
-                            canonical_label: "quay đầu sai",
-                            evidence: "Quay đầu xe không đúng nơi quy định",
-                            source_provision_id: "dieu_15",
-                            base_vocabulary_version: 1,
-                        },
+        function addVocabCall(id: number): Record<string, unknown> {
+            return {
+                jsonrpc: "2.0",
+                id,
+                method: "tools/call",
+                params: {
+                    name: "add_vocab",
+                    arguments: {
+                        type: "ACTION",
+                        canonical_label: "đi lùi",
+                        evidence: "Phương tiện giao thông cơ giới đường bộ gồm xe ô tô",
+                        source_provision_id: "dieu_3_khoan_1",
+                        base_vocabulary_version: 1,
                     },
                 },
-                {
-                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
-                    "X-MCP-Role": "read", // Explicit read-only role!
-                }
-            );
-
-            const writeRes = await app.handle(writeReq);
-            expect(writeRes.status).toBe(200);
-
-            const writeBody = (await writeRes.json()) as {
-                result?: {
-                    isError?: boolean;
-                    content: Array<{ type: string; text: string }>;
-                };
             };
+        }
 
-            expect(writeBody.result?.isError).toBe(true);
-            expect(writeBody.result?.content?.[0]?.text).toContain("Forbidden");
-
-            // But read tool still succeeds for read-only role
-            const readReq = createMcpRequest(
-                {
-                    jsonrpc: "2.0",
-                    id: 61,
-                    method: "tools/call",
-                    params: {
-                        name: "get_vocab_snapshot",
-                        arguments: {},
-                    },
-                },
-                {
-                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
-                    "X-MCP-Role": "read",
-                }
-            );
-
-            const readRes = await app.handle(readReq);
-            expect(readRes.status).toBe(200);
-
-            const readBody = (await readRes.json()) as {
-                result?: {
-                    isError?: boolean;
-                    content: Array<{ type: string; text: string }>;
-                };
-            };
-
-            expect(readBody.result?.isError).toBeFalsy();
-
-            // search_legal_documents also succeeds for read-only role
-            const searchReq = createMcpRequest(
-                {
-                    jsonrpc: "2.0",
-                    id: 62,
-                    method: "tools/call",
-                    params: {
-                        name: "search_legal_documents",
-                        arguments: {
-                            query: "100/2019/NĐ-CP",
-                        },
-                    },
-                },
-                {
-                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
-                    "X-MCP-Role": "read",
-                }
-            );
-
-            const searchRes = await app.handle(searchReq);
-            expect(searchRes.status).toBe(200);
-            const searchBody = (await searchRes.json()) as {
+        async function callTool(request: Request) {
+            const response = await app.handle(request);
+            const body = (await response.json()) as {
                 result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
             };
-            expect(searchBody.result?.isError).toBeFalsy();
+
+            return body.result;
+        }
+
+        it("lets the read token call read tools but not add_vocab", async () => {
+            const denied = await callTool(createMcpRequest(addVocabCall(60), { "X-Internal-MCP-Token": TEST_MCP_TOKEN }));
+            expect(denied?.isError).toBe(true);
+            expect(denied?.content?.[0]?.text).toContain("FORBIDDEN");
+
+            const snapshot = await callTool(createMcpRequest(
+                { jsonrpc: "2.0", id: 61, method: "tools/call", params: { name: "get_vocab_snapshot", arguments: {} } },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN },
+            ));
+            expect(snapshot?.isError).toBeFalsy();
+
+            const search = await callTool(createMcpRequest(
+                { jsonrpc: "2.0", id: 62, method: "tools/call", params: { name: "search_legal_documents", arguments: { query: "100/2019/NĐ-CP" } } },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN },
+            ));
+            expect(search?.isError).toBeFalsy();
         });
 
-        it("enforces dedicated INTERNAL_MCP_WRITE_TOKEN when configured", async () => {
-            const WRITE_TOKEN = "dedicated-secret-write-token-999";
-            const envWithWriteToken: Env = {
-                ...mockEnv,
-                INTERNAL_MCP_WRITE_TOKEN: WRITE_TOKEN,
-            };
+        it("accepts add_vocab with the write token as a Bearer credential", async () => {
+            const allowed = await callTool(createMcpRequest(addVocabCall(70), { Authorization: `Bearer ${TEST_MCP_WRITE_TOKEN}` }));
 
-            // Call with general token only -> rejected for write
-            const deniedReq = createMcpRequest(
-                {
-                    jsonrpc: "2.0",
-                    id: 70,
-                    method: "tools/call",
-                    params: {
-                        name: "add_vocab",
-                        arguments: {
-                            type: "ACTION",
-                            canonical_label: "đi lùi",
-                            evidence: "Đi lùi xe trên đường một chiều",
-                            source_provision_id: "dieu_16",
-                            base_vocabulary_version: 1,
-                        },
-                    },
-                },
-                { "X-Internal-MCP-Token": TEST_MCP_TOKEN },
-                envWithWriteToken
-            );
+            expect(allowed?.isError).toBeFalsy();
+            expect((JSON.parse(allowed!.content[0].text) as AddVocabResponse).status).toBe("CREATED");
+        });
 
-            const deniedRes = await app.handle(deniedReq);
-            const deniedBody = (await deniedRes.json()) as {
-                result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
-            };
-            expect(deniedBody.result?.isError).toBe(true);
-            expect(deniedBody.result?.content?.[0]?.text).toContain("Forbidden");
+        it("denies every write when no write token is configured (fail closed)", async () => {
+            const envWithoutWriteToken: Env = { ...mockEnv, INTERNAL_MCP_WRITE_TOKEN: undefined };
+            const denied = await callTool(createMcpRequest(addVocabCall(80), { "X-Internal-MCP-Token": TEST_MCP_TOKEN }, envWithoutWriteToken));
 
-            // Call with dedicated write token -> accepted
-            const allowedReq = createMcpRequest(
-                {
-                    jsonrpc: "2.0",
-                    id: 71,
-                    method: "tools/call",
-                    params: {
-                        name: "add_vocab",
-                        arguments: {
-                            type: "ACTION",
-                            canonical_label: "đi lùi",
-                            evidence: "Đi lùi xe trên đường một chiều",
-                            source_provision_id: "dieu_16",
-                            base_vocabulary_version: 1,
-                        },
-                    },
-                },
-                {
-                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
-                    "X-Internal-MCP-Write-Token": WRITE_TOKEN,
-                },
-                envWithWriteToken
-            );
-
-            const allowedRes = await app.handle(allowedReq);
-            const allowedBody = (await allowedRes.json()) as {
-                result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
-            };
-            expect(allowedBody.result?.isError).toBeFalsy();
-            const resData = JSON.parse(allowedBody.result?.content?.[0]?.text!) as AddVocabResponse;
-            expect(resData.status).toBe("CREATED");
+            expect(denied?.isError).toBe(true);
+            expect(denied?.content?.[0]?.text).toContain("FORBIDDEN");
         });
     });
 
     describe("Official MCP Client SDK Protocol Integration", () => {
         it("connects via official StreamableHTTPClientTransport, lists tools, and invokes get_vocab_snapshot", async () => {
-            await repository.insertEntry({
+            await insertVocabEntry(testDb, {
                 canonical_id: "SUB_001",
                 type: "SUBJECT",
                 canonical_label: "người điều khiển phương tiện",
@@ -878,7 +781,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
                 {
                     requestInit: {
                         headers: {
-                            "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                            "X-Internal-MCP-Token": TEST_MCP_WRITE_TOKEN,
                         },
                     },
                     fetch: async (url, init) => {

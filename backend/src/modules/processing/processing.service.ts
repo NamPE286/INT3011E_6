@@ -1,216 +1,260 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type { PDFDocument } from "pdf-lib";
 import type { Env } from "../../types/env";
-import { extractPdfText } from "./pdf-extractor";
-import { createSourceLines } from "./source-lines";
-import { segmentLegalText } from "./legal-llm.service";
-import { buildLegalDocument } from "./legal-validator";
+import { getJobById, updateJobStage } from "./job.repository";
+import { assembleLegalDocument } from "./legal-assembler";
+import {
+    DEFAULT_OPENAI_MODEL,
+    InvalidTranscriptionError,
+    PROMPT_VERSION,
+    transcribeChunk,
+} from "./legal-llm.service";
 import { saveLegalDocument } from "./legal-persistence";
-import { NeedsReviewError } from "./legal-types";
-import type {
-    ProcessingJobRecord,
-    JobResponse,
-    ProcessingStep,
-    JobStatus,
-    Sleep,
-} from "./processing.types";
+import { LEGAL_SCHEMA_VERSION, NeedsReviewError, type ChunkTranscription } from "./legal-types";
+import {
+    extractPageRange,
+    InvalidPdfError,
+    loadPdf,
+    planPageRanges,
+    sha256Hex,
+    type PageRange,
+} from "./pdf-document";
 
-export const defaultSleep: Sleep = (ms: number): Promise<void> =>
-    new Promise((resolve) => setTimeout(resolve, ms));
+const DEFAULT_PAGES_PER_CHUNK = 3;
+const CHUNK_CONCURRENCY = 4;
+const TRANSCRIPTION_ATTEMPTS = 2;
+const EXTRACTION_PROGRESS_START = 10;
+const EXTRACTION_PROGRESS_END = 90;
 
-export function toJobResponse(job: ProcessingJobRecord): JobResponse {
-    return {
-        id: job.id,
-        filename: job.original_filename,
-        fileSize: job.file_size,
-        status: job.status,
-        step: job.step,
-        progress: job.progress,
-        error: job.error_message,
-        createdAt: job.created_at,
-        updatedAt: job.updated_at,
-        completedAt: job.completed_at,
-    };
-}
+export type PipelineOptions = {
+    fetcher?: typeof fetch;
+};
 
-export async function getJobById(
-    db: D1Database,
-    id: string
-): Promise<ProcessingJobRecord | null> {
-    const record = await db
-        .prepare("SELECT * FROM processing_jobs WHERE id = ?")
-        .bind(id)
-        .first<ProcessingJobRecord>();
+type RunContext = {
+    env: Env;
+    jobId: string;
+    pdf: PDFDocument;
+    model: string;
+    runPrefix: string;
+    fetcher?: typeof fetch;
+};
 
-    return record ?? null;
-}
+/**
+ * PDF snapshot → LLM page transcription (checkpointed per page range in R2) → deterministic
+ * assembly/validation → D1. Transient failures are rethrown so the queue retries and resumes.
+ */
+export async function executeProcessingPipeline(env: Env, jobId: string, options: PipelineOptions = {}): Promise<void> {
+    const job = await getJobById(env.DB, jobId);
 
-export async function getRecentJobs(db: D1Database): Promise<ProcessingJobRecord[]> {
-    const result = await db
-        .prepare("SELECT * FROM processing_jobs ORDER BY created_at DESC LIMIT 100")
-        .all<ProcessingJobRecord>();
-
-    return result.results ?? [];
-}
-
-export async function insertJob(
-    db: D1Database,
-    job: {
-        id: string;
-        fileKey: string;
-        originalFilename: string;
-        mimeType: string | null;
-        fileSize: number;
+    if (!job) {
+        throw new NeedsReviewError(`Job ${jobId} does not exist in D1`);
     }
-): Promise<ProcessingJobRecord> {
-    const now = new Date().toISOString();
-    const newRecord: ProcessingJobRecord = {
-        id: job.id,
-        file_key: job.fileKey,
-        original_filename: job.originalFilename,
-        mime_type: job.mimeType,
-        file_size: job.fileSize,
-        status: "queued",
-        step: "queued",
-        progress: 0,
-        error_message: null,
-        created_at: now,
-        updated_at: now,
-        completed_at: null,
-    };
 
-    await db
-        .prepare(
-            `INSERT INTO processing_jobs (
-                id, file_key, original_filename, mime_type, file_size,
-                status, step, progress, error_message, created_at, updated_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .bind(
-            newRecord.id,
-            newRecord.file_key,
-            newRecord.original_filename,
-            newRecord.mime_type,
-            newRecord.file_size,
-            newRecord.status,
-            newRecord.step,
-            newRecord.progress,
-            newRecord.error_message,
-            newRecord.created_at,
-            newRecord.updated_at,
-            newRecord.completed_at
-        )
-        .run();
-
-    return newRecord;
-}
-
-export async function updateJobStage(
-    db: D1Database,
-    id: string,
-    updates: {
-        status?: JobStatus;
-        step?: ProcessingStep;
-        progress?: number;
-        errorMessage?: string | null;
-        completedAt?: string | null;
-    }
-): Promise<void> {
-    const now = new Date().toISOString();
-    const current = await getJobById(db, id);
-    if (!current) {
+    if (job.status === "completed" || job.status === "needs_review") {
         return;
     }
 
-    const nextStatus = updates.status ?? current.status;
-    const nextStep = updates.step !== undefined ? updates.step : current.step;
-    const rawProgress = updates.progress !== undefined ? updates.progress : current.progress;
-    const nextProgress = Math.max(0, Math.min(100, rawProgress));
-    const nextErrorMessage =
-        updates.errorMessage !== undefined ? updates.errorMessage : current.error_message;
-    const nextCompletedAt =
-        updates.completedAt !== undefined ? updates.completedAt : current.completed_at;
-
-    await db
-        .prepare(
-            `UPDATE processing_jobs
-             SET status = ?, step = ?, progress = ?, error_message = ?, updated_at = ?, completed_at = ?
-             WHERE id = ?`
-        )
-        .bind(
-            nextStatus,
-            nextStep,
-            nextProgress,
-            nextErrorMessage,
-            now,
-            nextCompletedAt,
-            id
-        )
-        .run();
-}
-
-/** Real PDF → text → LLM boundaries → exact legal content/locators → D1 pipeline. */
-export async function executeProcessingPipeline(env: Env, jobId: string): Promise<void> {
-    const db = env.DB;
-    const job = await getJobById(db, jobId);
-    if (!job) {
-        // Invalid/unresolvable job is not a temporary error; do not loop forever.
-        throw new NeedsReviewError(`Job ${jobId} does not exist in D1`);
-    }
-    if (job.status === "completed" || job.status === "needs_review") {
-        return; // Idempotent for messages delivered more than once.
-    }
-
     try {
-        await updateJobStage(db, jobId, {
-            status: "processing", step: "preparing", progress: 10,
+        await updateJobStage(env.DB, jobId, {
+            status: "processing",
+            step: "preparing",
+            progress: 5,
             errorMessage: null,
         });
-        const snapshotKey = `snapshots/${jobId}.pdf`;
-        const textKey = `snapshots/${jobId}.extracted.json`;
-        // If snapshot creation succeeded but a previous D1 operation failed, retry from it.
-        const object = await env.FILE_STORAGE.get(job.file_key) ?? await env.FILE_STORAGE.get(snapshotKey);
-        if (!object) throw new NeedsReviewError(`PDF missing in R2: ${job.file_key}`);
-        const rawPdf = await object.arrayBuffer();
-        const hashBytes = await crypto.subtle.digest("SHA-256", rawPdf);
-        const pdfSha256 = Array.from(new Uint8Array(hashBytes), (b) => b.toString(16).padStart(2, "0")).join("");
 
-        await updateJobStage(db, jobId, { step: "extracting", progress: 30 });
-        const pages = await extractPdfText(rawPdf);
-        const lines = createSourceLines(pages);
-        if (!lines.length) throw new NeedsReviewError("No readable text in PDF");
+        const snapshot = await env.FILE_STORAGE.get(job.file_key);
 
-        await updateJobStage(db, jobId, { step: "analyzing", progress: 55 });
-        const segmentation = await segmentLegalText(lines, env.OPENAI_API_KEY ?? "", env.OPENAI_MODEL);
-        const document = buildLegalDocument(segmentation, pages, lines, jobId, pdfSha256);
-
-        await updateJobStage(db, jobId, { step: "finalizing", progress: 90 });
-        // Preserve evidence FIRST. Only the temporary upload key will be removed.
-        await env.FILE_STORAGE.put(snapshotKey, rawPdf, {
-            httpMetadata: { contentType: "application/pdf" },
-        });
-        await env.FILE_STORAGE.put(textKey, JSON.stringify({
-            extraction_version: "unpdf-v1",
-            pages,
-        }), { httpMetadata: { contentType: "application/json" } });
-        await saveLegalDocument(db, jobId, snapshotKey, textKey, document);
-        // Safe to remove temporary upload after D1 committed; keep snapshot indefinitely.
-        if (job.file_key !== snapshotKey) {
-            try {
-                await env.FILE_STORAGE.delete(job.file_key);
-            } catch (cleanupError) {
-                console.warn(`[Processing] Temp R2 cleanup failed for ${jobId}`, cleanupError);
-            }
+        if (!snapshot) {
+            throw new NeedsReviewError(`PDF snapshot is missing in R2: ${job.file_key}`);
         }
+
+        const pdfBytes = await snapshot.arrayBuffer();
+        const pdfSha256 = await sha256Hex(pdfBytes);
+        const pdf = await loadPdfForReview(pdfBytes);
+        const pageCount = pdf.getPageCount();
+        const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+        const runPrefix = `runs/${jobId}/${pdfSha256.slice(0, 16)}-${model}-${PROMPT_VERSION}-${LEGAL_SCHEMA_VERSION}`;
+
+        await updateJobStage(env.DB, jobId, { step: "extracting", progress: EXTRACTION_PROGRESS_START });
+
+        const ranges = planPageRanges(pageCount, readPagesPerChunk(env));
+        const chunks = await transcribeAllRanges({ env, jobId, pdf, model, runPrefix, fetcher: options.fetcher }, ranges);
+
+        await updateJobStage(env.DB, jobId, { step: "analyzing", progress: EXTRACTION_PROGRESS_END });
+
+        const { document, issues } = assembleLegalDocument(chunks, {
+            snapshotId: jobId,
+            pdfSha256,
+            pageCount,
+        });
+
+        await updateJobStage(env.DB, jobId, { step: "finalizing", progress: 95 });
+
+        const artifactKey = `${runPrefix}/validated.json`;
+        await env.FILE_STORAGE.put(artifactKey, JSON.stringify({ document, issues }), {
+            httpMetadata: { contentType: "application/json" },
+        });
+
+        const reviewStatus = await saveLegalDocument(env.DB, {
+            jobId,
+            snapshotKey: job.file_key,
+            artifactKey,
+            document,
+            issues,
+            pageCount,
+            model,
+            promptVersion: PROMPT_VERSION,
+        });
+
+        console.log(JSON.stringify({
+            level: "info",
+            module: "processing",
+            jobId,
+            pageCount,
+            model,
+            reviewStatus,
+            issueCount: issues.length,
+        }));
     } catch (error: unknown) {
         const detail = error instanceof Error ? error.message : "Unknown PDF processing error";
-        const review = error instanceof NeedsReviewError;
-        console.error(`[Processing] ${review ? "Needs review" : "Failed"}: ${jobId}`, detail);
-        await updateJobStage(db, jobId, {
-            status: review ? "needs_review" : "failed",
-            step: review ? "needs_review" : "finalizing",
+        const needsReview = error instanceof NeedsReviewError;
+
+        console.error(`[Processing] ${needsReview ? "Needs review" : "Will retry"}: ${jobId}`, detail);
+        await updateJobStage(env.DB, jobId, {
+            status: needsReview ? "needs_review" : "failed",
+            step: needsReview ? "needs_review" : undefined,
             errorMessage: detail.slice(0, 1000),
         });
-        // Temporary errors bubble to Queue consumer, which requests a retry.
-        if (!review) throw error;
+
+        throw error;
     }
+}
+
+async function loadPdfForReview(pdfBytes: ArrayBuffer): Promise<PDFDocument> {
+    try {
+        return await loadPdf(pdfBytes);
+    } catch (error: unknown) {
+        if (error instanceof InvalidPdfError) {
+            throw new NeedsReviewError(error.message);
+        }
+
+        throw error;
+    }
+}
+
+function readPagesPerChunk(env: Env): number {
+    const configured = Number(env.PDF_CHUNK_PAGES);
+
+    if (Number.isInteger(configured) && configured >= 1 && configured <= 20) {
+        return configured;
+    }
+
+    return DEFAULT_PAGES_PER_CHUNK;
+}
+
+async function transcribeAllRanges(context: RunContext, ranges: PageRange[]): Promise<ChunkTranscription[]> {
+    const results: ChunkTranscription[] = [];
+    const failures: unknown[] = [];
+    let nextIndex = 0;
+    let finished = 0;
+
+    async function worker(): Promise<void> {
+        while (nextIndex < ranges.length && failures.length === 0) {
+            const index = nextIndex;
+            nextIndex++;
+
+            try {
+                results[index] = await loadOrTranscribeRange(context, ranges[index]);
+            } catch (error: unknown) {
+                failures.push(error);
+
+                return;
+            }
+
+            finished++;
+            const progress = EXTRACTION_PROGRESS_START
+                + ((EXTRACTION_PROGRESS_END - EXTRACTION_PROGRESS_START) * finished) / ranges.length;
+            await updateJobStage(context.env.DB, context.jobId, { progress });
+        }
+    }
+
+    const workerCount = Math.min(CHUNK_CONCURRENCY, ranges.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    if (failures.length > 0) {
+        throw failures[0];
+    }
+
+    return results;
+}
+
+async function loadOrTranscribeRange(context: RunContext, range: PageRange): Promise<ChunkTranscription> {
+    const checkpointKey = `${context.runPrefix}/chunks/${range.pageStart}-${range.pageEnd}.json`;
+    const checkpoint = await context.env.FILE_STORAGE.get(checkpointKey);
+
+    if (checkpoint) {
+        const stored: unknown = JSON.parse(await checkpoint.text());
+
+        if (isChunkTranscription(stored)) {
+            return stored;
+        }
+    }
+
+    const transcription = await transcribeWithRetry(context, range);
+    await context.env.FILE_STORAGE.put(checkpointKey, JSON.stringify(transcription), {
+        httpMetadata: { contentType: "application/json" },
+    });
+
+    return transcription;
+}
+
+/** Malformed model output is retried once; if it persists, the range is recorded as unreadable instead of looping forever. */
+async function transcribeWithRetry(context: RunContext, range: PageRange): Promise<ChunkTranscription> {
+    const chunkPdf = await extractPageRange(context.pdf, range);
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= TRANSCRIPTION_ATTEMPTS; attempt++) {
+        try {
+            return await transcribeChunk({
+                chunkPdf,
+                pageStart: range.pageStart,
+                pageEnd: range.pageEnd,
+                apiKey: context.env.OPENAI_API_KEY ?? "",
+                model: context.model,
+                fetcher: context.fetcher,
+            });
+        } catch (error: unknown) {
+            if (!(error instanceof InvalidTranscriptionError)) {
+                throw error;
+            }
+
+            lastError = error.message;
+        }
+    }
+
+    const unreadablePages = [];
+
+    for (let page = range.pageStart; page <= range.pageEnd; page++) {
+        unreadablePages.push({ page, quality: "UNREADABLE" as const, note: lastError });
+    }
+
+    return {
+        page_start: range.pageStart,
+        page_end: range.pageEnd,
+        pages: unreadablePages,
+        blocks: [],
+        error: lastError,
+    };
+}
+
+function isChunkTranscription(value: unknown): value is ChunkTranscription {
+    if (typeof value !== "object" || value === null) {
+        return false;
+    }
+
+    return "page_start" in value
+        && typeof value.page_start === "number"
+        && "pages" in value
+        && Array.isArray(value.pages)
+        && "blocks" in value
+        && Array.isArray(value.blocks);
 }

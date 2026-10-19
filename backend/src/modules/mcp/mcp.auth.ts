@@ -1,97 +1,57 @@
 import type { Env } from "../../types/env";
 
-export interface AuthValidationResult {
-    authorized: boolean;
-    reason?: string;
+export type McpAccess =
+    | { authorized: true; canWrite: boolean }
+    | { authorized: false; reason: string };
+
+/**
+ * One token per role: INTERNAL_MCP_TOKEN may call read tools, INTERNAL_MCP_WRITE_TOKEN may also call add_vocab.
+ * Both fail closed: no read token means no access, no write token means nobody can write.
+ */
+export function resolveMcpAccess(request: Request, env: Env | undefined): McpAccess {
+    const readToken = env?.INTERNAL_MCP_TOKEN?.trim();
+
+    if (!readToken) {
+        return { authorized: false, reason: "Unauthorized: Internal MCP token is not configured (fail closed)" };
+    }
+
+    const presentedToken = readPresentedToken(request);
+
+    if (!presentedToken) {
+        return { authorized: false, reason: "Unauthorized: Invalid or missing internal MCP token" };
+    }
+
+    const writeToken = env?.INTERNAL_MCP_WRITE_TOKEN?.trim();
+
+    if (writeToken && constantTimeEqual(presentedToken, writeToken)) {
+        return { authorized: true, canWrite: true };
+    }
+
+    if (constantTimeEqual(presentedToken, readToken)) {
+        return { authorized: true, canWrite: false };
+    }
+
+    return { authorized: false, reason: "Unauthorized: Invalid or missing internal MCP token" };
 }
 
-export function validateInternalMcpAuth(
-    request: Request,
-    configuredToken?: string
-): AuthValidationResult {
-    if (!configuredToken || configuredToken.trim() === "") {
-        return {
-            authorized: false,
-            reason: "Unauthorized: Internal MCP token is not configured (fail closed)",
-        };
+function readPresentedToken(request: Request): string | null {
+    const authorization = request.headers.get("authorization");
+
+    if (authorization?.startsWith("Bearer ")) {
+        return authorization.slice("Bearer ".length).trim() || null;
     }
 
-    const expectedToken = configuredToken.trim();
-
-    const internalMcpHeader = request.headers.get("x-internal-mcp-token");
-    if (internalMcpHeader && internalMcpHeader.trim() === expectedToken) {
-        return { authorized: true };
-    }
-
-    const legacyInternalHeader = request.headers.get("x-internal-token");
-    if (legacyInternalHeader && legacyInternalHeader.trim() === expectedToken) {
-        return { authorized: true };
-    }
-
-    const authHeader = request.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-        const bearerToken = authHeader.slice(7).trim();
-        if (bearerToken === expectedToken) {
-            return { authorized: true };
-        }
-    }
-
-    return {
-        authorized: false,
-        reason: "Unauthorized: Invalid or missing internal MCP token",
-    };
+    return request.headers.get("x-internal-mcp-token")?.trim() || null;
 }
 
-export function validateInternalMcpWriteAuth(
-    request: Request,
-    env?: Env
-): AuthValidationResult {
-    // 1. Explicit read-only role or scope header always denies write
-    const roleHeader = request.headers.get("x-mcp-role")?.toLowerCase();
-    const scopeHeader = request.headers.get("x-mcp-scope")?.toLowerCase();
+function constantTimeEqual(presented: string, expected: string): boolean {
+    const presentedBytes = new TextEncoder().encode(presented);
+    const expectedBytes = new TextEncoder().encode(expected);
+    let difference = presentedBytes.length ^ expectedBytes.length;
 
-    if (
-        roleHeader === "read" ||
-        roleHeader === "readonly" ||
-        roleHeader === "read-only" ||
-        scopeHeader === "read" ||
-        scopeHeader === "readonly" ||
-        scopeHeader === "read-only"
-    ) {
-        return {
-            authorized: false,
-            reason: "Forbidden: Read-only scope is not permitted to execute write tool (add_vocab)",
-        };
+    for (let index = 0; index < expectedBytes.length; index++) {
+        difference |= (presentedBytes[index] ?? 0) ^ expectedBytes[index];
     }
 
-    // 2. If a dedicated INTERNAL_MCP_WRITE_TOKEN is configured in env
-    if (env?.INTERNAL_MCP_WRITE_TOKEN && env.INTERNAL_MCP_WRITE_TOKEN.trim() !== "") {
-        const expectedWriteToken = env.INTERNAL_MCP_WRITE_TOKEN.trim();
-
-        const writeHeader = request.headers.get("x-internal-mcp-write-token");
-        if (writeHeader && writeHeader.trim() === expectedWriteToken) {
-            return { authorized: true };
-        }
-
-        const generalHeader = request.headers.get("x-internal-mcp-token");
-        if (generalHeader && generalHeader.trim() === expectedWriteToken) {
-            return { authorized: true };
-        }
-
-        const authHeader = request.headers.get("authorization");
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const bearerToken = authHeader.slice(7).trim();
-            if (bearerToken === expectedWriteToken) {
-                return { authorized: true };
-            }
-        }
-
-        return {
-            authorized: false,
-            reason: "Forbidden: Invalid or missing write token for add_vocab",
-        };
-    }
-
-    // 3. Fallback to general internal MCP token validation
-    return validateInternalMcpAuth(request, env?.INTERNAL_MCP_TOKEN);
+    return difference === 0;
 }

@@ -2,7 +2,7 @@
 
 Nền tảng Legal AI hỗ trợ truy vết quy định xử phạt vi phạm giao thông đường bộ Việt Nam theo từng hành vi, căn cứ pháp lý và lịch sử thay đổi của quy định.
 
-Repository hiện chứa hạ tầng mẫu cho luồng xử lý bất đồng bộ: frontend tải tệp lên, Cloudflare Worker lưu tệp và tạo job, Queue xử lý job, còn frontend theo dõi tiến độ. Đây là nền tảng kỹ thuật ban đầu; phạm vi sản phẩm hoàn chỉnh và nguồn nhập liệu chính thức được quy định trong SRS.
+Repository hiện có: luồng nhập PDF văn bản pháp luật (kể cả bản scan) thành JSON có cấu trúc bằng LLM ([chi tiết](docs/pdf-upload-api.md)), dashboard admin để upload và theo dõi job, và MCP server nội bộ cho vocabulary và tìm văn bản ([chi tiết](docs/mcp-server.md)). Phạm vi sản phẩm hoàn chỉnh được quy định trong SRS.
 
 ## Overview
 
@@ -70,10 +70,11 @@ Tạo cấu hình môi trường local từ các file mẫu trước khi chạy 
 
 ```bash
 cp backend/.env.example backend/.env
+cp backend/.dev.vars.example backend/.dev.vars
 cp web/.env.example web/.env
 ```
 
-Không commit các file `.env`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
+Không commit các file `.env` và `.dev.vars`. Wrangler đọc secret local (`OPENAI_API_KEY`, `INTERNAL_MCP_TOKEN`, `INTERNAL_MCP_WRITE_TOKEN`) từ `backend/.dev.vars`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
 
 ### 2. Khởi tạo cơ sở dữ liệu local
 
@@ -191,15 +192,16 @@ Cloudflare Worker (Elysia)
                    D1
 
 Trình duyệt ── GET /api/jobs/:jobId mỗi 1 giây ──► Worker ──► D1
+Preprocessing LLM ── POST /mcp (token nội bộ) ──► Worker ──► D1 (vocabulary, legal_documents)
 ```
 
 Luồng xử lý:
 
 1. Frontend gửi tệp tới `POST /api/uploads` và hiển thị tiến độ upload theo số byte thực tế.
-2. Backend kiểm tra tệp (không rỗng, có tên, tối đa 50 MB), lưu nội dung vào R2 và tạo bản ghi `processing_jobs` trong D1.
+2. Backend kiểm tra PDF (header, cấu trúc, không mã hóa, tối đa 50 MB và 300 trang), lưu snapshot vào R2 và tạo bản ghi `processing_jobs` trong D1.
 3. Backend đẩy `{ jobId }` vào Cloudflare Queue.
-4. Queue consumer chạy pipeline nền và cập nhật `status`, `step`, `progress` trong D1.
-5. Frontend gọi `GET /api/jobs/:jobId` mỗi giây cho đến khi job ở trạng thái `completed` hoặc `failed`.
+4. Queue consumer chia PDF theo cụm trang, gọi LLM đọc từng cụm (checkpoint trong R2), ghép và kiểm tra cấu trúc rồi lưu `legal_documents` trong D1.
+5. Frontend gọi `GET /api/jobs/:jobId` mỗi giây cho đến khi job ở trạng thái `completed` hoặc `needs_review`; JSON lấy qua `GET /api/jobs/:jobId/document`.
 
 D1 là nguồn dữ liệu chuẩn cho trạng thái xử lý. R2 chỉ lưu nội dung tệp, còn Queue đảm nhiệm vận chuyển công việc bất đồng bộ; không thành phần nào trong hai thành phần này thay thế trạng thái bền vững trong D1.
 
@@ -210,7 +212,7 @@ D1 là nguồn dữ liệu chuẩn cho trạng thái xử lý. R2 chỉ lưu n�
 ├── backend/
 │   ├── migrations/             # Schema và migration D1
 │   ├── src/
-│   │   ├── modules/            # Health, upload và processing
+│   │   ├── modules/            # Health, upload, processing (PDF → JSON), MCP, vocabulary, documents
 │   │   ├── plugins/            # Context Cloudflare và auth
 │   │   ├── types/              # Kiểu cho environment/binding
 │   │   ├── app.ts              # Khai báo ứng dụng Elysia
@@ -238,6 +240,6 @@ Các binding được khai báo tại [`backend/wrangler.jsonc`](backend/wrangle
 
 ### Kiến trúc đích
 
-Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật, trích text/OCR và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
+Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật (LLM đọc trực tiếp, kể cả bản scan) và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
 
 Khi triển khai feature mới, SRS là nguồn quyết định cho nghiệp vụ; README này mô tả trạng thái kỹ thuật đang có để hỗ trợ chạy và phát triển local.
