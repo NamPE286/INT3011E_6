@@ -10,5 +10,6 @@ export interface Env {
     OPENAI_MODEL?: string;
     FILE_STORAGE: R2Bucket;
     PROCESSING_QUEUE: Queue<ProcessingQueueMessage>;
+    INTERNAL_MCP_TOKEN?: string;
+    INTERNAL_MCP_WRITE_TOKEN?: string;
 }
-
