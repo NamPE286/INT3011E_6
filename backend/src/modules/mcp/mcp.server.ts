@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { VocabularyService } from "../vocabulary/vocabulary.service";
+import type { DocumentService } from "../documents/document.service";
 
 export const getVocabSnapshotSchema = {
     version: z
@@ -56,6 +57,46 @@ export const addVocabSchema = {
         .describe("Vocabulary version the client based this proposed addition on"),
 };
 
+export const searchLegalDocumentsSchema = {
+    query: z
+        .string()
+        .min(1)
+        .describe("Search query, document mention, or legal keywords"),
+    document_number: z
+        .string()
+        .optional()
+        .nullable()
+        .describe("Optional legal document number (e.g. '100/2019/NĐ-CP')"),
+    document_type: z
+        .string()
+        .optional()
+        .nullable()
+        .describe("Optional document type filter (e.g. 'Nghị định', 'Luật', 'Thông tư')"),
+    agency: z
+        .string()
+        .optional()
+        .nullable()
+        .describe("Optional issuing agency filter (e.g. 'Chính phủ', 'Bộ Giao thông vận tải')"),
+    issued_from: z
+        .string()
+        .optional()
+        .nullable()
+        .describe("Optional lower bound for issuance date (YYYY-MM-DD)"),
+    issued_to: z
+        .string()
+        .optional()
+        .nullable()
+        .describe("Optional upper bound for issuance date (YYYY-MM-DD)"),
+    limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .nullable()
+        .describe("Maximum number of document candidates to return (1-50, default: 10)"),
+};
+
 export interface LegalMcpServerOptions {
     canWrite?: boolean;
     writeAuthReason?: string;
@@ -63,8 +104,22 @@ export interface LegalMcpServerOptions {
 
 export function createLegalMcpServer(
     vocabularyService: VocabularyService,
+    documentServiceOrOptions?: DocumentService | LegalMcpServerOptions,
     options: LegalMcpServerOptions = { canWrite: true }
 ): McpServer {
+    let documentService: DocumentService | undefined;
+    let actualOptions: LegalMcpServerOptions = { canWrite: true };
+
+    if (
+        documentServiceOrOptions &&
+        typeof (documentServiceOrOptions as DocumentService).searchLegalDocuments === "function"
+    ) {
+        documentService = documentServiceOrOptions as DocumentService;
+        actualOptions = options ?? { canWrite: true };
+    } else if (documentServiceOrOptions) {
+        actualOptions = documentServiceOrOptions as LegalMcpServerOptions;
+    }
+
     const server = new McpServer({
         name: "legal-mcp-server",
         version: "1.0.0",
@@ -93,7 +148,7 @@ export function createLegalMcpServer(
         "Add a new legal vocabulary entry candidate with duplicate resolution, provenance, and atomic versioning.",
         addVocabSchema,
         async (args) => {
-            if (options.canWrite === false) {
+            if (actualOptions.canWrite === false) {
                 return {
                     isError: true,
                     content: [
@@ -102,7 +157,7 @@ export function createLegalMcpServer(
                             text: JSON.stringify({
                                 error: "FORBIDDEN",
                                 message:
-                                    options.writeAuthReason ??
+                                    actualOptions.writeAuthReason ??
                                     "Unauthorized: Write permission required for add_vocab",
                             }),
                         },
@@ -133,6 +188,64 @@ export function createLegalMcpServer(
             } catch (error) {
                 const message =
                     error instanceof Error ? error.message : "Failed to add vocabulary";
+                return {
+                    isError: true,
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: "INVALID_INPUT",
+                                message,
+                            }),
+                        },
+                    ],
+                };
+            }
+        }
+    );
+
+    server.tool(
+        "search_legal_documents",
+        "Search for legal document candidates in the internal corpus to support document discovery without canonicalization.",
+        searchLegalDocumentsSchema,
+        async (args) => {
+            if (!documentService) {
+                return {
+                    isError: true,
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: "SERVICE_UNAVAILABLE",
+                                message: "Document search service is not configured",
+                            }),
+                        },
+                    ],
+                };
+            }
+
+            try {
+                const result = await documentService.searchLegalDocuments({
+                    query: args.query,
+                    document_number: args.document_number,
+                    document_type: args.document_type,
+                    agency: args.agency,
+                    issued_from: args.issued_from,
+                    issued_to: args.issued_to,
+                    limit: args.limit,
+                });
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify(result),
+                        },
+                    ],
+                };
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : "Failed to search legal documents";
                 return {
                     isError: true,
                     content: [

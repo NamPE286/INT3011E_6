@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { app } from "../src/app";
 import { VocabularyRepository } from "../src/modules/vocabulary/vocabulary.repository";
+import type { SearchLegalDocumentsResponse } from "../src/modules/documents/document.types";
 import type { AddVocabResponse, VocabSnapshotResponse } from "../src/modules/vocabulary/vocabulary.types";
 import type { Env } from "../src/types/env";
 import { createTestD1Database } from "./d1-test-db";
@@ -210,12 +211,23 @@ describe("MCP Streamable HTTP /mcp route", () => {
             const tools = body.result?.tools ?? [];
             const snapshotTool = tools.find((t) => t.name === "get_vocab_snapshot");
             const addVocabTool = tools.find((t) => t.name === "add_vocab");
+            const searchDocsTool = tools.find((t) => t.name === "search_legal_documents");
 
             expect(snapshotTool).toBeDefined();
             expect(snapshotTool?.description).toContain("vocabulary snapshot");
 
             expect(addVocabTool).toBeDefined();
             expect(addVocabTool?.description).toContain("vocabulary entry");
+
+            expect(searchDocsTool).toBeDefined();
+            expect(searchDocsTool?.description).toContain("legal document candidates");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("query");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("document_number");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("document_type");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("agency");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("issued_from");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("issued_to");
+            expect(searchDocsTool?.inputSchema.properties).toHaveProperty("limit");
         });
 
         it("executes tools/call for get_vocab_snapshot and returns full snapshot with status OK", async () => {
@@ -539,6 +551,84 @@ describe("MCP Streamable HTTP /mcp route", () => {
         });
     });
 
+    describe("Document Discovery Tool (search_legal_documents)", () => {
+        it("executes tools/call for search_legal_documents and returns candidates with identity invariants", async () => {
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 55,
+                    method: "tools/call",
+                    params: {
+                        name: "search_legal_documents",
+                        arguments: {
+                            query: "100/2019/NĐ-CP",
+                            document_number: "100/2019/NĐ-CP",
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(body.result?.isError).toBeFalsy();
+            const text = body.result?.content?.[0]?.text;
+            expect(text).toBeDefined();
+
+            const parsed = JSON.parse(text!) as SearchLegalDocumentsResponse;
+            expect(parsed.status).toBe("OK");
+            expect(parsed.candidates.length).toBeGreaterThan(0);
+
+            const candidate = parsed.candidates[0];
+            expect(candidate.document_number).toBe("100/2019/NĐ-CP");
+            expect(candidate.identity_type).toBe("CORPUS_DOCUMENT");
+            expect(candidate.canonical_document_id).toBeNull();
+            expect(candidate.source_provenance.job_id).toBe("job-seed-nd100");
+            expect(candidate.source_provenance.pdf_sha256).toBe("dummy-sha256");
+            expect(candidate.availability.has_json_content).toBe(true);
+            expect(candidate.availability.has_pdf_snapshot).toBe(true);
+        });
+
+        it("returns isError for search_legal_documents when query is empty or limit is negative", async () => {
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 56,
+                    method: "tools/call",
+                    params: {
+                        name: "search_legal_documents",
+                        arguments: {
+                            query: "   ",
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(body.result?.isError).toBe(true);
+            const text = body.result?.content?.[0]?.text;
+            expect(text).toContain("Search query string is required");
+        });
+    });
+
     describe("Write Tool Authorization (add_vocab)", () => {
         it("denies add_vocab when client has explicit read-only scope, but permits get_vocab_snapshot", async () => {
             const writeReq = createMcpRequest(
@@ -604,6 +694,32 @@ describe("MCP Streamable HTTP /mcp route", () => {
             };
 
             expect(readBody.result?.isError).toBeFalsy();
+
+            // search_legal_documents also succeeds for read-only role
+            const searchReq = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 62,
+                    method: "tools/call",
+                    params: {
+                        name: "search_legal_documents",
+                        arguments: {
+                            query: "100/2019/NĐ-CP",
+                        },
+                    },
+                },
+                {
+                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                    "X-MCP-Role": "read",
+                }
+            );
+
+            const searchRes = await app.handle(searchReq);
+            expect(searchRes.status).toBe(200);
+            const searchBody = (await searchRes.json()) as {
+                result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
+            };
+            expect(searchBody.result?.isError).toBeFalsy();
         });
 
         it("enforces dedicated INTERNAL_MCP_WRITE_TOKEN when configured", async () => {
@@ -711,6 +827,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
             const toolNames = toolsList.tools.map((t) => t.name);
             expect(toolNames).toContain("get_vocab_snapshot");
             expect(toolNames).toContain("add_vocab");
+            expect(toolNames).toContain("search_legal_documents");
 
             const toolResult = await client.callTool({
                 name: "get_vocab_snapshot",
@@ -808,6 +925,57 @@ describe("MCP Streamable HTTP /mcp route", () => {
             expect(parsedSnap.vocabulary_version).toBe(2);
             expect(parsedSnap.entries.length).toBe(1);
             expect(parsedSnap.entries[0].canonical_label).toBe("xe xích lô");
+
+            await client.close();
+        });
+
+        it("invokes search_legal_documents via official MCP Client SDK", async () => {
+            const client = new Client(
+                { name: "official-sdk-test-client-3", version: "1.0.0" },
+                { capabilities: {} }
+            );
+
+            const transport = new StreamableHTTPClientTransport(
+                new URL("http://localhost/mcp"),
+                {
+                    requestInit: {
+                        headers: {
+                            "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                        },
+                    },
+                    fetch: async (url, init) => {
+                        const req = new Request(url, init);
+                        (req as unknown as { env: unknown }).env = mockEnv;
+                        return app.handle(req);
+                    },
+                }
+            );
+
+            await client.connect(transport);
+
+            const searchResult = await client.callTool({
+                name: "search_legal_documents",
+                arguments: {
+                    query: "100/2019/NĐ-CP",
+                    document_number: "100/2019/NĐ-CP",
+                },
+            });
+
+            expect(searchResult.isError).toBeFalsy();
+            const contents = searchResult.content as Array<{ type: string; text?: string }>;
+            const firstContent = contents[0];
+            expect(firstContent?.type).toBe("text");
+
+            const parsed = JSON.parse(firstContent!.text!) as SearchLegalDocumentsResponse;
+            expect(parsed.status).toBe("OK");
+            expect(parsed.candidates.length).toBeGreaterThan(0);
+
+            const candidate = parsed.candidates[0];
+            expect(candidate.document_number).toBe("100/2019/NĐ-CP");
+            expect(candidate.identity_type).toBe("CORPUS_DOCUMENT");
+            expect(candidate.canonical_document_id).toBeNull();
+            expect(candidate.source_provenance.job_id).toBe("job-seed-nd100");
+            expect(candidate.availability.has_json_content).toBe(true);
 
             await client.close();
         });

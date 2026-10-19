@@ -1,6 +1,8 @@
 import { Elysia } from "elysia";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { extractEnvFromRequest } from "../../plugins/context";
+import { DocumentRepository } from "../documents/document.repository";
+import { DocumentService } from "../documents/document.service";
 import { VocabularyRepository } from "../vocabulary/vocabulary.repository";
 import { VocabularyService } from "../vocabulary/vocabulary.service";
 import { validateInternalMcpAuth, validateInternalMcpWriteAuth } from "./mcp.auth";
@@ -39,10 +41,17 @@ export const mcpModule = new Elysia({ name: "mcp" })
 
         const repository = new VocabularyRepository(env.DB);
         const service = new VocabularyService(repository);
-        const server = createLegalMcpServer(service, {
-            canWrite: writeAuthResult.authorized,
-            writeAuthReason: writeAuthResult.reason,
-        });
+        const documentRepository = new DocumentRepository(env.DB);
+        const documentService = new DocumentService(documentRepository);
+
+        const server = createLegalMcpServer(
+            service,
+            documentService,
+            {
+                canWrite: writeAuthResult.authorized,
+                writeAuthReason: writeAuthResult.reason,
+            }
+        );
 
         const transport = new WebStandardStreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
