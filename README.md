@@ -240,6 +240,6 @@ Các binding được khai báo tại [`backend/wrangler.jsonc`](backend/wrangle
 
 ### Kiến trúc đích
 
-Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật, trích text/OCR và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
+Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật (LLM đọc trực tiếp, kể cả bản scan) và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
 
 Khi triển khai feature mới, SRS là nguồn quyết định cho nghiệp vụ; README này mô tả trạng thái kỹ thuật đang có để hỗ trợ chạy và phát triển local.

@@ -1,6 +1,6 @@
 # SRS — Vietnamese Traffic Violation Sanction Intelligence
 
-**Version:** 0.10\
+**Version:** 0.11\
 **Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
 **Project type:** Legal AI / Engineering + R&D  
 **Base project:** Legal Document Change Detection
@@ -357,22 +357,27 @@ EXCEPTION
 
 Mỗi vocabulary entry phải có canonical ID, type, canonical label, aliases nếu có, provenance, thời điểm tạo và vocabulary version/run có liên quan. Vocabulary là knowledge dùng lại qua nhiều import, không đồng nhất với TrafficViolation; nhiều TrafficViolation/ViolationRule có thể tham chiếu cùng vocabulary entry.
 
-Trong import pipeline, LLM phải ưu tiên reuse vocabulary hiện có trước khi đề xuất tạo vocabulary mới. Vocabulary được expose cho LLM qua MCP server với đúng hai tool:
+Trong import pipeline, LLM phải ưu tiên reuse vocabulary hiện có trước khi đề xuất tạo vocabulary mới. Vocabulary được expose cho LLM qua MCP server nội bộ ([#36](https://github.com/NamPE286/INT3011E_6/issues/36), [hướng dẫn kết nối](mcp-server.md)):
 
 ~~~text
-list_vocab(type?, query?, limit?)
-add_vocab(type, canonical_label, aliases?, definition?, evidence, source_provision_id)
+get_vocab_snapshot(version?)
+add_vocab(type, canonical_label, aliases?, definition?, evidence, source_provision_id, source_document_id?, base_vocabulary_version)
 ~~~
 
-`list_vocab` là retrieval/search có filter, không phải dump toàn bộ registry vào context. `add_vocab` chỉ được gọi sau khi đã tra vocabulary hiện có và chỉ khi candidate biểu diễn một semantic value thực sự mới, không chỉ khác wording.
+Vocabulary MVP nhỏ nên `get_vocab_snapshot` trả **toàn bộ** registry dạng compact (canonical ID, type, label, aliases, definition ngắn), thứ tự deterministic và có `vocabulary_version`; caller cache theo version, truyền lại version đang có để nhận `NOT_MODIFIED`. Khi registry lớn tới mức snapshot không còn hợp lý về token, có thể bổ sung retrieval theo type/query mà không đổi canonical store. `add_vocab` chỉ được gọi sau khi đã nạp snapshot và chỉ khi candidate biểu diễn một semantic value thực sự mới, không chỉ khác wording.
 
-`add_vocab` phải re-check duplicate/alias/similarity ở server và có thể trả:
+`add_vocab` phải xác minh evidence thuộc Provision nguồn, re-check duplicate/alias/similarity ở server và có thể trả:
 
 ~~~text
 EXISTING
 CREATED
 AMBIGUOUS
+STALE_VERSION
 ~~~
+
+`STALE_VERSION` nghĩa registry đã đổi kể từ `base_vocabulary_version` của caller; caller phải nạp lại snapshot trước khi thử lại. Các lời gọi `add_vocab` trong một run phải tuần tự.
+
+Cùng MCP server còn có tool `search_legal_documents` phục vụ document discovery/identity resolution (FR-02/FR-03), không thuộc behavior labeling; kết quả chỉ là candidate, rỗng không chứng minh văn bản không tồn tại.
 
 LLM không được tự tạo canonical vocabulary vô điều kiện. `AMBIGUOUS` phải giữ candidate/chờ resolver thay vì ép tạo entry mới. Mọi entry mới phải trace được về legal evidence và Provision nguồn đã làm phát sinh candidate.
 
@@ -455,11 +460,10 @@ flowchart LR
     Admin["Admin"] -->|"Upload PDF / retry / xem job"| System["Traffic Sanction Intelligence"]
     User["User"] -->|"Search / history / as-of / AI chat"| System
     System -->|"Acquire văn bản / reverse search"| Source["VBPL và nguồn chính thức"]
-    System -->|"Trang cần OCR"| OCR["OCR engine"]
     System -->|"Structured extraction / grounded answer"| LLM["LLM provider"]
 ```
 
-PDF là đầu vào import chính thức. VBPL và nguồn bổ trợ cung cấp văn bản/metadata cho acquisition nội bộ; graph nguồn chỉ là observations. OCR/LLM là external boundaries: kết quả phải được kiểm tra schema, quality và evidence trước khi sử dụng trong canonical knowledge base. Lựa chọn engine/model cụ thể phải được ghi theo ExtractionRun, không gắn cứng vào domain.
+PDF là đầu vào import chính thức. VBPL và nguồn bổ trợ cung cấp văn bản/metadata cho acquisition nội bộ; graph nguồn chỉ là observations. LLM là external boundary: kết quả phải được kiểm tra schema, quality và evidence trước khi sử dụng trong canonical knowledge base. Lựa chọn engine/model cụ thể phải được ghi theo ExtractionRun, không gắn cứng vào domain.
 
 ### 5.2. Kiến trúc thành phần và triển khai
 
@@ -475,18 +479,18 @@ flowchart LR
     Consumer <-->|"Checkpoints / validated results"| D1
     Consumer <-->|"Source files / artifacts"| R2
     Consumer <-->|"Acquire / discover"| Source["VBPL / official sources"]
-    Consumer <-->|"OCR / structured extraction"| AI["OCR / LLM providers"]
+    Consumer <-->|"PDF reading / structured extraction"| AI["LLM providers"]
     API <-->|"Grounded answer"| AI
 ```
 
-Sơ đồ chỉ thể hiện các component triển khai và đường tương tác chính. Search/temporal resolver, vocabulary registry/MCP và answer generator là các module logic của backend, được mô tả trong bảng bên dưới; không bắt buộc deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi PDF/OCR cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
+Sơ đồ chỉ thể hiện các component triển khai và đường tương tác chính. Search/temporal resolver, vocabulary registry/MCP và answer generator là các module logic của backend, được mô tả trong bảng bên dưới; không bắt buộc deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi đọc PDF bằng LLM cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
 
 | Thành phần | Trách nhiệm và đầu ra | Yêu cầu liên quan |
 | --- | --- | --- |
 | Web UI | Upload PDF, theo dõi job, Document View hai tab, search, detail/history và AI citations. | FR-01, FR-14–18 |
 | API / authorization | Xác thực Admin cho import/retry/reprocess; validate request; cung cấp read API và chat. | FR-01, mục 3 và 11 |
 | Pipeline orchestration | Điều phối phase, retry/resume, checkpoint, trạng thái xử lý và coverage. | FR-01–02, NFR-08 |
-| PDF Ingestion / Source Acquisition | Giữ bản gốc/hash; text/OCR có page locator; acquire related documents theo policy. | FR-01–02, FR-04 |
+| PDF Ingestion / Source Acquisition | Giữ bản gốc/hash; LLM đọc PDF theo cụm trang (cả bản scan) có page locator; acquire related documents theo policy. | FR-01–02, FR-04 |
 | Document Graph Builder | Full-text references, identity resolution, candidates, accepted edges và relation evidence. | FR-03 |
 | Provision / legal extraction | Hierarchy, relevance, ChangeInstruction, ProvisionRelation và ViolationRule IR có nguồn. | FR-04–09 |
 | Vocabulary Registry / MCP | Canonical vocab có version, retrieve trước create, server dedup và ambiguity. | FR-08.1, NFR-03/06 |
@@ -498,7 +502,7 @@ Sơ đồ chỉ thể hiện các component triển khai và đường tương t
 
 ```mermaid
 flowchart TB
-    PDF["Admin upload PDF"] --> Ingest["Validate / hash / snapshot / text hoặc OCR"]
+    PDF["Admin upload PDF"] --> Ingest["Validate / hash / snapshot / LLM đọc PDF theo cụm trang"]
     Ingest --> Discovery["Corpus discovery / structure / quote context / locators"]
     Discovery --> Graph["Full-text references / legal clauses / identity và relation resolution"]
     Graph --> DG["Evidence-backed DocumentRelation graph"]
@@ -526,18 +530,18 @@ flowchart TB
 
 Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve/acquire; incoming links được tính từ graph và tìm kiếm ngược trong corpus, không chờ provider cung cấp. Provision parsing/evidence locators phục vụ graph building trước khi lọc relevance. Lược đồ nguồn chỉ đi vào nhánh observations tùy chọn.
 
-Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields. Chỉ khi `list_vocab` không trả candidate tương đương đủ mạnh mới được gọi `add_vocab`; server vẫn phải deduplicate và có quyền trả `EXISTING` hoặc `AMBIGUOUS`. MCP là interface truy cập registry, không phải nơi lưu canonical data.
+Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields. Chỉ khi snapshot từ `get_vocab_snapshot` không có candidate tương đương đủ mạnh mới được gọi `add_vocab`; server vẫn phải deduplicate và có quyền trả `EXISTING` hoặc `AMBIGUOUS`. MCP là interface truy cập registry, không phải nơi lưu canonical data.
 
 ### 5.4. Thiết kế lưu trữ và quyền sở hữu dữ liệu
 
 | Nơi lưu | Nội dung | Quy tắc sử dụng |
 | --- | --- | --- |
-| R2 | PDF gốc, source snapshots, extracted text/OCR artifacts và output cần tái lập. | Tham chiếu bằng storage key + hash; giữ page/region/offset và phương pháp trích text, không dùng tên file làm legal identity. |
+| R2 | PDF gốc, source snapshots, checkpoint LLM theo cụm trang, validated JSON và output cần tái lập. | Tham chiếu bằng storage key + hash; giữ page/region/offset và phương pháp trích text, không dùng tên file làm legal identity. |
 | D1 | Canonical Document/Provision, relation candidates/evidence, TrafficViolation, RuleLineage, ViolationRule/Sanction, vocabulary và job/run metadata. | Là nguồn chuẩn của domain và trạng thái xử lý; constraints/transactions bảo vệ invariants tại NFR-06. |
 | Queue | Tham chiếu job/task để consumer tiếp tục xử lý. | Không chứa toàn PDF hoặc toàn corpus; không dùng message làm nguồn chuẩn cho trạng thái/progress. |
 | Search indexes | Projection từ văn bản, alias, rule/context và evidence đã được chấp nhận. | Có thể rebuild; hit phải resolve về canonical IDs và phiên bản dữ liệu tương ứng trước khi trả kết luận. |
 
-Quan hệ lưu bằng relational tables trong MVP, không cần graph database. Document graph có thể có cycle/multi-edge hợp lệ; successor chain trong cùng RuleLineage phải được kiểm tra để không tạo cycle. Domain Vocabulary Registry sở hữu canonical vocab; MCP chỉ expose hai tool và kiểm soát truy cập vào registry.
+Quan hệ lưu bằng relational tables trong MVP, không cần graph database. Document graph có thể có cycle/multi-edge hợp lệ; successor chain trong cùng RuleLineage phải được kiểm tra để không tạo cycle. Domain Vocabulary Registry sở hữu canonical vocab; MCP chỉ expose các tool tại mục 4.6.4 và kiểm soát truy cập (token đọc/ghi riêng) vào registry.
 
 Kết quả extraction chưa được kiểm chứng đi vào candidate/run artifacts. Chỉ promote khi identity, locator, evidence và domain constraints đạt policy; giữ `UNRESOLVED / AMBIGUOUS / CONFLICT` riêng với accepted facts. Hash chống duplicate snapshot, còn legal identity cần đối chiếu loại, số/ký hiệu, cơ quan và ngày; hai khái niệm này không được thay thế cho nhau.
 
@@ -546,8 +550,8 @@ Reprocess tạo run có parser/model/vocabulary version và provenance riêng, k
 ### 5.5. Luồng import, retry và publication
 
 1. API kiểm tra quyền Admin và giới hạn upload, validate PDF, tính SHA-256, lưu snapshot R2 rồi ghi ImportJob trong D1. Job tham chiếu đầy đủ các phần/phụ lục nếu có.
-2. Enqueue tham chiếu job; trả job ID để UI theo dõi qua API trạng thái. Không chờ toàn bộ OCR/Legal NLP trong HTTP upload request.
-3. Consumer đọc snapshot và checkpoint, chạy text/OCR quality gate, parse cấu trúc và extract full-text references trước relevance filtering.
+2. Enqueue tham chiếu job; trả job ID để UI theo dõi qua API trạng thái. Không chờ toàn bộ LLM/Legal NLP trong HTTP upload request.
+3. Consumer đọc snapshot và checkpoint, cho LLM đọc PDF theo cụm trang (checkpoint mỗi cụm), chạy quality/structure gate, parse cấu trúc và extract full-text references trước relevance filtering.
 4. Discovery resolve/acquire candidates và tìm kiếm ngược theo policy; checkpoint giữ visited/frontier, cutoff, queries, gaps và lý do dừng. Văn bản mới quay lại bước text/parse/graph, giữ cạnh tới node đã visited.
 5. Semantic processing dùng vocabulary retrieval, extract provision changes/rules/sanctions, resolve behavior và lineage; temporal engine tính history/current từ evidence đã xác minh.
 6. Persist kết quả được chấp nhận, publish generation và cập nhật search index. Job chỉ đạt READY khi các bước bắt buộc hoàn thành trong policy/cutoff; báo PARTIAL hoặc FAILED theo FR-01, độc lập với phần trăm tiến độ.
@@ -583,25 +587,26 @@ Evidence bundle gồm context, effective interval, sanction fields, history tran
 
 ### 5.7. Bảo mật, khả năng vận hành và mở rộng
 
-- **Authorization:** Admin-only cho import/retry/reprocess; kiểm tra quyền server-side với từng job/snapshot được client tham chiếu. OCR/LLM/source credentials chỉ nằm ở backend; user xem PDF/evidence qua đường truy cập được kiểm soát.
+- **Authorization:** Admin-only cho import/retry/reprocess; kiểm tra quyền server-side với từng job/snapshot được client tham chiếu. LLM/source credentials chỉ nằm ở backend; user xem PDF/evidence qua đường truy cập được kiểm soát.
 - **Validation:** Tệp upload, source responses và model/tool output đều là untrusted input. Text trong PDF chỉ là dữ liệu pháp lý, không được thay đổi system instructions hoặc cấp quyền gọi tool ngoài allowlist. `add_vocab` phải xác minh source provision/evidence và dedup tại server.
-- **Bounded processing:** Giới hạn page/resource, discovery depth/document/request và model/OCR budget theo policy; task lớn được chia theo phase/document/page và resume từ checkpoint. Chạm cap phải ghi stop reason và coverage gap.
+- **Bounded processing:** Giới hạn page/resource, discovery depth/document/request và model budget theo policy; task lớn được chia theo phase/document/page và resume từ checkpoint. Chạm cap phải ghi stop reason và coverage gap.
 - **Observability:** Correlate log theo job/run/document/stage; lưu duration, retry/error, quality flags, candidate/accepted/conflict counts, frontier và index readiness. Không log credentials hoặc toàn bộ PDF/model payload mặc định.
 - **Recovery:** Bản gốc và run provenance cho phép reprocess/rebuild index. Tách dữ liệu/config của local, test và remote; migration đi theo repository workflow. Khả năng phục hồi phải được kiểm tra trước khi coi pipeline là hoàn chỉnh.
-- **Capacity:** Đo upload latency, queue backlog, stage duration và search/chat latency trên corpus MVP trước khi đặt SLA hoặc tách service. Không tuyên bố throughput, OCR quality hoặc legal accuracy khi chưa có evaluation.
+- **Capacity:** Đo upload latency, queue backlog, stage duration và search/chat latency trên corpus MVP trước khi đặt SLA hoặc tách service. Không tuyên bố throughput, chất lượng đọc PDF hoặc legal accuracy khi chưa có evaluation.
 
 ### 5.8. Hiện trạng repository và lộ trình tới thiết kế đích
 
 | Khía cạnh | Hiện có trong code | Thiết kế đích cần triển khai |
 | --- | --- | --- |
-| Upload | `POST /api/uploads`: kiểm tra file không rỗng, tên và giới hạn 50 MB; lưu R2, tạo `processing_jobs`, gửi `{ jobId }`. | Admin PDF import nhiều phần/phụ lục, magic bytes/structure/quality gates, hash dedup và provenance. |
-| Job tracking | `GET /api/jobs/:jobId`, frontend polling mỗi giây; trạng thái `queued / processing / completed / failed`. | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
-| Consumer | Pipeline mô phỏng bằng các stage/delay rồi cập nhật tiến độ D1. | PDF/OCR, discovery/graph, semantic extraction, checkpoint/retry và publish/index thật. |
-| Domain storage | Migration hiện có lưu dummy record và processing job. | Schema domain theo mục 7–8, registry/run artifacts, constraints và indexes. |
-| Auth | `authPlugin` là placeholder, trả `user: null`. | Xác thực session/token và authorization Admin ở backend. |
+| Upload | `POST /api/uploads`: kiểm tra `%PDF-`, parse được cấu trúc, không mã hóa, ≤ 50 MB và ≤ 300 trang; lưu snapshot R2, tạo `processing_jobs`, gửi `{ jobId }`. | Admin PDF import nhiều phần/phụ lục, hash dedup và provenance. |
+| Job tracking | `GET /api/jobs`, `GET /api/jobs/:jobId`, `GET /api/jobs/:jobId/document`; trạng thái `queued / processing / completed / needs_review / failed` (`failed` = lỗi tạm thời đang chờ retry). | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
+| Consumer | LLM đọc PDF theo cụm trang (checkpoint R2, retry/resume), ghép cây Phần→Điểm deterministic, kiểm tra số thứ tự/độ phủ trang/chất lượng, lưu `legal_documents` với `review_status` và run provenance ([chi tiết](pdf-upload-api.md)). | Discovery/graph, semantic extraction và publish/index thật. |
+| Domain storage | `processing_jobs`, `legal_documents` (JSON contract v1 dạng blob), `vocab_entries`/`vocab_metadata`. | Schema domain theo mục 7–8 (Document/Provision tách bảng), constraints và indexes. |
+| MCP | `POST /mcp`: `get_vocab_snapshot`, `add_vocab`, `search_legal_documents`; token đọc và token ghi riêng, fail closed ([chi tiết](mcp-server.md)). | Ghi `vocabulary_version` theo ExtractionRun khi có pipeline trích xuất hành vi. |
+| Auth | `authPlugin` là placeholder, trả `user: null`; endpoint admin chưa được bảo vệ. | Xác thực session/token và authorization Admin ở backend. |
 | Search / chat | Chưa triển khai knowledge base retrieval và grounded QA. | FTS trước; temporal/history APIs; AI retrieval/answers dùng chung evidence. |
 
-Các route `/api/uploads` và `/api/jobs/:jobId` là hợp đồng demo hiện tại; `/admin/imports` và các read/chat API tại mục 11 là hợp đồng đích sơ bộ. Việc bổ sung tài liệu này không đổi endpoint hoặc runtime hiện có. Thứ tự triển khai: hoàn thiện authorization + PDF ingestion/job recovery → graph/provision/domain persistence → rule/history/FTS → grounded chat và evaluation. Mỗi bước phải đáp ứng acceptance criteria liên quan trước khi mở rộng.
+Các route `/api/uploads` và `/api/jobs*` là hợp đồng hiện tại; `/admin/imports` và các read/chat API tại mục 11 là hợp đồng đích sơ bộ. Việc bổ sung tài liệu này không đổi endpoint hoặc runtime hiện có. Thứ tự triển khai: hoàn thiện authorization + PDF ingestion/job recovery → graph/provision/domain persistence → rule/history/FTS → grounded chat và evaluation. Mỗi bước phải đáp ứng acceptance criteria liên quan trước khi mở rộng.
 
 ---
 
@@ -618,7 +623,7 @@ System phải:
 1. nhận multipart upload và tạo ImportJob;
 2. kiểm tra magic bytes/MIME, cấu trúc PDF, khả năng đọc, dung lượng/page/resource limits theo cấu hình; reject file giả PDF/malformed/protected không xử lý được;
 3. lưu PDF gốc, SHA-256, storage key, upload provenance và quan hệ giữa các phần/phụ lục;
-4. extract text từng trang và đánh giá quality; scan/low-text phải đi qua OCR được khai báo, ghi language/engine/version/page/region/quality flags;
+4. đọc nội dung từng trang bằng LLM có năng lực đọc PDF/hình ảnh (áp dụng cho cả PDF có text layer lẫn bản scan; không có OCR engine riêng hay OCR fallback — quyết định tại [#33](https://github.com/NamPE286/INT3011E_6/issues/33)), xử lý theo cụm trang có checkpoint, ghi model/prompt/schema version, page locator và quality flags `GOOD / PARTIAL / UNREADABLE` theo trang;
 5. parse metadata từ văn bản, phân biệt ngày ban hành với dấu đến/chữ ký số/thời điểm upload; metadata mơ hồ được giữ unresolved;
 6. segment header/preamble/body/quote/effect/transition, extract references và action candidates từ **toàn văn**, trước relevance filtering;
 7. resolve canonical identity, validate evidence và build graph; header không được coi là đầy đủ quan hệ;
@@ -630,10 +635,9 @@ Lifecycle:
 flowchart TB
     Q["QUEUED"] --> V["VALIDATING"]
     V --> T["EXTRACTING_TEXT"]
-    T --> Quality{"Text quality đạt policy?"}
+    T --> Quality{"Chất lượng đọc / cấu trúc đạt policy?"}
     Quality -->|"Có"| P["PARSING"]
-    Quality -->|"Không"| OCR["OCR_IF_NEEDED"]
-    OCR --> P
+    Quality -->|"Không"| Review["REVIEW_REQUIRED"]
     P --> G["BUILDING_GRAPH"]
     G --> D["DISCOVERING"]
     D -->|"Có văn bản mới"| T
@@ -641,10 +645,10 @@ flowchart TB
     Process --> I["INDEXING"]
     I --> R["READY / PARTIAL theo quality và coverage"]
     V -.->|"Root PDF không usable"| F["FAILED"]
-    OCR -.->|"Pipeline cốt lõi thất bại"| F
+    T -.->|"Pipeline cốt lõi thất bại"| F
 ```
 
-Các giai đoạn có thể lặp khi thêm related documents. OCR không cần chạy khi text layer đạt quality policy. Không được thay thế OCR lỗi bằng việc để LLM tự điền nội dung từ trí nhớ.
+Các giai đoạn có thể lặp khi thêm related documents. `EXTRACTING_TEXT` là bước LLM chép nguyên văn từng trang; LLM không được tự điền nội dung từ trí nhớ: phần không đọc được phải đánh dấu `[không đọc được]` và hạ quality. Cấp Phần/Chương/Mục/Điều/Khoản/Điểm được backend suy ra từ ký hiệu đầu dòng in trên trang (không tin nhãn của model). Kết quả có lỗi validation mức ERROR được lưu để kiểm tra nhưng ở trạng thái review, không publish âm thầm.
 
 READY chỉ nghĩa các bước bắt buộc đạt trong corpus/discovery policy/cutoff. PARTIAL khi còn phần PDF/phụ lục/trang chưa đọc được, frontier hoặc unresolved/conflict trọng yếu mà dữ liệu gốc vẫn usable; FAILED nếu root PDF hoặc pipeline cốt lõi không xử lý được. Job phải báo riêng file/text quality, part completeness, graph coverage và candidate/conflict.
 
@@ -658,7 +662,7 @@ Không hỗ trợ URL import hoặc DOCX trong MVP; source URL chỉ là metadat
 
 ## FR-02 — Incremental Corpus Discovery
 
-Từ root document được upload PDF, system phải discover/acquire văn bản liên quan từ full PDF text/OCR, reverse corpus index/search và source observations tùy chọn. Hệ thống có thể crawl/scrape nguồn chính thức hoặc corpus data để lấy related documents; không giả định header hoặc graph nguồn đầy đủ.
+Từ root document được upload PDF, system phải discover/acquire văn bản liên quan từ toàn văn PDF do LLM đọc, reverse corpus index/search và source observations tùy chọn. Hệ thống có thể crawl/scrape nguồn chính thức hoặc corpus data để lấy related documents; không giả định header hoặc graph nguồn đầy đủ.
 
 ```mermaid
 flowchart TB
@@ -692,7 +696,7 @@ System phải:
 
 ## FR-03 — Evidence-backed Document Graph
 
-System phải tự build lược đồ quan hệ từ header và toàn văn PDF/text-layer/OCR của văn bản. Lược đồ/metadata nguồn được lưu như observations để phát hiện candidate, so sánh và bổ sung evidence; không phải ground truth hoặc input bắt buộc.
+System phải tự build lược đồ quan hệ từ header và toàn văn PDF (do LLM đọc) của văn bản. Lược đồ/metadata nguồn được lưu như observations để phát hiện candidate, so sánh và bổ sung evidence; không phải ground truth hoặc input bắt buộc.
 
 Pipeline phải:
 
@@ -729,7 +733,7 @@ Mỗi Provision phải giữ:
 - point_no;
 - raw_text;
 - PDF page/region và anchor nếu có;
-- source_snapshot_id, original PDF hash, text/OCR method/version và offsets/locator đủ để truy về evidence gốc sau normalize;
+- source_snapshot_id, original PDF hash, phương pháp đọc (LLM model/prompt/schema version) và page locator/source quote (offsets nếu được kiểm chứng từ nguồn) đủ để truy về evidence gốc sau normalize;
 - quality flags và quote/structural context, không chỉ chuỗi text đã làm phẳng.
 
 Mọi AI output downstream phải trace về Provision.
@@ -866,35 +870,38 @@ Flow bắt buộc cho mỗi semantic candidate cần canonicalize:
 
 ```mermaid
 flowchart TB
-    Extract["Extract candidate from Provision"] --> List["list_vocab(type, query, limit)"]
-    List --> Match{"Có vocabulary tương đương?"}
+    Snapshot["get_vocab_snapshot(version?) — cache theo vocabulary_version"] --> Extract["Extract candidate from Provision"]
+    Extract --> Match{"Có vocabulary tương đương trong snapshot?"}
     Match -->|"Có"| Reuse["Reuse existing canonical vocab ID"]
     Match -->|"Không"| Add["add_vocab(...)"]
     Add --> Dedup["MCP server re-check duplicate"]
     Dedup --> Existing["EXISTING"]
     Dedup --> Created["CREATED"]
     Dedup --> Ambiguous["AMBIGUOUS"]
+    Dedup --> Stale["STALE_VERSION"]
+    Stale --> Snapshot
     Existing --> Attach["Attach canonical vocab ID"]
     Created --> Attach
     Reuse --> Attach
     Ambiguous --> Unresolved["Giữ unresolved candidate"]
 ```
 
-Yêu cầu cho `list_vocab`:
+Yêu cầu cho `get_vocab_snapshot`:
 
-- hỗ trợ filter theo `type`;
-- hỗ trợ `query` để retrieve vocab/alias liên quan;
-- hỗ trợ `limit`;
-- trả canonical ID, canonical label, aliases và metadata cần cho classification;
-- không yêu cầu đưa toàn bộ vocabulary registry vào LLM context.
+- trả toàn bộ vocabulary dạng compact: canonical ID, type, canonical label, aliases, definition ngắn nếu cần;
+- ordering deterministic và có `vocabulary_version`;
+- caller truyền version đang cache thì nhận `NOT_MODIFIED`, không cần tải lại;
+- không trả metadata nặng (provenance đầy đủ, history, embedding).
 
 Yêu cầu cho `add_vocab`:
 
-- chỉ được gọi sau một lần lookup phù hợp bằng `list_vocab`;
-- input phải có `type`, `canonical_label`, legal evidence và `source_provision_id`; aliases/definition là optional;
+- chỉ được gọi sau khi đã nạp snapshot, tuần tự trong một run;
+- input phải có `type`, `canonical_label`, legal evidence, `source_provision_id` (dạng `<document_id>:dieu_n_khoan_n_diem_x` hoặc kèm `source_document_id`) và `base_vocabulary_version`; aliases/definition là optional;
+- server xác minh evidence có trong Điều/Khoản/Điểm nguồn (kể cả tên Điều); tham chiếu mơ hồ giữa nhiều văn bản bị từ chối;
 - không tạo entry mới chỉ vì wording khác nếu semantic meaning đã có trong registry;
 - server phải kiểm tra duplicate/alias/similarity trước khi insert;
-- kết quả có thể là `EXISTING`, `CREATED` hoặc `AMBIGUOUS`;
+- kết quả có thể là `EXISTING`, `CREATED`, `AMBIGUOUS` hoặc `STALE_VERSION`;
+- chỉ caller có token ghi được gọi `add_vocab`; backend phải kiểm tra lại mọi canonical ID mà LLM trả về với registry;
 - `AMBIGUOUS` không được tự động tạo canonical identity mới.
 
 Mọi ExtractionRun phải ghi vocabulary version và các canonical vocab IDs đã sử dụng hoặc tạo để có thể reproduce và audit kết quả.
@@ -1711,7 +1718,7 @@ root_document_id
 file_storage_key / file_sha256 / original_filename
 source_url (optional provenance)
 pdf_page_count / file_validation_status
-text_quality / ocr_status / part_completeness
+text_quality / extraction_model / prompt_version / schema_version / part_completeness
 status
 documents_discovered
 documents_processed
@@ -1737,11 +1744,10 @@ error
 flowchart TB
     PDF["PDF upload"] --> Validate["Validate + ImportJob"]
     Validate --> Snapshot["Original file / hash snapshot"]
-    Snapshot --> Text["Page text extraction"]
-    Text --> Quality{"Quality check"}
-    Quality -->|"OCR required"| OCR["OCR"]
-    Quality -->|"Text đạt policy"| Locators["Metadata / header / full-text / quote / effect / transition locators"]
-    OCR --> Locators
+    Snapshot --> Text["LLM đọc PDF theo cụm trang (checkpoint)"]
+    Text --> Quality{"Structure / coverage / quality check"}
+    Quality -->|"Lỗi ERROR"| Review["Lưu để review, không publish"]
+    Quality -->|"Đạt policy"| Locators["Metadata / header / full-text / quote / effect / transition locators"]
     Locators --> Extract["Whole-text reference / legal-clause extraction + structural locators"]
     Extract --> Identity["Identity resolution"]
     Identity --> Evidence["Evidence validation"]
@@ -2030,7 +2036,7 @@ UNCERTAIN
 
 thay vì ép một mapping hoặc legal status.
 
-Nếu `list_vocab` trả nhiều candidate không phân biệt được hoặc `add_vocab` phát hiện ambiguity, system phải giữ `AMBIGUOUS`/unresolved thay vì để LLM tự tạo canonical vocab mới.
+Nếu snapshot có nhiều candidate không phân biệt được hoặc `add_vocab` phát hiện ambiguity, system phải giữ `AMBIGUOUS`/unresolved thay vì để LLM tự tạo canonical vocab mới.
 
 ### NFR-05 — Source Respect
 
@@ -2253,7 +2259,7 @@ flowchart TB
 
 MVP hoàn thành khi:
 
-1. Admin import được PDF hợp lệ; PDF scan đi qua OCR/quality handling, file giả hoặc không đọc được bị reject rõ ràng.
+1. Admin import được PDF hợp lệ; PDF scan được LLM đọc trực tiếp với quality handling, file giả hoặc không đọc được bị reject rõ ràng.
 2. System discover/acquire được văn bản từ toàn văn và reverse search theo policy, chống refetch duplicate/cycle, báo coverage/frontier/gaps.
 3. System tự build, lưu và hiển thị DocumentRelation có identity/evidence/type/direction/scope, tách candidates khỏi accepted graph; hoạt động khi nguồn không có lược đồ.
 4. System parse được Điều / Khoản / Điểm.
@@ -2282,7 +2288,7 @@ MVP hoàn thành khi:
 27. Có baseline cho các task AI chính, bao gồm retrieval / QA.
 28. Có ít nhất một end-to-end evaluation từ câu hỏi → current/as-of sanction → supporting Provision reference.
 29. Document graph được đánh giá trên gold corpus từ legal text, có case thiếu incoming/source diagram sai/null; không giả định đủ graph hoặc CURRENT chỉ từ absence of edge.
-30. Import-time LLM phải dùng `list_vocab` trước khi `add_vocab`; vocabulary mới có provenance/evidence/Provision nguồn, được server deduplicate và có thể giữ `AMBIGUOUS` thay vì ép tạo canonical entry.
+30. Import-time LLM phải nạp `get_vocab_snapshot` trước khi `add_vocab`; vocabulary mới có provenance/evidence/Provision nguồn, được server deduplicate và có thể giữ `AMBIGUOUS` thay vì ép tạo canonical entry.
 31. Additional sanction được lưu thành typed `SanctionEffect`; tối thiểu phân biệt tước GPLX, trừ điểm GPLX và tịch thu phương tiện.
 32. History/as-of query thể hiện được trạng thái `APPLIES / NOT_APPLICABLE / UNKNOWN` của cơ chế trừ điểm và semantic diff khi trạng thái này thay đổi.
 
@@ -2290,7 +2296,7 @@ MVP hoàn thành khi:
 
 ## 17. Demo Scenario
 
-1. Admin upload PDF văn bản giao thông, gồm đủ phần/phụ lục. System nhận diện text layer hoặc OCR và hiển thị quality/coverage.
+1. Admin upload PDF văn bản giao thông, gồm đủ phần/phụ lục. System cho LLM đọc PDF (kể cả bản scan) và hiển thị quality/coverage.
 
 2. System discover corpus từ toàn văn/reverse searches và tự build document graph; lược đồ nguồn có thể thiếu hoặc không có.
 
@@ -2409,15 +2415,15 @@ flowchart TB
 Hệ thống tách PDF ingestion khỏi external acquisition và graph domain:
 
 ~~~text
-PDFIngestionAdapter: validatePdf(), storeSnapshot(), extractPageText(), assessQuality(), runOcr()
+PDFIngestionAdapter: validatePdf(), storeSnapshot(), splitPageRanges(), transcribeWithLlm(), assembleAndValidate()
 SourceAcquisitionAdapter: getDocument(), getContent(), getMetadata(), searchDocuments()
 Optional: getSourceRelationObservations()
 DocumentGraphBuilder: extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations()
 VocabularyRegistry: searchVocab(), resolveExisting(), addVocab(), version()
-VocabularyMCPServer: list_vocab(), add_vocab()
+VocabularyMCPServer: get_vocab_snapshot(), add_vocab(), search_legal_documents()
 ~~~
 
-PDF adapter phải giữ page/region/hash/text-method provenance; engine OCR có thể khác theo môi trường nhưng không bỏ quality policy. Nguồn scrape/JSON phục vụ acquisition/corpus enrichment, không trở thành URL import UI hoặc canonical relation provider. Corpus thu thập lưu ở `data/` với source/snapshot/hash/status/coverage manifests; không gọi snapshot/keyword matches là toàn bộ pháp luật hiện tại.
+PDF adapter phải giữ page/region/hash và model/prompt/schema provenance; model LLM có thể khác theo môi trường nhưng không bỏ quality policy và không dùng OCR engine riêng. Nguồn scrape/JSON phục vụ acquisition/corpus enrichment, không trở thành URL import UI hoặc canonical relation provider. Corpus thu thập lưu ở `data/` với source/snapshot/hash/status/coverage manifests; không gọi snapshot/keyword matches là toàn bộ pháp luật hiện tại.
 
 Dữ liệu domain phù hợp với relational database.
 
@@ -2427,7 +2433,7 @@ Manual behavior search dùng full-text search.
 
 AI chat dùng retrieval layer tách biệt với answer generation; có thể kết hợp full-text, alias, structured filters và embedding. Answer generator chỉ nhận retrieved legal evidence và phải giữ reference IDs tới Provision.
 
-Domain Vocabulary Registry là canonical store cho vocabulary; MCP server chỉ là adapter để LLM trong import pipeline truy cập registry. MCP expose đúng hai tool `list_vocab` và `add_vocab`. Backend/resolver có thể gọi VocabularyRegistry trực tiếp; canonical state không phụ thuộc vào transport/protocol MCP.
+Domain Vocabulary Registry là canonical store cho vocabulary; MCP server chỉ là adapter để LLM trong import pipeline truy cập registry. MCP expose `get_vocab_snapshot`, `add_vocab` (vocabulary) và `search_legal_documents` (document discovery). Backend/resolver có thể gọi VocabularyRegistry trực tiếp; canonical state không phụ thuộc vào transport/protocol MCP.
 
 Không cần graph database trong MVP; DocumentRelation và ProvisionRelation có thể model bằng relational tables.
 
