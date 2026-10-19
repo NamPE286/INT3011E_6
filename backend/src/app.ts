@@ -6,13 +6,20 @@ import { healthModule } from "./modules/health";
 import { uploadModule } from "./modules/upload/upload.route";
 import { processingModule } from "./modules/processing/processing.route";
 import { dummyModule } from "./modules/dummy/dummy.route";
+import { mcpModule } from "./modules/mcp/mcp.route";
 
 export const app = new Elysia({ aot: false })
     .use(
         cors({
             origin: true,
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-            allowedHeaders: ["Content-Type", "Authorization"],
+            allowedHeaders: [
+                "Content-Type",
+                "Authorization",
+                "X-Internal-MCP-Token",
+                "X-Internal-Token",
+                "Accept",
+            ],
         })
     )
     .use(contextPlugin)
@@ -21,6 +28,7 @@ export const app = new Elysia({ aot: false })
     .use(uploadModule)
     .use(processingModule)
     .use(dummyModule)
+    .use(mcpModule)
     .onError(({ code, error, set }) => {
         if (code === "VALIDATION") {
             set.status = 400;

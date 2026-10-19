@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "drizzle-orm": "^0.45.3",
     "elysia": "latest",
-    "unpdf": "^1.8.1"
+    "unpdf": "^1.8.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260923.1",
