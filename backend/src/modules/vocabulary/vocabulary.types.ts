@@ -62,3 +62,27 @@ export interface VocabSnapshotResponse {
     vocabulary_version: number;
     entries: VocabSnapshotEntry[];
 }
+
+export type AddVocabStatus = "EXISTING" | "CREATED" | "AMBIGUOUS" | "STALE_VERSION";
+
+export interface AddVocabInput {
+    type: VocabType;
+    canonical_label: string;
+    aliases?: string[];
+    definition?: string | null;
+    evidence: string;
+    source_provision_id: string;
+    base_vocabulary_version: number;
+    source_document_id?: string | null;
+}
+
+export interface AddVocabResponse {
+    status: AddVocabStatus;
+    vocabulary_version: number;
+    canonical_id?: string;
+    entry?: VocabSnapshotEntry;
+    existing_entries?: VocabSnapshotEntry[];
+    conflicts?: string[];
+    message?: string;
+}
+

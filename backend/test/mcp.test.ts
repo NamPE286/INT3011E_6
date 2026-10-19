@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { app } from "../src/app";
 import { VocabularyRepository } from "../src/modules/vocabulary/vocabulary.repository";
-import type { VocabSnapshotResponse } from "../src/modules/vocabulary/vocabulary.types";
+import type { AddVocabResponse, VocabSnapshotResponse } from "../src/modules/vocabulary/vocabulary.types";
 import type { Env } from "../src/types/env";
 import { createTestD1Database } from "./d1-test-db";
 import { createMockEnv } from "./mocks";
@@ -209,9 +209,13 @@ describe("MCP Streamable HTTP /mcp route", () => {
 
             const tools = body.result?.tools ?? [];
             const snapshotTool = tools.find((t) => t.name === "get_vocab_snapshot");
+            const addVocabTool = tools.find((t) => t.name === "add_vocab");
 
             expect(snapshotTool).toBeDefined();
             expect(snapshotTool?.description).toContain("vocabulary snapshot");
+
+            expect(addVocabTool).toBeDefined();
+            expect(addVocabTool?.description).toContain("vocabulary entry");
         });
 
         it("executes tools/call for get_vocab_snapshot and returns full snapshot with status OK", async () => {
@@ -334,6 +338,341 @@ describe("MCP Streamable HTTP /mcp route", () => {
             const isErrorResult = body.result?.isError === true || body.error !== undefined;
             expect(isErrorResult).toBe(true);
         });
+
+        it("executes tools/call for add_vocab returning status CREATED and bumping version", async () => {
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 50,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "dừng xe trái phép",
+                            aliases: ["dừng xe sai quy định"],
+                            definition: "Hành vi dừng xe không đúng nơi quy định",
+                            evidence: "Người điều khiển xe dừng xe không đúng nơi quy định",
+                            source_provision_id: "dieu_5_khoan_2_diem_d",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(body.result?.isError).toBeFalsy();
+            const text = body.result?.content?.[0]?.text;
+            expect(text).toBeDefined();
+
+            const parsed = JSON.parse(text!) as AddVocabResponse;
+            expect(parsed.status).toBe("CREATED");
+            expect(parsed.vocabulary_version).toBe(2);
+            expect(parsed.canonical_id).toContain("ACT_");
+            expect(parsed.entry?.canonical_label).toBe("dừng xe trái phép");
+        });
+
+        it("executes tools/call for add_vocab returning status EXISTING on duplicate", async () => {
+            await repository.insertEntry({
+                canonical_id: "VEH_001",
+                type: "VEHICLE",
+                canonical_label: "xe ô tô",
+                aliases: ["ô tô"],
+            });
+
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 51,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "VEHICLE",
+                            canonical_label: "Xe Ô Tô",
+                            evidence: "Phương tiện giao thông cơ giới đường bộ gồm xe ô tô và các loại xe tương tự",
+                            source_provision_id: "dieu_3_khoan_1",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            const text = body.result?.content?.[0]?.text;
+            const parsed = JSON.parse(text!) as AddVocabResponse;
+            expect(parsed.status).toBe("EXISTING");
+            expect(parsed.entry?.canonical_label).toBe("xe ô tô");
+        });
+
+        it("executes tools/call for add_vocab returning status AMBIGUOUS on collision", async () => {
+            await repository.insertEntry({
+                canonical_id: "ACT_001",
+                type: "ACTION",
+                canonical_label: "không chấp hành hiệu lệnh",
+                aliases: ["không tuân thủ hiệu lệnh"],
+            });
+
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 52,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "không chấp hành hiệu lệnh người điều khiển",
+                            evidence: "Không chấp hành hiệu lệnh của người điều khiển giao thông",
+                            source_provision_id: "dieu_5_khoan_4_diem_b",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            const text = body.result?.content?.[0]?.text;
+            const parsed = JSON.parse(text!) as AddVocabResponse;
+            expect(parsed.status).toBe("AMBIGUOUS");
+            expect(parsed.existing_entries?.length).toBeGreaterThan(0);
+        });
+
+        it("executes tools/call for add_vocab returning status STALE_VERSION on outdated base_version", async () => {
+            await repository.setPersistedVersion(4);
+
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 53,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "LOCATION",
+                            canonical_label: "đường cao tốc",
+                            evidence: "Đường cao tốc là đường dành cho xe cơ giới chạy tốc độ cao",
+                            source_provision_id: "dieu_26_khoan_1",
+                            base_vocabulary_version: 1, // outdated!
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            const text = body.result?.content?.[0]?.text;
+            const parsed = JSON.parse(text!) as AddVocabResponse;
+            expect(parsed.status).toBe("STALE_VERSION");
+            expect(parsed.vocabulary_version).toBe(4);
+        });
+
+        it("returns isError for add_vocab with invalid evidence or Job ID", async () => {
+            const req = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 54,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "vi phạm",
+                            evidence: "Người điều khiển vi phạm",
+                            source_provision_id: "job-bad-id-12345", // Job ID instead of provision!
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN }
+            );
+
+            const res = await app.handle(req);
+            expect(res.status).toBe(200);
+
+            const body = (await res.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(body.result?.isError).toBe(true);
+            const text = body.result?.content?.[0]?.text;
+            expect(text).toContain("Job ID or Snapshot ID cannot be used as stable Provision ID");
+        });
+    });
+
+    describe("Write Tool Authorization (add_vocab)", () => {
+        it("denies add_vocab when client has explicit read-only scope, but permits get_vocab_snapshot", async () => {
+            const writeReq = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 60,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "quay đầu sai",
+                            evidence: "Quay đầu xe không đúng nơi quy định",
+                            source_provision_id: "dieu_15",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                {
+                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                    "X-MCP-Role": "read", // Explicit read-only role!
+                }
+            );
+
+            const writeRes = await app.handle(writeReq);
+            expect(writeRes.status).toBe(200);
+
+            const writeBody = (await writeRes.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(writeBody.result?.isError).toBe(true);
+            expect(writeBody.result?.content?.[0]?.text).toContain("Forbidden");
+
+            // But read tool still succeeds for read-only role
+            const readReq = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 61,
+                    method: "tools/call",
+                    params: {
+                        name: "get_vocab_snapshot",
+                        arguments: {},
+                    },
+                },
+                {
+                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                    "X-MCP-Role": "read",
+                }
+            );
+
+            const readRes = await app.handle(readReq);
+            expect(readRes.status).toBe(200);
+
+            const readBody = (await readRes.json()) as {
+                result?: {
+                    isError?: boolean;
+                    content: Array<{ type: string; text: string }>;
+                };
+            };
+
+            expect(readBody.result?.isError).toBeFalsy();
+        });
+
+        it("enforces dedicated INTERNAL_MCP_WRITE_TOKEN when configured", async () => {
+            const WRITE_TOKEN = "dedicated-secret-write-token-999";
+            const envWithWriteToken: Env = {
+                ...mockEnv,
+                INTERNAL_MCP_WRITE_TOKEN: WRITE_TOKEN,
+            };
+
+            // Call with general token only -> rejected for write
+            const deniedReq = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 70,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "đi lùi",
+                            evidence: "Đi lùi xe trên đường một chiều",
+                            source_provision_id: "dieu_16",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                { "X-Internal-MCP-Token": TEST_MCP_TOKEN },
+                envWithWriteToken
+            );
+
+            const deniedRes = await app.handle(deniedReq);
+            const deniedBody = (await deniedRes.json()) as {
+                result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
+            };
+            expect(deniedBody.result?.isError).toBe(true);
+            expect(deniedBody.result?.content?.[0]?.text).toContain("Forbidden");
+
+            // Call with dedicated write token -> accepted
+            const allowedReq = createMcpRequest(
+                {
+                    jsonrpc: "2.0",
+                    id: 71,
+                    method: "tools/call",
+                    params: {
+                        name: "add_vocab",
+                        arguments: {
+                            type: "ACTION",
+                            canonical_label: "đi lùi",
+                            evidence: "Đi lùi xe trên đường một chiều",
+                            source_provision_id: "dieu_16",
+                            base_vocabulary_version: 1,
+                        },
+                    },
+                },
+                {
+                    "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                    "X-Internal-MCP-Write-Token": WRITE_TOKEN,
+                },
+                envWithWriteToken
+            );
+
+            const allowedRes = await app.handle(allowedReq);
+            const allowedBody = (await allowedRes.json()) as {
+                result?: { isError?: boolean; content: Array<{ type: string; text: string }> };
+            };
+            expect(allowedBody.result?.isError).toBeFalsy();
+            const resData = JSON.parse(allowedBody.result?.content?.[0]?.text!) as AddVocabResponse;
+            expect(resData.status).toBe("CREATED");
+        });
     });
 
     describe("Official MCP Client SDK Protocol Integration", () => {
@@ -371,6 +710,7 @@ describe("MCP Streamable HTTP /mcp route", () => {
             const toolsList = await client.listTools();
             const toolNames = toolsList.tools.map((t) => t.name);
             expect(toolNames).toContain("get_vocab_snapshot");
+            expect(toolNames).toContain("add_vocab");
 
             const toolResult = await client.callTool({
                 name: "get_vocab_snapshot",
@@ -406,6 +746,68 @@ describe("MCP Streamable HTTP /mcp route", () => {
                 expect(cachedSnapshot.not_modified).toBe(true);
                 expect(cachedSnapshot.entries).toEqual([]);
             }
+
+            await client.close();
+        });
+
+        it("invokes add_vocab via official MCP Client SDK and reflects changes in snapshot", async () => {
+            const client = new Client(
+                { name: "official-sdk-test-client-2", version: "1.0.0" },
+                { capabilities: {} }
+            );
+
+            const transport = new StreamableHTTPClientTransport(
+                new URL("http://localhost/mcp"),
+                {
+                    requestInit: {
+                        headers: {
+                            "X-Internal-MCP-Token": TEST_MCP_TOKEN,
+                        },
+                    },
+                    fetch: async (url, init) => {
+                        const req = new Request(url, init);
+                        (req as unknown as { env: unknown }).env = mockEnv;
+                        return app.handle(req);
+                    },
+                }
+            );
+
+            await client.connect(transport);
+
+            const addResult = await client.callTool({
+                name: "add_vocab",
+                arguments: {
+                    type: "VEHICLE",
+                    canonical_label: "xe xích lô",
+                    aliases: ["xích lô"],
+                    evidence: "Phương tiện giao thông thô sơ đường bộ bao gồm xe xích lô",
+                    source_provision_id: "dieu_3_khoan_19",
+                    base_vocabulary_version: 1,
+                },
+            });
+
+            expect(addResult.isError).toBeFalsy();
+            const addContents = addResult.content as Array<{ type: string; text?: string }>;
+            const addText = addContents[0]?.text;
+            expect(addText).toBeDefined();
+
+            const parsedAdd = JSON.parse(addText!) as AddVocabResponse;
+            expect(parsedAdd.status).toBe("CREATED");
+            expect(parsedAdd.vocabulary_version).toBe(2);
+            expect(parsedAdd.canonical_id).toContain("VEH_");
+
+            // Query snapshot with version 2
+            const snapshotResult = await client.callTool({
+                name: "get_vocab_snapshot",
+                arguments: {},
+            });
+
+            const snapContents = snapshotResult.content as Array<{ type: string; text?: string }>;
+            const snapText = snapContents[0]?.text;
+            const parsedSnap = JSON.parse(snapText!) as VocabSnapshotResponse;
+            expect(parsedSnap.vocabulary_version).toBe(2);
+            expect(parsedSnap.entries.length).toBe(1);
+            expect(parsedSnap.entries[0].canonical_label).toBe("xe xích lô");
 
             await client.close();
         });
