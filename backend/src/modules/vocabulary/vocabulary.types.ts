@@ -38,12 +38,11 @@ export interface CreateVocabEntryInput {
     canonical_id: string;
     type: VocabType;
     canonical_label: string;
-    aliases?: string[] | string;
+    aliases?: string[];
     definition?: string | null;
     evidence?: string | null;
     source_provision_id?: string | null;
     source_document_id?: string | null;
-    vocabulary_version?: number;
 }
 
 export interface VocabSnapshotEntry {

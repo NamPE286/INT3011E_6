@@ -1,11 +1,10 @@
 import { VocabularyRepository } from "./vocabulary.repository";
 import {
-    calculateSimilarity,
-    generateCanonicalId,
-    normalizeText,
+    splitQualifiedProvisionId,
     validateEvidenceAndProvenance,
     verifyProvisionInLegalDocuments,
-} from "./vocabulary.similarity";
+} from "./vocabulary.provenance";
+import { calculateSimilarity, generateCanonicalId, normalizeText } from "./vocabulary.similarity";
 import {
     isVocabType,
     type AddVocabInput,
@@ -73,7 +72,9 @@ export class VocabularyService {
         validateEvidenceAndProvenance(input.evidence, input.source_provision_id);
 
         // Verify that provision exists in legal documents and evidence matches source text
-        const legalDocs = await this.repository.getLegalDocuments();
+        const documentFilter = input.source_document_id?.trim()
+            || splitQualifiedProvisionId(input.source_provision_id).documentId;
+        const legalDocs = await this.repository.getLegalDocuments(documentFilter);
         const provVerification = verifyProvisionInLegalDocuments(
             legalDocs,
             input.source_provision_id,
@@ -236,7 +237,7 @@ export class VocabularyService {
         }
 
         // 5. Atomic insertion & version increment
-        let baseCanonicalId = generateCanonicalId(input.type, cleanLabel);
+        const baseCanonicalId = generateCanonicalId(input.type, cleanLabel);
         let finalCanonicalId = baseCanonicalId;
         let suffix = 2;
 

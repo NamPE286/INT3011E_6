@@ -59,7 +59,7 @@ describe("DocumentRepository and DocumentService (search_legal_documents)", () =
 
             await db.prepare(`
                 INSERT INTO legal_documents (
-                    id, job_id, document_title, json_content, snapshot_r2_key, extracted_text_r2_key, pdf_sha256, created_at
+                    id, job_id, document_title, json_content, snapshot_r2_key, artifact_r2_key, pdf_sha256, created_at
                 ) VALUES (
                     'doc-seed-luat2008',
                     'job-seed-luat2008',
@@ -128,7 +128,7 @@ describe("DocumentRepository and DocumentService (search_legal_documents)", () =
 
             await db.prepare(`
                 INSERT INTO legal_documents (
-                    id, job_id, document_title, json_content, snapshot_r2_key, extracted_text_r2_key, pdf_sha256, created_at
+                    id, job_id, document_title, json_content, snapshot_r2_key, artifact_r2_key, pdf_sha256, created_at
                 ) VALUES (
                     'doc-seed-nd123',
                     'job-seed-nd123',
@@ -206,7 +206,7 @@ describe("DocumentRepository and DocumentService (search_legal_documents)", () =
 
             await db.prepare(`
                 INSERT INTO legal_documents (
-                    id, job_id, document_title, json_content, snapshot_r2_key, extracted_text_r2_key, pdf_sha256, created_at
+                    id, job_id, document_title, json_content, snapshot_r2_key, artifact_r2_key, pdf_sha256, created_at
                 ) VALUES (
                     'doc-minimal',
                     'job-minimal',
@@ -312,5 +312,39 @@ describe("DocumentRepository and DocumentService (search_legal_documents)", () =
             const countEntries = await db.prepare("SELECT count(*) as c FROM vocab_entries").first<{ c: number }>();
             expect(countEntries?.c).toBe(0); // Search tool creates no mutations or graph relations
         });
+    });
+});
+
+describe("search_legal_documents on an LLM-extracted decree", () => {
+    const EXTRACTED_DECREE = {
+        document_title: "NGHỊ ĐỊNH Quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt",
+        content: "CHÍNH PHỦ\nCỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nSố: 100/2019/NĐ-CP\nHà Nội, ngày 30 tháng 12 năm 2019\nCăn cứ Luật Giao thông đường bộ ngày 13 tháng 11 năm 2008;",
+        articles: [],
+    };
+
+    async function searchExtractedDecree(input: { query: string; document_number?: string }) {
+        const db = createTestD1Database({ seedSampleDocument: false });
+        await db
+            .prepare(
+                `INSERT INTO legal_documents (id, job_id, document_title, json_content, snapshot_r2_key, artifact_r2_key, pdf_sha256, created_at)
+                 VALUES ('nd100-run', 'nd100-run', ?, ?, 'uploads/nd100-run/nd100.pdf', 'runs/nd100-run/validated.json', ?, datetime('now'))`
+            )
+            .bind(EXTRACTED_DECREE.document_title, JSON.stringify(EXTRACTED_DECREE), "c".repeat(64))
+            .run();
+
+        return new DocumentService(new DocumentRepository(db)).searchLegalDocuments(input);
+    }
+
+    it("reads the document number from the 'Số:' header line when the title has none", async () => {
+        const result = await searchExtractedDecree({ query: "xử phạt", document_number: "100/2019/NĐ-CP" });
+
+        expect(result.candidates.map((candidate) => candidate.document_number)).toEqual(["100/2019/NĐ-CP"]);
+        expect(result.candidates[0].issued_at).toBe("2019-12-30");
+    });
+
+    it("does not offer a decree as a candidate for a law it only cites", async () => {
+        const result = await searchExtractedDecree({ query: "Luật Giao thông đường bộ ngày 13 tháng 11 năm 2008" });
+
+        expect(result.status).toBe("EMPTY");
     });
 });

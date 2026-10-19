@@ -97,29 +97,36 @@ export const searchLegalDocumentsSchema = {
         .describe("Maximum number of document candidates to return (1-50, default: 10)"),
 };
 
-export interface LegalMcpServerOptions {
-    canWrite?: boolean;
-    writeAuthReason?: string;
+export type LegalMcpServerOptions = {
+    canWrite: boolean;
+};
+
+type ToolResult = {
+    isError?: boolean;
+    content: { type: "text"; text: string }[];
+};
+
+function toolResult(payload: unknown): ToolResult {
+    return { content: [{ type: "text", text: JSON.stringify(payload) }] };
+}
+
+function toolError(error: string, message: string): ToolResult {
+    return { isError: true, content: [{ type: "text", text: JSON.stringify({ error, message }) }] };
+}
+
+async function runTool(action: () => Promise<unknown>, fallbackMessage: string): Promise<ToolResult> {
+    try {
+        return toolResult(await action());
+    } catch (error: unknown) {
+        return toolError("INVALID_INPUT", error instanceof Error ? error.message : fallbackMessage);
+    }
 }
 
 export function createLegalMcpServer(
     vocabularyService: VocabularyService,
-    documentServiceOrOptions?: DocumentService | LegalMcpServerOptions,
-    options: LegalMcpServerOptions = { canWrite: true }
+    documentService: DocumentService,
+    options: LegalMcpServerOptions,
 ): McpServer {
-    let documentService: DocumentService | undefined;
-    let actualOptions: LegalMcpServerOptions = { canWrite: true };
-
-    if (
-        documentServiceOrOptions &&
-        typeof (documentServiceOrOptions as DocumentService).searchLegalDocuments === "function"
-    ) {
-        documentService = documentServiceOrOptions as DocumentService;
-        actualOptions = options ?? { canWrite: true };
-    } else if (documentServiceOrOptions) {
-        actualOptions = documentServiceOrOptions as LegalMcpServerOptions;
-    }
-
     const server = new McpServer({
         name: "legal-mcp-server",
         version: "1.0.0",
@@ -129,18 +136,7 @@ export function createLegalMcpServer(
         "get_vocab_snapshot",
         "Retrieve the complete compact legal vocabulary snapshot with deterministic ordering and versioning.",
         getVocabSnapshotSchema,
-        async ({ version }) => {
-            const snapshot = await vocabularyService.getSnapshot(version);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(snapshot),
-                    },
-                ],
-            };
-        }
+        async ({ version }) => runTool(() => vocabularyService.getSnapshot(version), "Failed to load vocabulary"),
     );
 
     server.tool(
@@ -148,118 +144,19 @@ export function createLegalMcpServer(
         "Add a new legal vocabulary entry candidate with duplicate resolution, provenance, and atomic versioning.",
         addVocabSchema,
         async (args) => {
-            if (actualOptions.canWrite === false) {
-                return {
-                    isError: true,
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                error: "FORBIDDEN",
-                                message:
-                                    actualOptions.writeAuthReason ??
-                                    "Unauthorized: Write permission required for add_vocab",
-                            }),
-                        },
-                    ],
-                };
+            if (!options.canWrite) {
+                return toolError("FORBIDDEN", "Forbidden: add_vocab requires the internal MCP write token");
             }
 
-            try {
-                const result = await vocabularyService.addVocab({
-                    type: args.type,
-                    canonical_label: args.canonical_label,
-                    aliases: args.aliases,
-                    definition: args.definition,
-                    evidence: args.evidence,
-                    source_provision_id: args.source_provision_id,
-                    source_document_id: args.source_document_id,
-                    base_vocabulary_version: args.base_vocabulary_version,
-                });
-
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify(result),
-                        },
-                    ],
-                };
-            } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : "Failed to add vocabulary";
-                return {
-                    isError: true,
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                error: "INVALID_INPUT",
-                                message,
-                            }),
-                        },
-                    ],
-                };
-            }
-        }
+            return runTool(() => vocabularyService.addVocab(args), "Failed to add vocabulary");
+        },
     );
 
     server.tool(
         "search_legal_documents",
         "Search for legal document candidates in the internal corpus to support document discovery without canonicalization.",
         searchLegalDocumentsSchema,
-        async (args) => {
-            if (!documentService) {
-                return {
-                    isError: true,
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                error: "SERVICE_UNAVAILABLE",
-                                message: "Document search service is not configured",
-                            }),
-                        },
-                    ],
-                };
-            }
-
-            try {
-                const result = await documentService.searchLegalDocuments({
-                    query: args.query,
-                    document_number: args.document_number,
-                    document_type: args.document_type,
-                    agency: args.agency,
-                    issued_from: args.issued_from,
-                    issued_to: args.issued_to,
-                    limit: args.limit,
-                });
-
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify(result),
-                        },
-                    ],
-                };
-            } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : "Failed to search legal documents";
-                return {
-                    isError: true,
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                error: "INVALID_INPUT",
-                                message,
-                            }),
-                        },
-                    ],
-                };
-            }
-        }
+        async (args) => runTool(() => documentService.searchLegalDocuments(args), "Failed to search legal documents"),
     );
 
     return server;

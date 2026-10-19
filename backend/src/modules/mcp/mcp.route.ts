@@ -5,54 +5,40 @@ import { DocumentRepository } from "../documents/document.repository";
 import { DocumentService } from "../documents/document.service";
 import { VocabularyRepository } from "../vocabulary/vocabulary.repository";
 import { VocabularyService } from "../vocabulary/vocabulary.service";
-import { validateInternalMcpAuth, validateInternalMcpWriteAuth } from "./mcp.auth";
+import { resolveMcpAccess } from "./mcp.auth";
 import { createLegalMcpServer } from "./mcp.server";
 
+function jsonRpcError(message: string) {
+    return {
+        jsonrpc: "2.0",
+        error: { code: -32000, message },
+        id: null,
+    };
+}
+
+/** Stateless Streamable HTTP endpoint: each request gets its own server bound to the caller's access level. */
 export const mcpModule = new Elysia({ name: "mcp" })
     .all("/mcp", async ({ request, body, set }) => {
         const env = extractEnvFromRequest(request);
+        const access = resolveMcpAccess(request, env);
 
-        const authResult = validateInternalMcpAuth(request, env?.INTERNAL_MCP_TOKEN);
-        if (!authResult.authorized) {
+        if (!access.authorized) {
             set.status = 401;
-            return {
-                jsonrpc: "2.0",
-                error: {
-                    code: -32000,
-                    message: authResult.reason ?? "Unauthorized",
-                },
-                id: null,
-            };
+
+            return jsonRpcError(access.reason);
         }
 
         if (!env?.DB) {
             set.status = 503;
-            return {
-                jsonrpc: "2.0",
-                error: {
-                    code: -32000,
-                    message: "Database is unavailable",
-                },
-                id: null,
-            };
+
+            return jsonRpcError("Database is unavailable");
         }
 
-        const writeAuthResult = validateInternalMcpWriteAuth(request, env);
-
-        const repository = new VocabularyRepository(env.DB);
-        const service = new VocabularyService(repository);
-        const documentRepository = new DocumentRepository(env.DB);
-        const documentService = new DocumentService(documentRepository);
-
         const server = createLegalMcpServer(
-            service,
-            documentService,
-            {
-                canWrite: writeAuthResult.authorized,
-                writeAuthReason: writeAuthResult.reason,
-            }
+            new VocabularyService(new VocabularyRepository(env.DB)),
+            new DocumentService(new DocumentRepository(env.DB)),
+            { canWrite: access.canWrite },
         );
-
         const transport = new WebStandardStreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
             enableJsonResponse: true,
@@ -60,21 +46,15 @@ export const mcpModule = new Elysia({ name: "mcp" })
 
         await server.connect(transport);
 
+        // The transport requires clients to accept both JSON and SSE; plain JSON-RPC callers often omit it.
         const headers = new Headers(request.headers);
-        const currentAccept = headers.get("accept");
-        if (!currentAccept || !currentAccept.includes("text/event-stream")) {
+
+        if (!headers.get("accept")?.includes("text/event-stream")) {
             headers.set("accept", "application/json, text/event-stream");
         }
 
-        const adaptedRequest = new Request(request.url, {
-            method: request.method,
-            headers,
-        });
-
+        const adaptedRequest = new Request(request.url, { method: request.method, headers });
         const isBodyless = request.method === "GET" || request.method === "HEAD";
-        const handleOptions = isBodyless ? undefined : { parsedBody: body };
 
-        const response = await transport.handleRequest(adaptedRequest, handleOptions);
-
-        return response;
+        return transport.handleRequest(adaptedRequest, isBodyless ? undefined : { parsedBody: body });
     });

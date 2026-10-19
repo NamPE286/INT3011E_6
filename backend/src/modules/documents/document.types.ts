@@ -13,7 +13,7 @@ export interface ContentAvailability {
     has_json_content: boolean;
     has_pdf_snapshot: boolean;
     snapshot_r2_key: string | null;
-    extracted_text_r2_key: string | null;
+    artifact_r2_key: string | null;
 }
 
 export interface DocumentCandidate {
@@ -21,7 +21,7 @@ export interface DocumentCandidate {
     identity_type: IdentityType;
     canonical_document_id: string | null;
     document_number: string | null;
-    title: string;
+    title: string | null;
     document_type: string | null;
     agency: string | null;
     issued_at: string | null;
@@ -54,10 +54,10 @@ export interface SearchLegalDocumentsResponse {
 export interface LegalDocumentRecord {
     id: string;
     job_id: string;
-    document_title: string;
+    document_title: string | null;
     json_content: string;
     snapshot_r2_key: string;
-    extracted_text_r2_key: string;
+    artifact_r2_key: string;
     pdf_sha256: string;
     created_at: string;
 }

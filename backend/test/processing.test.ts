@@ -1,412 +1,237 @@
-/**
- * Pipeline PDF -> Legal JSON: unit tests without real Cloudflare or OpenAI calls.
- * Copy this file to backend/test/processing.test.ts.
- * Run: bun test test/processing.test.ts
- */
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { MessageBatch } from "@cloudflare/workers-types";
-import type { Env, ProcessingQueueMessage } from "../src/types/env";
-import type {
-  ProcessingJobRecord,
-  JobStatus,
-} from "../src/modules/processing/processing.types";
-import type {
-  LegalDocument,
-  PdfPage,
-  Segmentation,
-} from "../src/modules/processing/legal-types";
-import { NeedsReviewError } from "../src/modules/processing/legal-types";
+import { describe, expect, it } from "bun:test";
+import type { Message, MessageBatch } from "@cloudflare/workers-types";
+import { PDFDocument } from "pdf-lib";
+import type { ProcessingQueueMessage } from "../src/types/env";
+import { getJobById, insertJob } from "../src/modules/processing/job.repository";
+import { getLegalDocumentByJobId } from "../src/modules/processing/legal-persistence";
+import { handleProcessingBatch } from "../src/modules/processing/processing.consumer";
+import { executeProcessingPipeline } from "../src/modules/processing/processing.service";
+import { block, createFakeOpenAi, goodPages } from "./openai-fake";
+import { createMockEnv, type MockEnvironment } from "./mocks";
 
-// 1) Simulate text extraction only. The real processing.service and validator
-// remain unmocked, so their business logic is exercised by these tests.
-const PAGES: PdfPage[] = [{
-  page_number: 1,
-  method: "TEXT_LAYER",
-  quality: "GOOD",
-  text: [
-    "LUẬT VÍ DỤ",
-    "Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;",
-    "Điều 1. Phạm vi điều chỉnh",
-    "Nội dung nguyên văn của Điều 1.",
-  ].join("\n"),
-}];
+const JOB_ID = "job-nd-sample";
 
-const VALID_SEGMENTATION: Segmentation = {
-  document_title: "LUẬT VÍ DỤ",
-  parts: [],
-  chapters: [],
-  sections: [],
-  articles: [{
-    number: "1",
-    title: "Phạm vi điều chỉnh",
-    start_line: 3,
-    heading_end_line: 3,
-    end_line: 4,
-    clauses: [],
-  }],
-};
+async function createEnvWithPdf(pageCount: number): Promise<MockEnvironment> {
+    const env = createMockEnv({ OPENAI_API_KEY: "test-key", OPENAI_MODEL: "test-model", PDF_CHUNK_PAGES: "2" });
+    const pdf = await PDFDocument.create();
 
-let extractionCalls = 0;
-let extractionError: Error | null = null;
-
-mock.module("../src/modules/processing/pdf-extractor", () => ({
-  extractPdfText: async (_input: ArrayBuffer): Promise<PdfPage[]> => {
-    extractionCalls++;
-    if (extractionError) throw extractionError;
-    return structuredClone(PAGES);
-  },
-}));
-
-// Must import AFTER mock.module so processing.service uses the mocked extractor.
-const { executeProcessingPipeline } = await import(
-  "../src/modules/processing/processing.service"
-);
-const { handleProcessingBatch } = await import(
-  "../src/modules/processing/processing.consumer"
-);
-
-// 2) In-memory D1 and R2 test doubles. Unexpected SQL fails loudly,
-// so tests don't accidentally pass without persisting anything.
-type SavedDocument = {
-  job_id: string;
-  document_title: string;
-  document: LegalDocument;
-  snapshot_r2_key: string;
-  extracted_text_r2_key: string;
-};
-
-type Statement = {
-  run: () => Promise<unknown>;
-};
-
-function makeJob(id: string, status: JobStatus = "queued"): ProcessingJobRecord {
-  const createdAt = "2026-10-13T00:00:00.000Z";
-  return {
-    id,
-    file_key: `uploads/${id}/test.pdf`,
-    original_filename: "test.pdf",
-    mime_type: "application/pdf",
-    file_size: 64,
-    status,
-    step: status === "completed" ? "completed" : "queued",
-    progress: status === "completed" ? 100 : 0,
-    error_message: null,
-    created_at: createdAt,
-    updated_at: createdAt,
-    completed_at: status === "completed" ? createdAt : null,
-  };
-}
-
-function createTestEnv() {
-  const jobs = new Map<string, ProcessingJobRecord>();
-  const documents = new Map<string, SavedDocument>();
-  const files = new Map<string, Uint8Array>();
-
-  function bindStatement(sql: string, values: unknown[]) {
-    const normalized = sql.replace(/\s+/g, " ").trim().toUpperCase();
-    return {
-      async first<T>(): Promise<T | null> {
-        if (normalized.startsWith("SELECT * FROM PROCESSING_JOBS")) {
-          return (jobs.get(String(values[0])) ?? null) as T | null;
-        }
-        throw new Error(`Unexpected D1 FIRST query: ${sql}`);
-      },
-      async run(): Promise<unknown> {
-        if (normalized.startsWith("UPDATE PROCESSING_JOBS") &&
-            normalized.includes("SET STATUS = 'COMPLETED'")) {
-          const id = String(values[2]);
-          const current = jobs.get(id);
-          if (!current) throw new Error(`Missing job in fake D1: ${id}`);
-          jobs.set(id, {
-            ...current,
-            status: "completed",
-            step: "completed",
-            progress: 100,
-            error_message: null,
-            updated_at: String(values[0]),
-            completed_at: String(values[1]),
-          });
-          return { success: true };
-        }
-        if (normalized.startsWith("UPDATE PROCESSING_JOBS")) {
-          const id = String(values[6]);
-          const current = jobs.get(id);
-          if (!current) throw new Error(`Missing job in fake D1: ${id}`);
-          jobs.set(id, {
-            ...current,
-            status: values[0] as JobStatus,
-            step: values[1] as ProcessingJobRecord["step"],
-            progress: Number(values[2]),
-            error_message: values[3] as string | null,
-            updated_at: String(values[4]),
-            completed_at: values[5] as string | null,
-          });
-          return { success: true };
-        }
-        if (normalized.startsWith("INSERT INTO LEGAL_DOCUMENTS")) {
-          const jobId = String(values[1]);
-          documents.set(jobId, {
-            job_id: jobId,
-            document_title: String(values[2]),
-            document: JSON.parse(String(values[3])) as LegalDocument,
-            snapshot_r2_key: String(values[4]),
-            extracted_text_r2_key: String(values[5]),
-          });
-          return { success: true };
-        }
-        throw new Error(`Unexpected D1 RUN query: ${sql}`);
-      },
-    };
-  }
-
-  const fakeDb = {
-    prepare(sql: string) {
-      return {
-        bind(...values: unknown[]) {
-          return bindStatement(sql, values);
-        },
-      };
-    },
-    async batch(statements: Statement[]) {
-      for (const statement of statements) await statement.run();
-      return [];
-    },
-  };
-
-  const fakeR2 = {
-    async get(key: string) {
-      const bytes = files.get(key);
-      if (!bytes) return null;
-      return {
-        size: bytes.byteLength,
-        async arrayBuffer(): Promise<ArrayBuffer> {
-          return Uint8Array.from(bytes).buffer as ArrayBuffer;
-        },
-      };
-    },
-    async put(key: string, value: ArrayBuffer | string) {
-      files.set(key, typeof value === "string"
-        ? new TextEncoder().encode(value)
-        : new Uint8Array(value));
-      return {};
-    },
-    async delete(key: string) {
-      files.delete(key);
-    },
-  };
-
-  const env = {
-    DB: fakeDb,
-    FILE_STORAGE: fakeR2,
-    PROCESSING_QUEUE: { send: async () => {} },
-    OPENAI_API_KEY: "fake-key-for-unit-test-only",
-    OPENAI_MODEL: "test-model",
-  } as unknown as Env;
-
-  function addJob(id: string, status: JobStatus = "queued", withPdf = true) {
-    const job = makeJob(id, status);
-    jobs.set(id, job);
-    if (withPdf) files.set(job.file_key, new TextEncoder().encode("%PDF-1.4\nFAKE TEST INPUT"));
-    return job;
-  }
-
-  return { env, jobs, documents, files, addJob };
-}
-
-// 3) Fake OpenAI fetch. No internet and no API billing occurs during tests.
-let llmStatus = 200;
-let llmOutput: Segmentation = structuredClone(VALID_SEGMENTATION);
-let llmRequests = 0;
-const originalFetch = globalThis.fetch;
-
-beforeEach(() => {
-  extractionCalls = 0;
-  extractionError = null;
-  llmStatus = 200;
-  llmOutput = structuredClone(VALID_SEGMENTATION);
-  llmRequests = 0;
-
-  const fakeFetch = async () => {
-    llmRequests++;
-    if (llmStatus !== 200) {
-      return new Response("Simulated LLM outage", { status: llmStatus });
+    for (let page = 0; page < pageCount; page++) {
+        pdf.addPage();
     }
-    return new Response(JSON.stringify({
-      choices: [{
-        finish_reason: "stop",
-        message: { content: JSON.stringify(llmOutput) },
-      }],
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+
+    const fileKey = `uploads/${JOB_ID}/sample.pdf`;
+    await env.FILE_STORAGE.put(fileKey, await pdf.save());
+    await insertJob(env.DB, {
+        id: JOB_ID,
+        fileKey,
+        originalFilename: "sample.pdf",
+        mimeType: "application/pdf",
+        fileSize: 100,
     });
-  };
-  globalThis.fetch = fakeFetch as unknown as typeof fetch;
-});
 
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
-
-function makeBatch(jobId: string) {
-  let acks = 0;
-  let retries = 0;
-  const batch = {
-    queue: "int3011e-processing",
-    metadata: {},
-    messages: [{
-      id: "message-1",
-      timestamp: new Date(),
-      body: { jobId },
-      attempts: 1,
-      ack() { acks++; },
-      retry() { retries++; },
-    }],
-    ackAll() {},
-    retryAll() {},
-  } as unknown as MessageBatch<ProcessingQueueMessage>;
-  return { batch, counts: () => ({ acks, retries }) };
+    return env;
 }
 
-describe("PDF -> Legal JSON processing pipeline", () => {
-  it("extracts, validates, persists, and completes a valid job", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("job-success");
+const FIRST_CHUNK = {
+    pages: goodPages(2),
+    blocks: [
+        block("text", { text: "CHÍNH PHỦ" }),
+        block("title", { text: "NGHỊ ĐỊNH" }),
+        block("title", { text: "Quy định xử phạt vi phạm hành chính" }),
+        block("text", { text: "Căn cứ Luật Tổ chức Chính phủ ngày 19 tháng 6 năm 2015;" }),
+        block("chapter", { number: "I", title: "NHỮNG QUY ĐỊNH CHUNG" }),
+        block("article", { number: "1", title: "Phạm vi điều chỉnh" }),
+        block("clause", { number: "1", text: "Nghị định này quy định về hành vi vi phạm hành chính." }),
+        block("clause", { number: "2", text: "Tổ chức quy định tại khoản 1", page: 2 }),
+    ],
+};
 
-    await executeProcessingPipeline(state.env, job.id);
+const SECOND_CHUNK = {
+    pages: goodPages(2),
+    blocks: [
+        block("text", { text: "Điều này gồm:", continues_previous: true }),
+        block("point", { number: "a", text: "Cơ quan nhà nước;" }),
+        block("point", { number: "b", text: "Đơn vị sự nghiệp công lập." }),
+        block("article", { number: "2", title: "Hiệu lực thi hành", page: 2 }),
+        block("text", { text: "Nghị định này có hiệu lực từ ngày 01 tháng 01 năm 2020.", page: 2 }),
+        block("closing", { text: "TM. CHÍNH PHỦ THỦ TƯỚNG", page: 2 }),
+    ],
+};
 
-    expect(state.jobs.get(job.id)?.status).toBe("completed");
-    expect(state.jobs.get(job.id)?.progress).toBe(100);
-    expect(state.jobs.get(job.id)?.completed_at).not.toBeNull();
-    expect(extractionCalls).toBe(1);
-    expect(llmRequests).toBe(1);
+describe("PDF → legal JSON pipeline", () => {
+    it("transcribes page ranges, merges them into the legal tree and completes the job", async () => {
+        const env = await createEnvWithPdf(4);
+        const openAi = createFakeOpenAi({ "1-2": FIRST_CHUNK, "3-4": SECOND_CHUNK });
 
-    const saved = state.documents.get(job.id);
-    expect(saved).toBeDefined();
-    expect(saved?.document_title).toBe("LUẬT VÍ DỤ");
-    expect(saved?.document.content).toContain("Căn cứ Hiến pháp");
-    expect(saved?.document.articles[0].number).toBe("1");
-    expect(saved?.document.articles[0].content).toBe("Nội dung nguyên văn của Điều 1.");
-    expect(saved?.document.articles[0].source_locator.page_start).toBe(1);
-    expect(saved?.document.source.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
 
-    // Keep evidence snapshot and source text, delete ONLY the temporary upload.
-    expect(state.files.has(`snapshots/${job.id}.pdf`)).toBe(true);
-    expect(state.files.has(`snapshots/${job.id}.extracted.json`)).toBe(true);
-    expect(state.files.has(job.file_key)).toBe(false);
-  });
+        const job = await getJobById(env.DB, JOB_ID);
+        const stored = await getLegalDocumentByJobId(env.DB, JOB_ID);
 
-  it("skips an already completed job without calling extraction or LLM again", async () => {
-    const state = createTestEnv();
-    const original = state.addJob("job-completed", "completed");
+        expect(openAi.calls.sort()).toEqual(["1-2", "3-4"]);
+        expect(job?.status).toBe("completed");
+        expect(job?.progress).toBe(100);
+        expect(stored?.reviewStatus).toBe("ACCEPTED");
+        expect(stored?.issues).toEqual([]);
+        expect(stored?.pageCount).toBe(4);
+        expect(stored?.model).toBe("test-model");
 
-    await executeProcessingPipeline(state.env, original.id);
+        const document = stored!.document;
+        expect(document.document_title).toBe("NGHỊ ĐỊNH Quy định xử phạt vi phạm hành chính");
+        expect(document.content).toBe(
+            "CHÍNH PHỦ\nCăn cứ Luật Tổ chức Chính phủ ngày 19 tháng 6 năm 2015;\nTM. CHÍNH PHỦ THỦ TƯỚNG",
+        );
+        expect(document.source.snapshot_id).toBe(JOB_ID);
+        expect(document.source.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
+        expect(document.articles).toEqual([]);
 
-    expect(state.jobs.get(original.id)).toEqual(original);
-    expect(extractionCalls).toBe(0);
-    expect(llmRequests).toBe(0);
-  });
+        const chapter = document.chapters[0];
+        expect(chapter.number).toBe("I");
+        expect(chapter.source_locator.page_start).toBe(1);
+        expect(chapter.source_locator.page_end).toBe(4);
 
-  it("rejects a nonexistent job explicitly", async () => {
-    const state = createTestEnv();
-    await expect(executeProcessingPipeline(state.env, "not-found"))
-      .rejects.toBeInstanceOf(NeedsReviewError);
-    expect(state.documents.size).toBe(0);
-  });
+        const [firstArticle, secondArticle] = chapter.articles;
+        expect(firstArticle.title).toBe("Phạm vi điều chỉnh");
+        expect(firstArticle.content).toBeNull();
+        expect(firstArticle.source_locator.source_quote).toBe("Điều 1. Phạm vi điều chỉnh");
 
-  it("marks a missing source PDF needs_review, without persisting fake JSON", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("missing-pdf", "queued", false);
+        const clauseTwo = firstArticle.clauses[1];
+        expect(clauseTwo.content).toBe("Tổ chức quy định tại khoản 1 Điều này gồm:");
+        expect(clauseTwo.source_locator.page_start).toBe(2);
+        expect(clauseTwo.source_locator.page_end).toBe(3);
+        expect(clauseTwo.points.map((point) => point.number)).toEqual(["a", "b"]);
 
-    await executeProcessingPipeline(state.env, job.id);
+        expect(secondArticle.content).toBe("Nghị định này có hiệu lực từ ngày 01 tháng 01 năm 2020.");
+        expect(secondArticle.source_locator.page_start).toBe(4);
 
-    expect(state.jobs.get(job.id)?.status).toBe("needs_review");
-    expect(state.jobs.get(job.id)?.error_message).toContain("PDF missing");
-    expect(state.documents.size).toBe(0);
-    expect(llmRequests).toBe(0);
-  });
+        const runKeys = Array.from(env.r2Store.keys()).filter((key) => key.startsWith(`runs/${JOB_ID}/`));
+        expect(runKeys.some((key) => key.endsWith("/chunks/1-2.json"))).toBe(true);
+        expect(runKeys.some((key) => key.endsWith("/validated.json"))).toBe(true);
+        expect(env.r2Store.has(`uploads/${JOB_ID}/sample.pdf`)).toBe(true);
+    });
 
-  it("rejects invented article numbers from the LLM", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("invalid-segmentation");
-    llmOutput.articles[0].number = "99";
+    it("resumes from checkpoints after a transient provider failure", async () => {
+        const env = await createEnvWithPdf(4);
+        const openAi = createFakeOpenAi({
+            "1-2": FIRST_CHUNK,
+            "3-4": [new Response("{}", { status: 503 }), SECOND_CHUNK],
+        });
 
-    await executeProcessingPipeline(state.env, job.id);
+        await expect(executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher })).rejects.toThrow("LLM HTTP 503");
+        expect((await getJobById(env.DB, JOB_ID))?.status).toBe("failed");
 
-    expect(state.jobs.get(job.id)?.status).toBe("needs_review");
-    expect(state.jobs.get(job.id)?.error_message).toContain("heading does not match");
-    expect(state.documents.size).toBe(0);
-    expect(state.files.has(job.file_key)).toBe(true);
-  });
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
 
-  it("propagates temporary LLM errors so Queue can retry", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("temporary-error");
-    llmStatus = 503;
+        expect(openAi.calls.filter((range) => range === "1-2")).toHaveLength(1);
+        expect((await getJobById(env.DB, JOB_ID))?.status).toBe("completed");
+    });
 
-    await expect(executeProcessingPipeline(state.env, job.id))
-      .rejects.toThrow("LLM HTTP 503");
-    expect(state.jobs.get(job.id)?.status).toBe("failed");
-    expect(state.documents.size).toBe(0);
-    expect(state.files.has(job.file_key)).toBe(true);
-  });
+    it("records a range as unreadable after repeated malformed output and requires review", async () => {
+        const env = await createEnvWithPdf(4);
+        const openAi = createFakeOpenAi({ "1-2": FIRST_CHUNK, "3-4": ["not json", "{\"pages\": 1}"] });
 
-  it("marks an unreadable PDF needs_review and does not call the LLM", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("needs-ocr");
-    extractionError = new NeedsReviewError("OCR is required");
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
 
-    await executeProcessingPipeline(state.env, job.id);
+        const stored = await getLegalDocumentByJobId(env.DB, JOB_ID);
+        const codes = stored?.issues.map((issue) => issue.code);
 
-    expect(state.jobs.get(job.id)?.status).toBe("needs_review");
-    expect(state.jobs.get(job.id)?.error_message).toContain("OCR is required");
-    expect(llmRequests).toBe(0);
-    expect(state.documents.size).toBe(0);
-  });
+        expect((await getJobById(env.DB, JOB_ID))?.status).toBe("needs_review");
+        expect(stored?.reviewStatus).toBe("REVIEW_REQUIRED");
+        expect(codes).toContain("CHUNK_FAILED");
+        expect(codes).toContain("PAGE_UNREADABLE");
+    });
+
+    it("flags a skipped article number instead of publishing silently", async () => {
+        const env = await createEnvWithPdf(2);
+        const openAi = createFakeOpenAi({
+            "1-2": {
+                pages: goodPages(2),
+                blocks: [
+                    block("title", { text: "LUẬT VÍ DỤ" }),
+                    block("article", { number: "1", title: "Phạm vi" }),
+                    block("article", { number: "3", title: "Hiệu lực", page: 2 }),
+                    block("closing", { text: "CHỦ TỊCH QUỐC HỘI", page: 2 }),
+                ],
+            },
+        });
+
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
+
+        const stored = await getLegalDocumentByJobId(env.DB, JOB_ID);
+        expect((await getJobById(env.DB, JOB_ID))?.status).toBe("needs_review");
+        expect(stored?.issues.map((issue) => issue.code)).toEqual(["NUMBERING_GAP"]);
+    });
+
+    it("marks the job for review without calling the provider when no API key is configured", async () => {
+        const env = await createEnvWithPdf(2);
+        env.OPENAI_API_KEY = undefined;
+        const openAi = createFakeOpenAi({});
+
+        await expect(executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher })).rejects.toThrow("OPENAI_API_KEY");
+
+        const job = await getJobById(env.DB, JOB_ID);
+        expect(job?.status).toBe("needs_review");
+        expect(openAi.calls).toEqual([]);
+    });
+
+    it("does nothing when a duplicate message arrives for a finished job", async () => {
+        const env = await createEnvWithPdf(4);
+        const openAi = createFakeOpenAi({ "1-2": FIRST_CHUNK, "3-4": SECOND_CHUNK });
+
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
+        await executeProcessingPipeline(env, JOB_ID, { fetcher: openAi.fetcher });
+
+        expect(openAi.calls).toHaveLength(2);
+    });
 });
 
 describe("Queue consumer acknowledgment / retry", () => {
-  it("ACKs a successful message", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("queue-success");
-    const message = makeBatch(job.id);
+    type TestMessage = Message<ProcessingQueueMessage> & { acked: boolean; retried: boolean };
 
-    await handleProcessingBatch(message.batch, state.env);
+    function createBatch(bodies: unknown[]): { batch: MessageBatch<ProcessingQueueMessage>; messages: TestMessage[] } {
+        const messages = bodies.map((body) => {
+            const message = {
+                body,
+                acked: false,
+                retried: false,
+                ack() {
+                    message.acked = true;
+                },
+                retry() {
+                    message.retried = true;
+                },
+            };
 
-    expect(message.counts()).toEqual({ acks: 1, retries: 0 });
-    expect(state.jobs.get(job.id)?.status).toBe("completed");
-  });
+            return message as unknown as TestMessage;
+        });
 
-  it("retries a message when LLM has a temporary server error", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("queue-temporary-error");
-    const message = makeBatch(job.id);
-    llmStatus = 503;
+        return { batch: { messages } as unknown as MessageBatch<ProcessingQueueMessage>, messages };
+    }
 
-    await handleProcessingBatch(message.batch, state.env);
+    it("acknowledges invalid messages and jobs that need review", async () => {
+        const env = createMockEnv();
+        const { batch, messages } = createBatch([{}, { jobId: "missing-job" }]);
 
-    expect(message.counts()).toEqual({ acks: 0, retries: 1 });
-    expect(state.jobs.get(job.id)?.status).toBe("failed");
-  });
+        await handleProcessingBatch(batch, env);
 
-  it("ACKs a permanent needs_review condition (no infinite retry)", async () => {
-    const state = createTestEnv();
-    const job = state.addJob("queue-missing-pdf", "queued", false);
-    const message = makeBatch(job.id);
+        expect(messages.every((message) => message.acked && !message.retried)).toBe(true);
+    });
 
-    await handleProcessingBatch(message.batch, state.env);
+    it("retries transient failures", async () => {
+        const env = await createEnvWithPdf(2);
+        const failingFetch = (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = failingFetch;
 
-    expect(message.counts()).toEqual({ acks: 1, retries: 0 });
-    expect(state.jobs.get(job.id)?.status).toBe("needs_review");
-  });
+        try {
+            const { batch, messages } = createBatch([{ jobId: JOB_ID }]);
+            await handleProcessingBatch(batch, env);
 
-  it("ACKs an unknown job rather than retrying forever", async () => {
-    const state = createTestEnv();
-    const message = makeBatch("unknown-job");
-
-    await handleProcessingBatch(message.batch, state.env);
-
-    expect(message.counts()).toEqual({ acks: 1, retries: 0 });
-    expect(state.documents.size).toBe(0);
-  });
+            expect(messages[0].retried).toBe(true);
+            expect(messages[0].acked).toBe(false);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
 });
+

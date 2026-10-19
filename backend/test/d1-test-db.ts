@@ -5,22 +5,20 @@ import type {
     D1Response,
     D1Result,
 } from "@cloudflare/workers-types";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export function createTestD1Database(): D1Database {
-    const sqlite = new Database(":memory:");
+export type TestD1Options = {
+    seedSampleDocument?: boolean;
+};
 
-    const migrationFiles = [
-        "0000_last_cloak.sql",
-        "0001_create_processing_jobs.sql",
-        "0002_create_legal_documents.sql",
-        "0003_create_vocab_entries.sql",
-    ];
+export function createTestD1Database(options: TestD1Options = {}): D1Database {
+    const sqlite = new Database(":memory:");
+    const migrationsDir = join(__dirname, "../migrations");
+    const migrationFiles = readdirSync(migrationsDir).filter((fileName) => fileName.endsWith(".sql")).sort();
 
     for (const fileName of migrationFiles) {
-        const fullPath = join(__dirname, "../migrations", fileName);
-        const sqlContent = readFileSync(fullPath, "utf-8");
+        const sqlContent = readFileSync(join(migrationsDir, fileName), "utf-8");
         const statements = sqlContent.split(";");
 
         for (const statement of statements) {
@@ -31,6 +29,126 @@ export function createTestD1Database(): D1Database {
         }
     }
 
+    if (options.seedSampleDocument !== false) {
+        seedSampleLegalDocument(sqlite);
+    }
+
+    function createPreparedStatement(query: string, params: unknown[] = []): D1PreparedStatement {
+        const statement = {
+            _query: query,
+            _params: params,
+            bind(...values: unknown[]) {
+                return createPreparedStatement(query, values);
+            },
+            async first<T = unknown>(colName?: string): Promise<T | null> {
+                const prepared = sqlite.query(query);
+                const queryArgs = params as Parameters<typeof prepared.get>;
+                const row = prepared.get(...queryArgs) as Record<string, unknown> | null;
+
+                if (!row) {
+                    return null;
+                }
+
+                if (colName) {
+                    return (row[colName] as T) ?? null;
+                }
+
+                return row as T;
+            },
+            async all<T = unknown>(): Promise<D1Result<T>> {
+                const prepared = sqlite.query(query);
+                const queryArgs = params as Parameters<typeof prepared.all>;
+                const results = prepared.all(...queryArgs) as T[];
+
+                return {
+                    results,
+                    success: true,
+                    meta: {
+                        duration: 0,
+                    },
+                } as unknown as D1Result<T>;
+            },
+            async run(): Promise<D1Response> {
+                const prepared = sqlite.query(query);
+                const queryArgs = params as Parameters<typeof prepared.run>;
+                const info = prepared.run(...queryArgs);
+
+                return {
+                    success: true,
+                    meta: {
+                        changes: info.changes,
+                        last_row_id: info.lastInsertRowid,
+                        duration: 0,
+                    },
+                } as unknown as D1Response;
+            },
+            async raw<T = unknown[]>(): Promise<T[]> {
+                const prepared = sqlite.query(query);
+                const queryArgs = params as Parameters<typeof prepared.values>;
+                return prepared.values(...queryArgs) as T[];
+            },
+        };
+
+        return statement as unknown as D1PreparedStatement;
+    }
+
+    let transactionLock = Promise.resolve();
+
+    const d1Database = {
+        prepare(query: string): D1PreparedStatement {
+            return createPreparedStatement(query);
+        },
+        async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+            let releaseLock: () => void = () => {};
+            const prevLock = transactionLock;
+            transactionLock = new Promise<void>((resolve) => {
+                releaseLock = resolve;
+            });
+            await prevLock;
+
+            sqlite.run("BEGIN TRANSACTION");
+            try {
+                const results: D1Result<T>[] = [];
+
+                for (const s of statements) {
+                    const customStmt = s as unknown as {
+                        _query: string;
+                        all: () => Promise<D1Result<T>>;
+                        run: () => Promise<D1Response>;
+                    };
+                    const queryText = customStmt._query?.trim().toUpperCase() ?? "";
+
+                    if (queryText.startsWith("SELECT")) {
+                        results.push(await customStmt.all());
+                    } else {
+                        const runRes = await customStmt.run();
+                        results.push({
+                            results: [] as T[],
+                            success: true,
+                            meta: runRes.meta,
+                        } as unknown as D1Result<T>);
+                    }
+                }
+
+                sqlite.run("COMMIT");
+                return results;
+            } catch (error) {
+                sqlite.run("ROLLBACK");
+                throw error;
+            } finally {
+                releaseLock();
+            }
+        },
+        async exec(query: string) {
+            sqlite.run(query);
+            return { count: 0, duration: 0 };
+        },
+    } as unknown as D1Database;
+
+    return d1Database;
+}
+
+function seedSampleLegalDocument(sqlite: Database): void {
     // Seed realistic sample legal document for provenance verification
     const sampleLegalDoc = {
         document_title: "Nghị định 100/2019/NĐ-CP",
@@ -177,7 +295,7 @@ export function createTestD1Database(): D1Database {
 
     sqlite.run(`
         INSERT INTO legal_documents (
-            id, job_id, document_title, json_content, snapshot_r2_key, extracted_text_r2_key, pdf_sha256, created_at
+            id, job_id, document_title, json_content, snapshot_r2_key, artifact_r2_key, pdf_sha256, created_at
         ) VALUES (
             'doc-seed-nd100',
             'job-seed-nd100',
@@ -189,119 +307,4 @@ export function createTestD1Database(): D1Database {
             datetime('now')
         )
     `, [JSON.stringify(sampleLegalDoc)]);
-
-
-    function createPreparedStatement(query: string, params: unknown[] = []): D1PreparedStatement {
-        const statement = {
-            _query: query,
-            _params: params,
-            bind(...values: unknown[]) {
-                return createPreparedStatement(query, values);
-            },
-            async first<T = unknown>(colName?: string): Promise<T | null> {
-                const prepared = sqlite.query(query);
-                const queryArgs = params as Parameters<typeof prepared.get>;
-                const row = prepared.get(...queryArgs) as Record<string, unknown> | null;
-
-                if (!row) {
-                    return null;
-                }
-
-                if (colName) {
-                    return (row[colName] as T) ?? null;
-                }
-
-                return row as T;
-            },
-            async all<T = unknown>(): Promise<D1Result<T>> {
-                const prepared = sqlite.query(query);
-                const queryArgs = params as Parameters<typeof prepared.all>;
-                const results = prepared.all(...queryArgs) as T[];
-
-                return {
-                    results,
-                    success: true,
-                    meta: {
-                        duration: 0,
-                    },
-                } as unknown as D1Result<T>;
-            },
-            async run(): Promise<D1Response> {
-                const prepared = sqlite.query(query);
-                const queryArgs = params as Parameters<typeof prepared.run>;
-                const info = prepared.run(...queryArgs);
-
-                return {
-                    success: true,
-                    meta: {
-                        changes: info.changes,
-                        last_row_id: info.lastInsertRowid,
-                        duration: 0,
-                    },
-                } as unknown as D1Response;
-            },
-            async raw<T = unknown[]>(): Promise<T[]> {
-                const prepared = sqlite.query(query);
-                const queryArgs = params as Parameters<typeof prepared.values>;
-                return prepared.values(...queryArgs) as T[];
-            },
-        };
-
-        return statement as unknown as D1PreparedStatement;
-    }
-
-    let transactionLock = Promise.resolve();
-
-    const d1Database = {
-        prepare(query: string): D1PreparedStatement {
-            return createPreparedStatement(query);
-        },
-        async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-            let releaseLock: () => void = () => {};
-            const prevLock = transactionLock;
-            transactionLock = new Promise<void>((resolve) => {
-                releaseLock = resolve;
-            });
-            await prevLock;
-
-            sqlite.run("BEGIN TRANSACTION");
-            try {
-                const results: D1Result<T>[] = [];
-
-                for (const s of statements) {
-                    const customStmt = s as unknown as {
-                        _query: string;
-                        all: () => Promise<D1Result<T>>;
-                        run: () => Promise<D1Response>;
-                    };
-                    const queryText = customStmt._query?.trim().toUpperCase() ?? "";
-
-                    if (queryText.startsWith("SELECT")) {
-                        results.push(await customStmt.all());
-                    } else {
-                        const runRes = await customStmt.run();
-                        results.push({
-                            results: [] as T[],
-                            success: true,
-                            meta: runRes.meta,
-                        } as unknown as D1Result<T>);
-                    }
-                }
-
-                sqlite.run("COMMIT");
-                return results;
-            } catch (error) {
-                sqlite.run("ROLLBACK");
-                throw error;
-            } finally {
-                releaseLock();
-            }
-        },
-        async exec(query: string) {
-            sqlite.run(query);
-            return { count: 0, duration: 0 };
-        },
-    } as unknown as D1Database;
-
-    return d1Database;
 }

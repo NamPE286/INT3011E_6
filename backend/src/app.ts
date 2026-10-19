@@ -13,13 +13,7 @@ export const app = new Elysia({ aot: false })
         cors({
             origin: true,
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-            allowedHeaders: [
-                "Content-Type",
-                "Authorization",
-                "X-Internal-MCP-Token",
-                "X-Internal-Token",
-                "Accept",
-            ],
+            allowedHeaders: ["Content-Type", "Authorization"],
         })
     )
     .use(contextPlugin)
