@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { isJobResponse, parseErrorMessage, parseUploadResponse } from "./file-processing-response";
+import {
+    isJobResponse,
+    parseErrorMessage,
+    parseJobList,
+    parseUploadResponse,
+    type JobSummary
+} from "./file-processing-response";
 
 describe("file processing responses", () => {
     test("accepts a valid upload response", () => {
@@ -57,4 +63,20 @@ test("accepts needs_review with backend explanation or no explanation", () => {
         progress: 30,
         error: null
     })).toBeFalse();
+});
+
+test("keeps jobs that need review in the job list and skips malformed rows", () => {
+    const job: JobSummary = {
+        id: "job-1",
+        filename: "nd100.pdf",
+        fileSize: 4413905,
+        status: "needs_review",
+        step: "needs_review",
+        progress: 100,
+        error: "1 validation error(s)",
+        createdAt: "2026-10-19T21:22:41.000Z"
+    };
+
+    expect(parseJobList({ jobs: [job, { id: 42 }] })).toEqual([job]);
+    expect(parseJobList({ items: [] })).toBeNull();
 });

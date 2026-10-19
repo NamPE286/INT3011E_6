@@ -22,6 +22,8 @@
     } from "@lucide/svelte";
 
     type UIState = "idle" | "uploading" | "processing" | "completed" | "failed" | "needs_review";
+
+    let { onjobchange }: { onjobchange?: () => void } = $props();
     type StepState = "done" | "active" | "pending" | "failed";
 
     const DEFAULT_BACKEND_URL = PUBLIC_BACKEND_URL;
@@ -136,6 +138,7 @@
             uiState = "processing";
             currentStep = "queued";
             startPolling(uploadResponse.jobId);
+            onjobchange?.();
         };
 
         xhr.onerror = () => {
@@ -191,6 +194,10 @@
 
             currentStep = jobResponse.step;
             processingProgress = jobResponse.progress;
+
+            if (jobResponse.status !== "queued" && jobResponse.status !== "processing") {
+                onjobchange?.();
+            }
 
             if (jobResponse.status === "completed") {
                 stopPolling();
@@ -296,7 +303,7 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <Upload class="size-5 text-primary" />
-                <CardTitle class="text-xl font-bold">Cloudflare File Processing Demo</CardTitle>
+                <CardTitle class="text-xl font-bold">Import legal PDF</CardTitle>
             </div>
 
             {#if uiState === "idle"}
@@ -309,7 +316,7 @@
             {:else if uiState === "processing"}
                 <Badge variant="secondary" class="gap-1 bg-blue-500/10 text-blue-600 border-blue-200">
                     <Loader2 class="size-3 animate-spin" />
-                    Processing (~15s)
+                    Processing
                 </Badge>
             {:else if uiState === "completed"}
                 <Badge class="gap-1 bg-emerald-600 hover:bg-emerald-600 text-white">
