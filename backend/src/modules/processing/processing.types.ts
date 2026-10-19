@@ -27,6 +27,7 @@ export interface ProcessingJobRecord {
 export interface JobResponse {
     id: string;
     filename: string;
+    fileSize: number;
     status: JobStatus;
     step: ProcessingStep | null;
     progress: number;
