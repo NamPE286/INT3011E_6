@@ -1,6 +1,6 @@
 # HANDOFF — Epic Preprocessing (#38)
 
-Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành #11.
+Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành #15.
 
 ## Đã xong
 - PR #48 (document graph extractor) — review, sửa (taxonomy SRS, Unicode, style), merged.
@@ -9,12 +9,14 @@ Trạng thái làm việc để người/agent tiếp theo có thể tiếp tụ
 
 - #11 Change graph: `backend/src/modules/changes/*`, ProvisionRelation tổng hợp lại vào document graph.
 
+- #15 Violation rules: `backend/src/modules/violations/*` (deterministic + LLM vocabulary-guided, đã smoke test với OpenAI thật).
+
 ## Còn lại (theo thứ tự phụ thuộc)
-2. #15 ViolationRule + Sanction extraction (FR-08/09)
 3. #17 Violation identity + alias (FR-10)
 4. #18 Lineage, current rule, as-of (FR-11/12)
 5. #19 Semantic change (FR-13)
-6. Slide báo cáo epic
+6. Bộ evaluation (gold data + script metric) cho toàn bộ epic — các issue yêu cầu "dataset/metric tái lập được".
+7. Slide báo cáo epic
 
 ## Ghi chú môi trường
 - OpenAI key chỉ để trong `backend/.dev.vars` (gitignored), không commit.
