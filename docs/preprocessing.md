@@ -8,9 +8,10 @@ saveLegalDocument (ACCEPTED)
   └─ 2. Document graph (#5)      document_metadata, document_relation_candidates, document_relations
   └─ 3. Change graph (#11)       change_instructions, provision_relations (+ cạnh document_relations suy ra)
   └─ 4. Violation rules (#15)    extraction_runs, violation_rules, sanctions, sanction_effects
+  └─ 5. Identity (#17)           traffic_violations, violation_aliases, identity_decisions
 ```
 
-Mỗi bước được gọi trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
+Các bước được gọi tuần tự bởi `runPreprocessing` (`backend/src/modules/processing/preprocessing.ts`) trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
 
 > Các endpoint dưới đây chưa có xác thực Admin (TODO #4, giống `/api/jobs*`).
 
@@ -91,3 +92,22 @@ Văn bản sửa đổi nhập trước văn bản gốc được trích xuất 
 | --- | --- | --- |
 | `GET` | `/api/documents/:documentId/violation-rules` | Rule + sanction + effects và các extraction run. |
 | `POST` | `/api/documents/:documentId/violation-rules/extract` | Trích xuất lại (dùng LLM nếu có key); `409` nếu cần review. |
+
+## 5. Violation identity và alias (#17, FR-10)
+
+Mỗi ViolationRule được resolve về một `TrafficViolation` (identity của **hành vi**; phương tiện, chủ thể, mức phạt và thời gian thuộc rule), theo thứ tự ưu tiên:
+
+1. **Alias**: câu chữ hành vi (chuẩn hóa bỏ dấu) trùng alias đã đăng ký.
+2. **Structured signature** (SRS §4.6.2): `action vocab id | polarity | target | location | conditions` trùng nhau.
+3. **Cùng provision bị sửa**: rule viết lại một địa chỉ mà rule cũ của violation V điều chỉnh (qua ProvisionRelation) và câu chữ còn chồng lấp → V. Khác biệt cấu trúc ở đây là thay đổi ngữ nghĩa (#19), không phải hành vi khác; nếu câu chữ gần như thay hoàn toàn → `AMBIGUOUS`.
+4. **Lexical**: Dice trên bigram từ (tránh nhiễu từ đơn âm tiết lặp lại như "không chấp hành … giao thông"); ≥ 0,92 và duy nhất → match; < 0,5 → `CREATE_NEW`; ở giữa → `AMBIGUOUS`.
+5. **LLM resolver** (khi có key) chỉ cho `AMBIGUOUS` vùng xám: model chỉ được chọn một candidate đã cho (`SAME`), `DIFFERENT` hoặc `UNSURE`; câu trả lời khác giữ `AMBIGUOUS`.
+
+Similarity văn bản không bao giờ gộp hai hành vi có polarity/target/location/conditions khác nhau. `AMBIGUOUS` vẫn lưu rule nhưng không gắn violation (không dùng cho lineage chắc chắn). Mỗi quyết định lưu trong `identity_decisions` (method, score, candidates, lý do, model). Khi `MATCH_EXISTING`/`CREATE_NEW`, câu chữ hành vi và nhãn action được lưu thành alias để tìm kiếm.
+
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/violations?q=&limit=` | Tìm violation theo alias (không dấu). |
+| `GET` | `/api/violations/:violationId` | Violation, alias, các rule và quyết định identity. |
+| `GET` | `/api/documents/:documentId/identities` | Quyết định identity của các rule trong văn bản. |
+| `POST` | `/api/documents/:documentId/identities/resolve` | Resolve lại (kết quả ổn định, id violation deterministic). |

@@ -94,15 +94,19 @@ export async function extractViolationRules(db: D1Database, documentId: string, 
  * Pipeline hook. Amendments imported earlier only place their rewritten rules once the document they
  * amend exists, so their rules are extracted again after this document's.
  */
-export async function extractRulesAfterExtraction(db: D1Database, documentId: string, options: ExtractionOptions): Promise<void> {
+export async function extractRulesAfterExtraction(db: D1Database, documentId: string, options: ExtractionOptions): Promise<string[]> {
     const amenders = await db
         .prepare("SELECT DISTINCT from_document_id FROM provision_relations WHERE to_document_id = ? AND from_document_id != ?")
         .bind(documentId, documentId)
         .all<{ from_document_id: string }>();
 
-    for (const id of [documentId, ...amenders.results.map((row) => row.from_document_id)]) {
+    const documentIds = [documentId, ...amenders.results.map((row) => row.from_document_id)];
+
+    for (const id of documentIds) {
         await extractRulesLogged(db, id, options);
     }
+
+    return documentIds;
 }
 
 async function extractRulesLogged(db: D1Database, documentId: string, options: ExtractionOptions): Promise<void> {

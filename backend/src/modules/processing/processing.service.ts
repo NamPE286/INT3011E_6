@@ -9,10 +9,7 @@ import {
     transcribeChunk,
 } from "./legal-llm.service";
 import { saveLegalDocument } from "./legal-persistence";
-import { analyzeAfterExtraction } from "../provisions/provision.service";
-import { buildGraphAfterExtraction } from "../documents/document-graph.service";
-import { buildChangesAfterExtraction } from "../changes/change.service";
-import { extractRulesAfterExtraction } from "../violations/violation.service";
+import { runPreprocessing } from "./preprocessing";
 import { LEGAL_SCHEMA_VERSION, NeedsReviewError, type ChunkTranscription } from "./legal-types";
 import {
     extractPageRange,
@@ -109,10 +106,7 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
             promptVersion: PROMPT_VERSION,
         });
 
-        await analyzeAfterExtraction(env.DB, jobId);
-        await buildGraphAfterExtraction(env.DB, jobId);
-        await buildChangesAfterExtraction(env.DB, jobId);
-        await extractRulesAfterExtraction(env.DB, jobId, { apiKey: env.OPENAI_API_KEY, model, fetcher: options.fetcher });
+        await runPreprocessing(env.DB, jobId, { apiKey: env.OPENAI_API_KEY, model, fetcher: options.fetcher });
 
         console.log(JSON.stringify({
             level: "info",
