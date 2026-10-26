@@ -3,7 +3,8 @@ import type { ReadQuality, SourceRegion } from "../processing/legal-types";
 export const ROLE_METHOD = "RULE";
 export const ROLE_VERSION = "provision-roles-v1";
 
-export type ProvisionLevel = "PREAMBLE" | "PART" | "CHAPTER" | "SECTION" | "ARTICLE" | "CLAUSE" | "POINT";
+/** TEXT: an unnumbered paragraph of quoted wording. */
+export type ProvisionLevel = "PREAMBLE" | "PART" | "CHAPTER" | "SECTION" | "ARTICLE" | "CLAUSE" | "POINT" | "TEXT";
 
 /** What a piece of text does in the document (document-graph-build §5.2). */
 export type ContentRole =
@@ -51,6 +52,8 @@ export type ProvisionDraft = {
     readQuality: ReadQuality | null;
     sourceRegions: SourceRegion[];
     flags: ProvisionFlag[];
+    /** For quoted new wording (legal JSON `quoted`): the provision whose instruction quotes it. */
+    quoteHostId: string | null;
 };
 
 export type Provision = ProvisionDraft & {

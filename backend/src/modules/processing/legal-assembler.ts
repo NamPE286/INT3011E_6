@@ -4,6 +4,8 @@ import {
     type ChunkTranscription,
     type LegalDocument,
     type NodeBase,
+    type QuotedKind,
+    type QuotedNode,
     type ReadQuality,
     type SourceLocator,
     type TranscribedBlock,
@@ -13,8 +15,15 @@ import {
 type StructuralKind = "part" | "chapter" | "section" | "article" | "clause" | "point";
 type ContainerKind = "document" | StructuralKind;
 
+/** Wording quoted by an amendment, collected under the node whose text introduced it. */
+type QuoteState = {
+    host: DraftNode;
+    /** stack[0] is a virtual root: quoted wording may start at any level (a whole Điều, one Điểm, plain text). */
+    stack: DraftNode[];
+};
+
 type DraftNode = {
-    kind: ContainerKind;
+    kind: ContainerKind | "text";
     number: string;
     title: string | null;
     contentParts: string[];
@@ -23,12 +32,15 @@ type DraftNode = {
     quality: ReadQuality;
     sourceQuote: string | null;
     children: DraftNode[];
+    quoted: DraftNode[];
 };
 
 export type AssemblySource = {
     snapshotId: string;
     pdfSha256: string;
     pageCount: number;
+    /** Pages the PDF itself shows as empty (findBlankPages). */
+    blankPages?: readonly number[];
 };
 
 export type AssemblyResult = {
@@ -36,7 +48,7 @@ export type AssemblyResult = {
     issues: ValidationIssue[];
 };
 
-const RANK: Record<ContainerKind, number> = {
+const RANK: Record<ContainerKind | "text", number> = {
     document: 0,
     part: 1,
     chapter: 2,
@@ -44,9 +56,10 @@ const RANK: Record<ContainerKind, number> = {
     article: 4,
     clause: 5,
     point: 6,
+    text: 7,
 };
 
-const ALLOWED_CHILDREN: Record<ContainerKind, readonly StructuralKind[]> = {
+const ALLOWED_CHILDREN: Record<ContainerKind | "text", readonly StructuralKind[]> = {
     document: ["part", "chapter", "section", "article"],
     part: ["chapter", "section", "article"],
     chapter: ["section", "article"],
@@ -54,9 +67,19 @@ const ALLOWED_CHILDREN: Record<ContainerKind, readonly StructuralKind[]> = {
     article: ["clause"],
     clause: ["point"],
     point: [],
+    text: [],
 };
 
 const QUALITY_ORDER: readonly ReadQuality[] = ["GOOD", "PARTIAL", "UNREADABLE"];
+
+// "Sửa đổi, bổ sung Điều 20 như sau:" and "Điều 5 được sửa đổi như sau:" introduce quoted new wording;
+// "… các hình thức xử phạt bổ sung như sau:" does not: the verb must open the sentence or be passive.
+const AMENDMENT_LEAD_IN = /^(?:(?:sửa đổi|bổ sung|thay thế|đính chính)(?![\p{L}])|[^.;]*được\s+(?:sửa đổi|bổ sung|thay thế|đính chính)(?![\p{L}]))[^.;]*như sau\s*:?\s*$/iu;
+const AMENDMENT_START = /^(?:sửa đổi|bổ sung|bãi bỏ|thay thế|bỏ|thay|đính chính)(?![\p{L}])/iu;
+const LATIN_OF: Record<string, string> = { "а": "a", "с": "c", "е": "e", "о": "o", "р": "p", "х": "x", "у": "y", "і": "i", "к": "k", "т": "t", "м": "m", "н": "h" };
+const CYRILLIC_LOOKALIKES = /[асеорхуікмтн]/gu;
+const OPENING_QUOTE = /^[\s]*[“"]/u;
+const CLOSING_QUOTE = /[”"]\s*[.;,:]*\s*$/u;
 
 /** Deterministically turns reading-order blocks into the nested legal JSON and reports what could not be verified. */
 export function assembleLegalDocument(chunks: ChunkTranscription[], source: AssemblySource): AssemblyResult {
@@ -68,6 +91,7 @@ export function assembleLegalDocument(chunks: ChunkTranscription[], source: Asse
     const closingParts: string[] = [];
     let lastContent: { parts: string[]; nodes: DraftNode[] } | null = null;
     let isClosing = false;
+    let quote: QuoteState | null = null;
 
     for (const chunk of orderedChunks) {
         if (chunk.error) {
@@ -80,23 +104,55 @@ export function assembleLegalDocument(chunks: ChunkTranscription[], source: Asse
         }
 
         for (const transcribed of chunk.blocks) {
-            const block = correctCommonMisreads(stack, splitInlineMarker(transcribed), issues);
+            const unmarked = splitInlineMarker(normalizeHomoglyphs(transcribed));
 
-            if (isContinuation(block) && lastContent && lastContent.parts.length > 0) {
-                if (block.marker) {
+            if (isContinuation(unmarked) && lastContent && lastContent.parts.length > 0) {
+                if (unmarked.marker) {
                     issues.push(issue(
                         "WARNING",
                         "MARKER_DROPPED",
-                        `Marker "${block.marker}" ignored: the text continues the previous page`,
-                        block.page_start,
+                        `Marker "${unmarked.marker}" ignored: the text continues the previous page`,
+                        unmarked.page_start,
                     ));
                 }
 
                 const lastIndex = lastContent.parts.length - 1;
-                lastContent.parts[lastIndex] = `${lastContent.parts[lastIndex]} ${block.text}`;
-                extendNodes(lastContent.nodes, block);
+                lastContent.parts[lastIndex] = `${lastContent.parts[lastIndex]} ${unmarked.text}`;
+                extendNodes(lastContent.nodes, unmarked);
+
+                if (quote && closesQuote(unmarked)) {
+                    finishQuote(quote);
+                    quote = null;
+                }
+
                 continue;
             }
+
+            if (quote && leavesQuote(quote, unmarked)) {
+                issues.push(issue("WARNING", "QUOTE_NOT_CLOSED", "Quoted wording had no closing quotation mark; closed before the next instruction", unmarked.page_start));
+                finishQuote(quote);
+                quote = null;
+            }
+
+            if (!quote && opensQuote(stack[stack.length - 1], unmarked)) {
+                quote = { host: stack[stack.length - 1], stack: [createDraft("document", "", null, unmarked.page_start, unmarked.page_end, unmarked.quality, null)] };
+            }
+
+            if (quote) {
+                const quotedNode = addQuotedBlock(quote, unmarked);
+
+                extendNodes(stack, unmarked);
+                lastContent = { parts: quotedNode.contentParts, nodes: [...stack, ...quote.stack.slice(1), quotedNode] };
+
+                if (closesQuote(unmarked)) {
+                    finishQuote(quote);
+                    quote = null;
+                }
+
+                continue;
+            }
+
+            const block = correctCommonMisreads(stack, unmarked, issues);
 
             if (block.kind === "title" && !hasStructure(root)) {
                 appendIfPresent(titleParts, block.text ?? block.title);
@@ -135,11 +191,16 @@ export function assembleLegalDocument(chunks: ChunkTranscription[], source: Asse
         }
     }
 
+    if (quote) {
+        issues.push(issue("WARNING", "QUOTE_NOT_CLOSED", "Quoted wording was still open at the end of the document", source.pageCount));
+        finishQuote(quote);
+    }
+
     if (!hasStructure(root)) {
         throw new NeedsReviewError("No Phần/Chương/Mục/Điều headings were identified in the PDF");
     }
 
-    issues.push(...checkPageCoverage(orderedChunks, source.pageCount));
+    issues.push(...checkPageCoverage(orderedChunks, source.pageCount, source.blankPages));
     issues.push(...checkNumbering(root));
 
     const documentTitle = titleParts.length > 0 ? titleParts.join(" ") : null;
@@ -216,6 +277,98 @@ function openStructuralNode(
 }
 
 /**
+ * Quoted wording starts right after an amendment lead-in ("… như sau:"), or with an opening quotation mark
+ * on a heading. The reader often drops the opening “ but keeps the closing ”, so the lead-in is the main
+ * signal. A lead-in is used once: after its quote closes, the next block belongs to the document again.
+ */
+function opensQuote(host: DraftNode, block: TranscribedBlock): boolean {
+    if (host.kind === "document" || block.kind === "title" || block.kind === "closing") {
+        return false;
+    }
+
+    if (isStructuralKind(block.kind) && OPENING_QUOTE.test(visibleText(block))) {
+        return true;
+    }
+
+    // "Sửa đổi một số điểm của khoản 6 Điều 28 như sau: a) Sửa đổi điểm i … như sau:" lists sub-instructions.
+    if (AMENDMENT_START.test(block.text ?? "")) {
+        return false;
+    }
+
+    const lastText = host.contentParts[host.contentParts.length - 1] ?? host.title ?? "";
+
+    return host.quoted.length === 0 && AMENDMENT_LEAD_IN.test(lastText);
+}
+
+function closesQuote(block: TranscribedBlock): boolean {
+    return CLOSING_QUOTE.test(visibleText(block));
+}
+
+/** A quote left open by a misread closing mark ends at the host's next sibling instruction ("13. Sửa đổi …"). */
+function leavesQuote(quote: QuoteState, block: TranscribedBlock): boolean {
+    if (block.kind === "closing") {
+        return true;
+    }
+
+    if (block.kind !== quote.host.kind || !block.number || !AMENDMENT_START.test(block.text ?? "")) {
+        return false;
+    }
+
+    if (block.kind === "point") {
+        return nextPointLetter(quote.host.number) === block.number;
+    }
+
+    return Number(block.number) === Number(quote.host.number) + 1;
+}
+
+/** Quoted headings nest among themselves; quoted text without a heading becomes a text node. */
+function addQuotedBlock(quote: QuoteState, block: TranscribedBlock): DraftNode {
+    const stack = quote.stack;
+
+    if (isStructuralKind(block.kind) && block.number) {
+        while (stack.length > 1 && RANK[stack[stack.length - 1].kind] >= RANK[block.kind]) {
+            stack.pop();
+        }
+
+        const parent = stack[stack.length - 1];
+
+        if (parent.kind === "document" || ALLOWED_CHILDREN[parent.kind].includes(block.kind)) {
+            const node = createDraft(block.kind, block.number, block.title, block.page_start, block.page_end, block.quality, sourceQuote(block.kind, block));
+
+            appendIfPresent(node.contentParts, block.text);
+            parent.children.push(node);
+            stack.push(node);
+
+            return node;
+        }
+    }
+
+    const target = stack[stack.length - 1];
+
+    if (target.kind !== "document") {
+        appendIfPresent(target.contentParts, blockText(block));
+        extendNodes([target], block);
+
+        return target;
+    }
+
+    const textNode = createDraft("text", String(target.children.length + 1), null, block.page_start, block.page_end, block.quality, null);
+
+    appendIfPresent(textNode.contentParts, blockText(block));
+    target.children.push(textNode);
+
+    return textNode;
+}
+
+function finishQuote(quote: QuoteState): void {
+    quote.host.quoted.push(...quote.stack[0].children);
+}
+
+function visibleText(block: TranscribedBlock): string {
+    return [block.marker, block.title, block.text].filter((value) => value).join(" ").trim();
+}
+
+/**
  * Repairs the two misreads seen on scanned decrees, only when the sequence makes the intent unambiguous:
  * point "l)" read as clause "1." and a second point "d)" that must be "đ)". Each repair is reported.
  */
@@ -240,22 +393,44 @@ function correctCommonMisreads(stack: DraftNode[], block: TranscribedBlock, issu
     return { ...block, kind: "point", number };
 }
 
+/**
+ * The reader sometimes returns Cyrillic look-alikes in point markers ("р)", "с)"). Markers are only ever
+ * Latin/Vietnamese letters, so a look-alike in a marker or number is mapped back; body text is untouched.
+ */
+function normalizeHomoglyphs(block: TranscribedBlock): TranscribedBlock {
+    const fix = (value: string | null): string | null => (value === null ? null : value.replace(CYRILLIC_LOOKALIKES, (character) => LATIN_OF[character] ?? character));
+    const markerAtTextStart = block.marker === null && block.text ? /^\S{1,3}\)\s/u.exec(block.text) : null;
+    const text = markerAtTextStart && block.text ? `${fix(markerAtTextStart[0])}${block.text.slice(markerAtTextStart[0].length)}` : block.text;
+
+    const marker = fix(block.marker);
+    const derived = marker && !block.number ? /^[“"]?(?:Điều\s+)?(\d{1,3}[a-zđ]?|[a-zđ])[.)]$/u.exec(marker)?.[1] ?? null : null;
+
+    return { ...block, marker, number: fix(block.number) ?? derived, text };
+}
+
 /** A text block that starts with "a) " or "1. " is a point/clause whose marker was left inside the text. */
 function splitInlineMarker(block: TranscribedBlock): TranscribedBlock {
     if (block.kind !== "text" || block.marker !== null || !block.text) {
         return block;
     }
 
-    const point = /^([a-zđ])\)\s+(.+)$/su.exec(block.text);
+    // Quoted new wording keeps its opening mark in the marker, so the quote is still visible to the assembler.
+    const article = /^([“"]?)Điều\s+(\d{1,3}[a-zđ]?)\.\s*(\S.*)$/su.exec(block.text);
 
-    if (point) {
-        return { ...block, kind: "point", marker: `${point[1]})`, number: point[1], text: point[2], continues_previous: false };
+    if (article) {
+        return { ...block, kind: "article", marker: `${article[1]}Điều ${article[2]}.`, number: article[2], title: article[3], text: null, continues_previous: false };
     }
 
-    const clause = /^(\d{1,2})\.\s+(\p{Lu}.+)$/su.exec(block.text);
+    const point = /^([“"]?)([a-zđ])\)\s+(.+)$/su.exec(block.text);
+
+    if (point) {
+        return { ...block, kind: "point", marker: `${point[1]}${point[2]})`, number: point[2], text: point[3], continues_previous: false };
+    }
+
+    const clause = /^([“"]?)(\d{1,2}[a-zđ]?)\.\s+(\p{Lu}.+)$/su.exec(block.text);
 
     if (clause) {
-        return { ...block, kind: "clause", marker: `${clause[1]}.`, number: clause[1], text: clause[2], continues_previous: false };
+        return { ...block, kind: "clause", marker: `${clause[1]}${clause[2]}.`, number: clause[2], text: clause[3], continues_previous: false };
     }
 
     return block;
@@ -284,7 +459,7 @@ function isUntitledHeading(node: DraftNode): boolean {
 }
 
 function createDraft(
-    kind: ContainerKind,
+    kind: ContainerKind | "text",
     number: string,
     title: string | null,
     pageStart: number,
@@ -302,6 +477,7 @@ function createDraft(
         quality,
         sourceQuote: quote,
         children: [],
+        quoted: [],
     };
 }
 
@@ -348,7 +524,7 @@ function hasStructure(root: DraftNode): boolean {
 }
 
 function isStructuralKind(kind: string): kind is StructuralKind {
-    return kind in RANK && kind !== "document";
+    return kind in RANK && kind !== "document" && kind !== "text";
 }
 
 function appendIfPresent(parts: string[], text: string | null): void {
@@ -368,11 +544,30 @@ function toNodeBase(node: DraftNode): NodeBase {
         quality: node.quality,
     };
 
-    return {
+    const base: NodeBase = {
         number: node.number,
         title: node.title,
         content: content || null,
         source_locator: locator,
+    };
+
+    if (node.quoted.length > 0) {
+        base.quoted = node.quoted.map(toQuoted);
+    }
+
+    return base;
+}
+
+function toQuoted(node: DraftNode): QuotedNode {
+    const { number, title, content, source_locator: locator } = toNodeBase(node);
+
+    return {
+        kind: node.kind as QuotedKind,
+        number,
+        title,
+        content,
+        source_locator: locator,
+        children: node.children.map(toQuoted),
     };
 }
 

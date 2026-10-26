@@ -94,6 +94,8 @@ function walkStructure(state: FlattenState, container: JsonRecord, parent: Paren
         const stem = level === "ARTICLE" ? `dieu_${slug(source.number)}` : joinStem(parent.stem, `${prefix}_${slug(source.number)}`);
         const articleNo = level === "ARTICLE" ? source.number : null;
         const draft = addDraft(state, level, stem, source, parent, { articleNo, paragraphNo: null, pointNo: null });
+
+        addQuoted(state, node, draft);
         const nodeParent: ParentNode = { id: draft.id, stem: stemOf(state, draft), articleNo, paragraphNo: null };
 
         if (level === "ARTICLE") {
@@ -165,6 +167,8 @@ function walkClauses(state: FlattenState, article: JsonRecord, articleParent: Pa
         const stem = `${articleParent.stem}_khoan_${slug(source.number)}`;
         const locator = { articleNo: articleParent.articleNo, paragraphNo: source.number, pointNo: null };
         const draft = addDraft(state, "CLAUSE", stem, source, articleParent, locator);
+
+        addQuoted(state, clause, draft);
         const clauseParent: ParentNode = { id: draft.id, stem: stemOf(state, draft), articleNo: articleParent.articleNo, paragraphNo: source.number };
 
         walkPoints(state, clause, clauseParent);
@@ -177,11 +181,51 @@ function walkPoints(state: FlattenState, clause: JsonRecord, clauseParent: Paren
         const stem = `${clauseParent.stem}_diem_${slug(source.number)}`;
         const locator = { articleNo: clauseParent.articleNo, paragraphNo: clauseParent.paragraphNo, pointNo: source.number };
 
-        addDraft(state, "POINT", stem, source, clauseParent, locator);
+        const draft = addDraft(state, "POINT", stem, source, clauseParent, locator);
+
+        addQuoted(state, point, draft);
     }
 }
 
 type Locator = Pick<ProvisionDraft, "articleNo" | "paragraphNo" | "pointNo">;
+
+const QUOTED_LEVELS: Record<string, { level: ProvisionLevel; segment: string }> = {
+    part: { level: "PART", segment: "phan" },
+    chapter: { level: "CHAPTER", segment: "chuong" },
+    section: { level: "SECTION", segment: "muc" },
+    article: { level: "ARTICLE", segment: "dieu" },
+    clause: { level: "CLAUSE", segment: "khoan" },
+    point: { level: "POINT", segment: "diem" },
+    text: { level: "TEXT", segment: "doan" },
+};
+const NO_LOCATOR: Locator = { articleNo: null, paragraphNo: null, pointNo: null };
+
+/**
+ * Quoted new wording of an amendment follows its instruction in reading order, under the instruction's id:
+ * "Sửa đổi, bổ sung Điều 20 như sau: “Điều 20 … 1. …”" gives "<doc>:dieu_1_khoan_12_q_dieu_20_khoan_1".
+ * It has no Điều/Khoản/Điểm of this document, so its locator stays empty.
+ */
+function addQuoted(state: FlattenState, node: JsonRecord, host: ProvisionDraft): void {
+    for (const quoted of readNodes(node, "quoted")) {
+        addQuotedNode(state, quoted, host, `${stemOf(state, host)}_q`, host.id);
+    }
+}
+
+function addQuotedNode(state: FlattenState, node: JsonRecord, parent: ProvisionDraft, parentStem: string, hostId: string): void {
+    const kind = QUOTED_LEVELS[readString(node.kind) ?? ""];
+
+    if (!kind) {
+        return;
+    }
+
+    const source = readNodeSource(node);
+    const stem = `${parentStem}_${kind.segment}_${slug(source.number)}`;
+    const draft = addDraft(state, kind.level, stem, source, { id: parent.id, stem: parentStem, articleNo: null, paragraphNo: null }, NO_LOCATOR, hostId);
+
+    for (const child of readNodes(node, "children")) {
+        addQuotedNode(state, child, draft, stemOf(state, draft), hostId);
+    }
+}
 
 function addDraft(
     state: FlattenState,
@@ -190,6 +234,7 @@ function addDraft(
     source: NodeSource,
     parent: ParentNode,
     locator: Locator,
+    quoteHostId: string | null = null,
 ): ProvisionDraft {
     const { uniqueStem, isDuplicate } = reserveStem(state, stem);
     const draft: ProvisionDraft = {
@@ -208,6 +253,7 @@ function addDraft(
         readQuality: source.readQuality,
         sourceRegions: source.sourceRegions,
         flags: isDuplicate ? ["DUPLICATE_ID"] : [],
+        quoteHostId,
     };
 
     state.drafts.push(draft);
