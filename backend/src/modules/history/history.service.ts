@@ -2,7 +2,8 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { listAllChangeInstructions, listAllProvisionRelations } from "../changes/change.repository";
 import { listAllDocumentRelations, listAllRelationCandidates, listDocumentMetadata } from "../documents/document-graph.repository";
 import { listAllViolationRules, type StoredViolationRule } from "../violations/violation.repository";
-import { listIntervals, listLineagesOf, replaceHistory } from "./history.repository";
+import { detectChangeEvents, type ChangeEvent } from "./change-events";
+import { listChangeEventsOf, listIntervals, listLineagesOf, replaceHistory } from "./history.repository";
 import { buildHistory, statusAt } from "./history.timeline";
 import type { RuleInterval, RuleLineage, RuleStatus } from "./history.types";
 
@@ -34,7 +35,7 @@ const SCOPE_DISCLAIMER =
     "Computed from the imported corpus only. A rule without a recorded amendment may still have been changed by a document that is not imported.";
 
 /** Rebuilds lineages and validity intervals for the whole corpus from the stored evidence. */
-export async function refreshHistory(db: D1Database): Promise<{ lineages: number; intervals: number }> {
+export async function refreshHistory(db: D1Database): Promise<{ lineages: number; intervals: number; changeEvents: number }> {
     const [rules, provisionRelations, documentRelations, metadata, instructions, candidates] = await Promise.all([
         listAllViolationRules(db),
         listAllProvisionRelations(db),
@@ -52,9 +53,11 @@ export async function refreshHistory(db: D1Database): Promise<{ lineages: number
         openDocumentCandidates: candidates.filter((candidate) => candidate.status !== "ACCEPTED" && candidate.status !== "REJECTED"),
     });
 
-    await replaceHistory(db, lineages, intervals);
+    const events = detectChangeEvents(lineages, intervals, rules);
 
-    return { lineages: lineages.length, intervals: intervals.length };
+    await replaceHistory(db, lineages, intervals, events);
+
+    return { lineages: lineages.length, intervals: intervals.length, changeEvents: events.length };
 }
 
 export async function refreshHistoryAfterExtraction(db: D1Database): Promise<void> {
@@ -91,9 +94,13 @@ export async function getRulesAsOf(db: D1Database, violationId: string, date: st
     return { violationId, asOf: date, lineages: result, scope: await readScope(db, [...rulesById.values()]) };
 }
 
-/** FR-11: every lineage of a violation with its rules in order, their intervals, and today's status. */
-export async function getViolationHistory(db: D1Database, violationId: string): Promise<{ violationId: string; lineages: (RuleLineage & { rules: RuleAtDate[] })[]; scope: CorpusScope }> {
+/** FR-11/FR-13: every lineage of a violation with its rules in order, their intervals, today's status and the semantic changes between them. */
+export async function getViolationHistory(
+    db: D1Database,
+    violationId: string,
+): Promise<{ violationId: string; lineages: (RuleLineage & { rules: RuleAtDate[]; changeEvents: ChangeEvent[] })[]; scope: CorpusScope }> {
     const { lineages, rulesById, intervalsById } = await loadViolationHistory(db, violationId);
+    const events = await listChangeEventsOf(db, violationId);
     const today = new Date().toISOString().slice(0, 10);
 
     return {
@@ -101,9 +108,14 @@ export async function getViolationHistory(db: D1Database, violationId: string): 
         lineages: lineages.map((lineage) => ({
             ...lineage,
             rules: lineage.ruleIds.flatMap((ruleId) => toRuleAtDate(rulesById.get(ruleId), intervalsById.get(ruleId), today)),
+            changeEvents: events.filter((event) => event.lineageId === lineage.id),
         })),
         scope: await readScope(db, [...rulesById.values()]),
     };
+}
+
+export async function getViolationChanges(db: D1Database, violationId: string): Promise<{ violationId: string; changeEvents: ChangeEvent[] }> {
+    return { violationId, changeEvents: await listChangeEventsOf(db, violationId) };
 }
 
 async function loadViolationHistory(db: D1Database, violationId: string) {
