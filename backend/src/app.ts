@@ -8,6 +8,7 @@ import { processingModule } from "./modules/processing/processing.route";
 import { dummyModule } from "./modules/dummy/dummy.route";
 import { mcpModule } from "./modules/mcp/mcp.route";
 import { provisionModule } from "./modules/provisions/provision.route";
+import { documentGraphModule } from "./modules/documents/document-graph.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -23,6 +24,7 @@ export const app = new Elysia({ aot: false })
     .use(uploadModule)
     .use(processingModule)
     .use(provisionModule)
+    .use(documentGraphModule)
     .use(dummyModule)
     .use(mcpModule)
     .onError(({ code, error, set }) => {
