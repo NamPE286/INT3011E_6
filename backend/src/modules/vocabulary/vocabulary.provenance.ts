@@ -24,6 +24,8 @@ type ProvisionNode = {
     content: string | null;
     clauses: ProvisionNode[];
     points: ProvisionNode[];
+    /** Quoted new wording of an amendment instruction and its nested units. */
+    quoted: ProvisionNode[];
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -266,12 +268,17 @@ function readNodes(value: unknown): ProvisionNode[] {
         title: typeof node.title === "string" ? node.title : null,
         content: typeof node.content === "string" ? node.content : null,
         clauses: readNodes(node.clauses),
-        points: readNodes(node.points),
+        points: readNodes([...asArray(node.points), ...asArray(node.children)]),
+        quoted: readNodes(node.quoted),
     }));
 }
 
+function asArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
+}
+
 function nodeText(node: ProvisionNode): string {
-    const childText = [...node.clauses, ...node.points].map(nodeText).join(" ");
+    const childText = [...node.clauses, ...node.points, ...node.quoted].map(nodeText).join(" ");
 
     return `${node.title ?? ""} ${node.content ?? ""} ${childText}`;
 }

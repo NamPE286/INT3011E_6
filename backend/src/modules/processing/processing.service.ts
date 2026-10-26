@@ -13,6 +13,7 @@ import { runPreprocessing } from "./preprocessing";
 import { LEGAL_SCHEMA_VERSION, NeedsReviewError, type ChunkTranscription } from "./legal-types";
 import {
     extractPageRange,
+    findBlankPages,
     InvalidPdfError,
     loadPdf,
     planPageRanges,
@@ -86,6 +87,7 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
             snapshotId: jobId,
             pdfSha256,
             pageCount,
+            blankPages: findBlankPages(pdf),
         });
 
         await updateJobStage(env.DB, jobId, { step: "finalizing", progress: 95 });

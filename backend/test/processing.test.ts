@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Message, MessageBatch } from "@cloudflare/workers-types";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import type { ProcessingQueueMessage } from "../src/types/env";
 import { getJobById, insertJob } from "../src/modules/processing/job.repository";
 import { getLegalDocumentByJobId } from "../src/modules/processing/legal-persistence";
@@ -15,9 +15,10 @@ const JOB_ID = "job-nd-sample";
 async function createEnvWithPdf(pageCount: number): Promise<MockEnvironment> {
     const env = createMockEnv({ OPENAI_API_KEY: "test-key", OPENAI_MODEL: "test-model", PDF_CHUNK_PAGES: "2" });
     const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
 
     for (let page = 0; page < pageCount; page++) {
-        pdf.addPage();
+        pdf.addPage().drawText(`Page ${page + 1} of a decree`, { x: 50, y: 700, size: 12, font });
     }
 
     const fileKey = `uploads/${JOB_ID}/sample.pdf`;

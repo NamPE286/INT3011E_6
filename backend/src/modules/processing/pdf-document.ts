@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream, type PDFObject } from "pdf-lib";
 
 export const MAX_PDF_PAGES = 300;
 
@@ -81,4 +81,62 @@ export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", bytes);
 
     return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// Text-showing operators with their string operand: (literal) or <hex>.
+const SHOWN_STRING = /(\((?:\\.|[^\\)])*\)|<[0-9A-Fa-f\s]*>)\s*(?:Tj|'|")|\[([^\]]*)\]\s*TJ/g;
+const MAX_BLANK_GLYPH_BYTES = 4;
+
+/**
+ * 1-based numbers of pages that show (almost) nothing: no image XObject and at most a few glyph bytes, as a
+ * trailing empty page of an exported decree. The reader reports such a page UNREADABLE, which must not
+ * block a document; anything with real text or an image is never treated as blank.
+ */
+export function findBlankPages(pdf: PDFDocument): number[] {
+    const blank: number[] = [];
+
+    pdf.getPages().forEach((page, index) => {
+        const content = readPageContent(pdf, page.node.Contents());
+
+        if (content !== null && !/\bDo\b/.test(content) && countShownBytes(content) <= MAX_BLANK_GLYPH_BYTES) {
+            blank.push(index + 1);
+        }
+    });
+
+    return blank;
+}
+
+function readPageContent(pdf: PDFDocument, contents: PDFObject | undefined): string | null {
+    if (!contents) {
+        return "";
+    }
+
+    const streams = contents instanceof PDFArray ? contents.asArray().map((reference) => pdf.context.lookup(reference)) : [contents];
+    let text = "";
+
+    for (const stream of streams) {
+        if (!(stream instanceof PDFRawStream)) {
+            return null;
+        }
+
+        try {
+            text += new TextDecoder("latin1").decode(decodePDFRawStream(stream).decode());
+        } catch {
+            return null;
+        }
+    }
+
+    return text;
+}
+
+function countShownBytes(content: string): number {
+    let total = 0;
+
+    for (const match of content.matchAll(SHOWN_STRING)) {
+        const operand = match[1] ?? match[2] ?? "";
+
+        total += operand.startsWith("<") ? Math.ceil(operand.replace(/[<>\s]/g, "").length / 2) : Math.max(operand.length - 2, 0);
+    }
+
+    return total;
 }

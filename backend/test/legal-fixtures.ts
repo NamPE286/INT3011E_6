@@ -1,12 +1,22 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { analyzeStoredDocument } from "../src/modules/provisions/provision.service";
 
+export type FixtureQuoted = {
+    kind: "article" | "clause" | "point" | "text";
+    number: string;
+    title?: string | null;
+    content?: string | null;
+    children?: FixtureQuoted[];
+};
+
 export type FixtureNode = {
     number: string;
     title?: string | null;
     content?: string | null;
     clauses?: FixtureNode[];
     points?: FixtureNode[];
+    /** Quoted new wording as the quote-aware assembler stores it. */
+    quoted?: FixtureQuoted[];
 };
 
 export type FixtureDocument = {
@@ -52,21 +62,40 @@ export async function storeLegalDocument(db: D1Database, fixture: FixtureDocumen
     await analyzeStoredDocument(db, fixture.id);
 }
 
+const LOCATOR = {
+    page_start: 1,
+    page_end: 1,
+    regions: [],
+    source_quote: null,
+    method: "LLM",
+    quality: "GOOD",
+};
+
 function toLegalNode(node: FixtureNode): Record<string, unknown> {
-    return {
+    const legalNode: Record<string, unknown> = {
         number: node.number,
         title: node.title ?? null,
         content: node.content ?? null,
-        source_locator: {
-            page_start: 1,
-            page_end: 1,
-            regions: [],
-            source_quote: null,
-            method: "LLM",
-            quality: "GOOD",
-        },
+        source_locator: LOCATOR,
         clauses: (node.clauses ?? []).map(toLegalNode),
         points: (node.points ?? []).map(toLegalNode),
+    };
+
+    if (node.quoted) {
+        legalNode.quoted = node.quoted.map(toQuotedNode);
+    }
+
+    return legalNode;
+}
+
+function toQuotedNode(node: FixtureQuoted): Record<string, unknown> {
+    return {
+        kind: node.kind,
+        number: node.number,
+        title: node.title ?? null,
+        content: node.content ?? null,
+        source_locator: LOCATOR,
+        children: (node.children ?? []).map(toQuotedNode),
     };
 }
 
