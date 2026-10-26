@@ -9,6 +9,7 @@ saveLegalDocument (ACCEPTED)
   └─ 3. Change graph (#11)       change_instructions, provision_relations (+ cạnh document_relations suy ra)
   └─ 4. Violation rules (#15)    extraction_runs, violation_rules, sanctions, sanction_effects
   └─ 5. Identity (#17)           traffic_violations, violation_aliases, identity_decisions
+  └─ 6. History (#18)            rule_lineages, rule_intervals
 ```
 
 Các bước được gọi tuần tự bởi `runPreprocessing` (`backend/src/modules/processing/preprocessing.ts`) trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
@@ -111,3 +112,24 @@ Similarity văn bản không bao giờ gộp hai hành vi có polarity/target/lo
 | `GET` | `/api/violations/:violationId` | Violation, alias, các rule và quyết định identity. |
 | `GET` | `/api/documents/:documentId/identities` | Quyết định identity của các rule trong văn bản. |
 | `POST` | `/api/documents/:documentId/identities/resolve` | Resolve lại (kết quả ổn định, id violation deterministic). |
+
+## 6. Lineage, quy tắc hiện hành và as-of (#18, FR-11/FR-12)
+
+**RuleLineage** chỉ nối hai rule khi có evidence pháp lý (không nối chỉ vì cùng TrafficViolation):
+- `PROVISION_RELATION`: các phiên bản của cùng một provision (cùng violation, cùng địa chỉ, cùng chủ thể) — văn bản sửa đổi đã viết lại provision đó;
+- `DOCUMENT_REPLACEMENT`: cạnh `ACCEPTED` `FULLY_REPLACES`/`FULLY_REPEALS` từ văn bản B tới A, và đúng một nhóm rule ở mỗi bên có cùng violation + context (phương tiện, chủ thể).
+Rule cùng hành vi nhưng khác phương tiện/chủ thể không có evidence nối → lineage song song.
+
+**Khoảng hiệu lực** (`rule_intervals`): `valid_from` = ngày có hiệu lực của văn bản chứa rule; `valid_to` = sự kiện kết thúc sớm nhất có ngày:
+- ProvisionRelation `ACCEPTED` từ văn bản sau tác động lên provision của rule hoặc khoản chứa mức phạt → `AMENDED` (successor = rule mới cùng địa chỉ) hoặc `REPEALED`;
+- văn bản bị thay thế/bãi bỏ toàn bộ → `SUPERSEDED` nếu lineage có rule trong văn bản mới, ngược lại `REPEALED`.
+
+**Cảnh báo → `UNCERTAIN`** (chỉ từ thời điểm cảnh báo có hiệu lực): ngày hiệu lực chưa đọc được, quan hệ tác động chưa xác minh (`CANDIDATE`), quan hệ đã xác minh nhưng không rõ ngày, instruction không resolve được nhưng nêu đúng provision, candidate cấp văn bản `CANDIDATE`/`AMBIGUOUS`/`CONFLICT` tác động lên văn bản.
+
+**Trạng thái tại ngày T** được suy ra khi truy vấn (không lưu): `NOT_YET_EFFECTIVE`, `CURRENT`, `AMENDED`, `REPEALED`, `SUPERSEDED`, `UNCERTAIN`. Không có cạnh tác động không được hiểu là "chưa từng bị sửa": mọi kết quả trả kèm phạm vi corpus (số văn bản, lần nhập cuối, frontier chưa nhập) và disclaimer.
+
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/violations/:violationId/rules?as_of=YYYY-MM-DD` | Theo từng lineage: rule áp dụng tại ngày (mặc định hôm nay) và rule `UNCERTAIN` kèm lý do; kèm `scope`. |
+| `GET` | `/api/violations/:violationId/history` | Mọi lineage, rule theo thứ tự, khoảng hiệu lực, evidence kết thúc, trạng thái hôm nay. |
+| `POST` | `/api/history/rebuild` | Tính lại lineage và khoảng hiệu lực cho toàn corpus. |
