@@ -17,11 +17,21 @@ describe("extractDocumentRelationCandidates", () => {
 
         expect(candidate).toBeDefined();
         expect(candidate?.source_document_id).toBe("doc-12-2024");
-        expect(candidate?.target_document_number).toBe("12/2024/NĐ-CP");
+        expect(candidate?.target_document_number).toBe("100/2019/NĐ-CP");
         expect(candidate?.status).toBe("UNRESOLVED");
         expect(text.slice(candidate!.evidence.start, candidate!.evidence.end)).toBe(
             candidate?.evidence.quote,
         );
+    });
+
+    test("targets the referenced law after a legal-basis cue", () => {
+        const text = "Căn cứ Luật Trật tự, an toàn giao thông đường bộ số 36/2024/QH15.";
+        const result = extractDocumentRelationCandidates({
+            source_document_id: "doc-test",
+            text,
+        });
+        const candidate = result.candidates.find((item) => item.relation_type === "LEGAL_BASIS");
+        expect(candidate?.target_document_number).toBe("36/2024/QH15");
     });
 
     test("detects legal-basis candidates", () => {
