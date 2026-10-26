@@ -47,26 +47,26 @@ export function buildHistory(input: HistoryInput): { lineages: RuleLineage[]; in
 }
 
 /** The status of a rule at `date` (ISO yyyy-mm-dd), from its interval and the warnings that apply by then. */
-export function statusAt(interval: RuleInterval, date: string): { status: RuleStatus; reasons: string[] } {
+export function statusAt(interval: RuleInterval, date: string): { status: RuleStatus; reasons: string[]; reasonCodes: IntervalWarning["code"][] } {
     if (!interval.validFrom) {
-        return { status: "UNCERTAIN", reasons: interval.warnings.map((warning) => warning.message) };
+        return { status: "UNCERTAIN", reasons: interval.warnings.map((warning) => warning.message), reasonCodes: interval.warnings.map((warning) => warning.code) };
     }
 
     if (date < interval.validFrom) {
-        return { status: "NOT_YET_EFFECTIVE", reasons: [] };
+        return { status: "NOT_YET_EFFECTIVE", reasons: [], reasonCodes: [] };
     }
 
     if (interval.validTo && interval.endType && date >= interval.validTo) {
-        return { status: interval.endType, reasons: [] };
+        return { status: interval.endType, reasons: [], reasonCodes: [] };
     }
 
     const open = interval.warnings.filter((warning) => !warning.effectiveFrom || warning.effectiveFrom <= date);
 
     if (open.length > 0) {
-        return { status: "UNCERTAIN", reasons: open.map((warning) => warning.message) };
+        return { status: "UNCERTAIN", reasons: open.map((warning) => warning.message), reasonCodes: open.map((warning) => warning.code) };
     }
 
-    return { status: "CURRENT", reasons: [] };
+    return { status: "CURRENT", reasons: [], reasonCodes: [] };
 }
 
 export function contextKeyOf(rule: StoredViolationRule): string {

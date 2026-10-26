@@ -3,6 +3,7 @@ import { getDocumentMetadata } from "../documents/document-graph.repository";
 import { getRulesAsOf, type LineageAtDate, type RuleAtDate } from "../history/history.service";
 import { searchViolations, type ViolationSummary } from "../identity/identity.repository";
 import { normalizeBehaviour } from "../identity/identity.resolver";
+import { describeUncertainty } from "./ask.reasons";
 import type { AnswerEvidence } from "./ask.types";
 
 const MIN_ALIAS_MATCH = 0.75;
@@ -133,7 +134,7 @@ function toEvidence(id: string, violation: ViolationSummary, entry: RuleAtDate, 
         additionalPenalties: rule.sanction.effects.map((effect) => effect.rawText),
         validFrom: interval.validFrom,
         validTo: interval.validTo,
-        uncertaintyReasons: [...rule.uncertaintyReasons, ...entry.reasons],
+        uncertaintyReasons: [...new Set([...rule.uncertaintyReasons, ...entry.reasonCodes].map(describeUncertainty))],
         source: {
             documentId: rule.sourceDocumentId,
             documentNumber: source.number,

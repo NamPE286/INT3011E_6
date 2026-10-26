@@ -198,6 +198,7 @@ describe("rule history", () => {
 
         expect(undatedResult.lineages[0].applicable).toHaveLength(0);
         expect(undatedResult.lineages[0].uncertain.map((entry) => entry.rule.id)).toContain(RED_LIGHT_CAR);
+        expect(undatedResult.lineages[0].uncertain[0].reasonCodes).toContain("EFFECTIVE_DATE_UNKNOWN");
 
         const second = createTestD1Database({ seedSampleDocument: false });
 
@@ -210,6 +211,7 @@ describe("rule history", () => {
 
         expect(before.lineages[0].applicable.map((entry) => entry.rule.id)).toEqual([RED_LIGHT_CAR]);
         expect(after.lineages[0].uncertain[0].reasons.join(" ")).toContain("CONFLICT");
+        expect(after.lineages[0].uncertain[0].reasonCodes).toHaveLength(after.lineages[0].uncertain[0].reasons.length);
     });
 
     it("reports the corpus scope and the documents not imported yet", async () => {

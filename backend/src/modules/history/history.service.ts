@@ -5,13 +5,15 @@ import { listAllViolationRules, type StoredViolationRule } from "../violations/v
 import { detectChangeEvents, type ChangeEvent } from "./change-events";
 import { listChangeEventsOf, listIntervals, listLineagesOf, replaceHistory } from "./history.repository";
 import { buildHistory, statusAt } from "./history.timeline";
-import type { RuleInterval, RuleLineage, RuleStatus } from "./history.types";
+import type { IntervalWarning, RuleInterval, RuleLineage, RuleStatus } from "./history.types";
 
 export type RuleAtDate = {
     rule: StoredViolationRule;
     interval: RuleInterval;
     status: RuleStatus;
     reasons: string[];
+    /** Stable codes of `reasons`, for clients that show them in another language. */
+    reasonCodes: IntervalWarning["code"][];
 };
 
 export type LineageAtDate = {
@@ -136,9 +138,9 @@ function toRuleAtDate(rule: StoredViolationRule | undefined, interval: RuleInter
         return [];
     }
 
-    const { status, reasons } = statusAt(interval, date);
+    const { status, reasons, reasonCodes } = statusAt(interval, date);
 
-    return [{ rule, interval, status, reasons }];
+    return [{ rule, interval, status, reasons, reasonCodes }];
 }
 
 export async function readScope(db: D1Database, rules: StoredViolationRule[]): Promise<CorpusScope> {

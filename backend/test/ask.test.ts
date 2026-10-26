@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { D1Database } from "@cloudflare/workers-types";
 import { app } from "../src/app";
 import { composeAnswer, validateModelClaims } from "../src/modules/ask/ask.answer";
+import { describeUncertainty } from "../src/modules/ask/ask.reasons";
 import { answerQuestion } from "../src/modules/ask/ask.service";
 import type { AnswerEvidence } from "../src/modules/ask/ask.types";
 import { buildChangeGraph } from "../src/modules/changes/change.service";
@@ -81,6 +82,19 @@ describe("answerQuestion", () => {
         expect(answer.claims.length).toBeGreaterThan(0);
         expect(answer.claims.every((claim) => claim.evidenceIds.includes(answer.evidence[0].id))).toBe(true);
         expect(answer.claims[0].text).toContain("3.000.000");
+    });
+
+    it("explains in Vietnamese why a rule on the date is uncertain", async () => {
+        const db = await createCorpus();
+        const warnings = JSON.stringify([{ code: "EFFECTIVE_DATE_UNKNOWN", message: "unreadable", effectiveFrom: null }]);
+
+        await db.prepare("UPDATE rule_intervals SET valid_from = NULL, warnings = ? WHERE rule_id = ?").bind(warnings, BASE_RULE).run();
+
+        const answer = await answerQuestion(db, { question: QUESTION, asOf: "2021-06-01" }, OPTIONS);
+
+        expect(answer.status).toBe("UNCERTAIN");
+        expect(answer.claims[0].text).toContain("ngày có hiệu lực");
+        expect(answer.claims[0].text).not.toMatch(/[A-Z]{4,}_[A-Z_]+/);
     });
 
     it("uses the date asked about, not the newest rule", async () => {
@@ -184,6 +198,15 @@ describe("composeAnswer", () => {
 
         expect(answer.status).toBe("ANSWERED");
         expect(answer.claims[0].text).not.toMatch(/\d{3}\.\d{3}/);
+    });
+});
+
+describe("describeUncertainty", () => {
+    it("explains stored reason codes in Vietnamese and never shows a raw code", () => {
+        expect(describeUncertainty("NO_FINE")).toBe("chưa đọc được mức phạt");
+        expect(describeUncertainty("EFFECTIVE_DATE_UNKNOWN")).toContain("ngày có hiệu lực");
+        expect(describeUncertainty("MODEL: not sure")).toContain("không chắc chắn");
+        expect(describeUncertainty("SOMETHING_NEW")).toBe("cần kiểm tra thủ công");
     });
 });
 
