@@ -20,11 +20,28 @@ export type SourceLocator = {
     quality: ReadQuality;
 };
 
+export type QuotedKind = "part" | "chapter" | "section" | "article" | "clause" | "point" | "text";
+
+/**
+ * Wording an amendment quotes ("Sửa đổi, bổ sung Điều 20 như sau: “Điều 20. …”"). It keeps its own
+ * structure but is never part of the document's own Điều/Khoản/Điểm tree or its numbering.
+ */
+export type QuotedNode = {
+    kind: QuotedKind;
+    number: string;
+    title: string | null;
+    content: string | null;
+    source_locator: SourceLocator;
+    children: QuotedNode[];
+};
+
 export type NodeBase = {
     number: string;
     title: string | null;
     content: string | null;
     source_locator: SourceLocator;
+    /** Present only on a node whose text introduces quoted new wording. */
+    quoted?: QuotedNode[];
 };
 
 export type Point = NodeBase;

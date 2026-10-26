@@ -21,7 +21,8 @@ export function nextPointLetter(letter: string): string | undefined {
     return position === -1 ? undefined : POINT_LETTERS[position + 1];
 }
 
-export function checkPageCoverage(chunks: ChunkTranscription[], pageCount: number): ValidationIssue[] {
+/** `blankPages`: pages the PDF itself shows as empty; the reader's UNREADABLE on them is only a warning. */
+export function checkPageCoverage(chunks: ChunkTranscription[], pageCount: number, blankPages: readonly number[] = []): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
     const reportedPages = new Map<number, ReadQuality>();
 
@@ -36,6 +37,11 @@ export function checkPageCoverage(chunks: ChunkTranscription[], pageCount: numbe
 
         if (!quality) {
             issues.push(issue("ERROR", "PAGE_NOT_REPORTED", `Page ${page} was not reported by the LLM`, page));
+            continue;
+        }
+
+        if (quality !== "GOOD" && blankPages.includes(page)) {
+            issues.push(issue("WARNING", "PAGE_BLANK", `Page ${page} is marked ${quality}, but the PDF shows no text or image on it`, page));
             continue;
         }
 

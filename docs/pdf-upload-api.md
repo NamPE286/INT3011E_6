@@ -15,8 +15,18 @@ Queue consumer ─► chia PDF thành cụm trang ─► LLM đọc từng cụm
 | Chia trang | `pdf-document.ts` | Copy nguyên trang PDF vào file con (`PDF_CHUNK_PAGES`, mặc định 3 trang); không render/OCR. |
 | Đọc bằng LLM | `processing/legal-llm.service.ts` | OpenAI Responses API, input là file PDF, output JSON theo schema strict. LLM chỉ chép **nguyên văn** từng block theo thứ tự đọc và ký hiệu đầu dòng (`marker`: "Điều 6.", "Chương II", "a)"). |
 | Phân loại cấp | `legal-llm.service.ts` (`classifyMarker`) | Cấp Phần/Chương/Mục/Điều/Khoản/Điểm được backend suy ra từ `marker` bằng regex, không tin nhãn của model. |
-| Ghép cây + kiểm tra | `processing/legal-assembler.ts` | Ghép block qua ranh giới cụm trang, gắn `source_locator` (trang, quote, quality), kiểm tra số thứ tự (Điều liên tục, Khoản 1..n, Điểm a, b, c, d, đ, e...), độ phủ trang, chất lượng đọc, tiêu đề, phần ký/kết thúc. |
+| Ghép cây + kiểm tra | `processing/legal-assembler.ts` | Ghép block qua ranh giới cụm trang, gắn `source_locator` (trang, quote, quality), tách nội dung trích dẫn của lệnh sửa đổi (xem dưới), kiểm tra số thứ tự (Điều liên tục, Khoản 1..n, Điểm a, b, c, d, đ, e...), độ phủ trang, chất lượng đọc, tiêu đề, phần ký/kết thúc. |
 | Lưu | `processing/legal-persistence.ts` | `legal_documents` lưu JSON, `review_status`, `validation_issues`, model, prompt/schema version, số trang. |
+
+### Văn bản sửa đổi: nội dung trích dẫn
+
+Văn bản sửa đổi chép nguyên Điều/Khoản/Điểm mới trong ngoặc kép ("Sửa đổi, bổ sung Điều 20 như sau: “Điều 20. … 1. … a) …”"). Các đơn vị này **không** thuộc cây Điều/Khoản/Điểm của chính văn bản: assembler đưa chúng vào trường `quoted` của node chứa lệnh, giữ cấu trúc riêng (`kind`, `number`, `title`, `content`, `source_locator`, `children`) và không kiểm tra số thứ tự của chúng.
+
+- Mở trích dẫn: ngay sau câu dẫn có động từ sửa đổi ở đầu câu hoặc ở dạng bị động ("Sửa đổi, bổ sung … như sau:", "… được sửa đổi như sau:"), hoặc một tiêu đề bắt đầu bằng “. LLM thường bỏ dấu “ mở nhưng giữ dấu ” đóng, nên câu dẫn là tín hiệu chính. "… các hình thức xử phạt bổ sung như sau:" không phải câu dẫn.
+- Lệnh con ("Sửa đổi một số điểm của khoản 6 Điều 28 như sau: a) Sửa đổi điểm i …") không phải nội dung trích dẫn.
+- Đóng trích dẫn ở khối kết thúc bằng ”; nếu thiếu dấu đóng thì đóng trước lệnh kế tiếp cùng cấp của node chứa lệnh, ghi `QUOTE_NOT_CLOSED` (WARNING).
+
+Assembler còn chuẩn hóa chữ Cyrillic trông giống chữ Latin trong ký hiệu ("р)" → "p)") và hạ `PAGE_UNREADABLE` thành `PAGE_BLANK` (WARNING) cho trang mà chính PDF không có chữ hay ảnh (`findBlankPages`).
 
 ### Checkpoint, retry, idempotency
 
@@ -31,7 +41,7 @@ Queue consumer ─► chia PDF thành cụm trang ─► LLM đọc từng cụm
 | Severity | Ý nghĩa | Ví dụ |
 | --- | --- | --- |
 | `ERROR` | Không publish âm thầm: job `needs_review`, document `REVIEW_REQUIRED` (vẫn lưu để kiểm tra) | `NUMBERING_GAP`, `ORPHAN_NODE`, `PAGE_UNREADABLE`, `PAGE_NOT_REPORTED`, `CHUNK_FAILED`, `TITLE_MISSING`, `CLOSING_MISSING` |
-| `WARNING` | Sửa lỗi đọc deterministic, có ghi lại | `MARKER_REPAIRED` ("1." → "l)", "d)" lặp → "đ)"), `MARKER_DROPPED` (marker bịa trên đoạn nối tiếp chữ thường) |
+| `WARNING` | Sửa lỗi đọc deterministic, có ghi lại | `MARKER_REPAIRED` ("1." → "l)", "d)" lặp → "đ)"), `MARKER_DROPPED` (marker bịa trên đoạn nối tiếp chữ thường), `QUOTE_NOT_CLOSED`, `PAGE_BLANK` |
 
 `CLOSING_MISSING` thường nghĩa là PDF chỉ là **một phần** của văn bản (ví dụ `100.signed_01.pdf` dừng giữa Điều 30).
 

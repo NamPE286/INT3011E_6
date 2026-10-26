@@ -279,7 +279,8 @@ async function addValue(
                 type,
                 canonical_label: value.label,
                 evidence: value.evidence ?? value.label,
-                source_provision_id: draft.provisionId,
+                // Quoted wording is verified through the instruction provision that quotes it.
+                source_provision_id: draft.provisionId.replace(/_q_.*$/u, ""),
                 source_document_id: draft.sourceDocumentId,
                 base_vocabulary_version: outcome.versionAfter,
             });

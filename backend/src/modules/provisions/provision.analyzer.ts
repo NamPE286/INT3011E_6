@@ -41,6 +41,10 @@ export function analyzeProvisions(drafts: ProvisionDraft[]): Provision[] {
 function analyzeDraft(draft: ProvisionDraft, state: AnalysisState): Provision {
     const flags: ProvisionFlag[] = [...draft.flags];
 
+    if (draft.quoteHostId) {
+        return analyzeQuotedDraft(draft, flags, state);
+    }
+
     // A new Điều/Chương cannot start inside a quotation, so a quote still open here was never closed (or misread).
     if (state.quoteDepth > 0 && STRUCTURE_LEVELS.includes(draft.level) && !startsWithQuoteMark(draft.text)) {
         state.quoteDepth = 0;
@@ -85,6 +89,39 @@ function analyzeDraft(draft: ProvisionDraft, state: AnalysisState): Provision {
         contentRole: result.contentRole,
         relevance: result.relevance,
         containerProvisionId,
+        quotedSegments: scan.segments,
+    };
+}
+
+/**
+ * Wording the assembler already separated as quoted (legal JSON `quoted`) is new text of its host
+ * instruction. It never changes the running quotation depth: its marks belong to the quote it sits in.
+ */
+function analyzeQuotedDraft(draft: ProvisionDraft, flags: ProvisionFlag[], state: AnalysisState): Provision {
+    const text = draft.text ?? "";
+    const scan = scanQuotes(text, 0);
+    const result = classifyRole({
+        level: draft.level,
+        title: draft.title,
+        text,
+        unquotedText: text,
+        quotedSegments: [],
+        isQuotedNode: true,
+        articleTitle: draft.level === "ARTICLE" ? draft.title : (draft.parentId ? state.articleTitleById.get(draft.parentId) ?? null : null),
+        parentIntroducesViolations: readParentIntroducesViolations(draft, state),
+        isUnreadable: draft.readQuality === "UNREADABLE",
+    });
+
+    state.introducesViolationsById.set(draft.id, result.introducesViolations);
+    state.articleTitleById.set(draft.id, draft.level === "ARTICLE" ? draft.title : (draft.parentId ? state.articleTitleById.get(draft.parentId) ?? null : null));
+    addQualityFlags(draft, false, flags);
+
+    return {
+        ...draft,
+        flags,
+        contentRole: "QUOTED_NEW_TEXT",
+        relevance: result.relevance,
+        containerProvisionId: draft.quoteHostId,
         quotedSegments: scan.segments,
     };
 }
