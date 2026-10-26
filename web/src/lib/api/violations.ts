@@ -1,3 +1,4 @@
+import { describeReason } from "../reasons";
 import { isRecord, readNumber, readRows, readString, readStringList } from "./read";
 
 export const RULE_STATUS_LABELS = {
@@ -76,7 +77,6 @@ export type CorpusScope = {
     documentCount: number;
     lastImportedAt: string | null;
     frontier: string[];
-    disclaimer: string;
 };
 
 export type LineageAtDate = LineageContext & {
@@ -104,7 +104,6 @@ export type ChangeEventView = {
     changeTypes: ChangeType[];
     details: ChangeDetail[];
     effectiveAt: string | null;
-    notes: string[];
     evidenceDocumentId: string | null;
 };
 
@@ -250,7 +249,7 @@ function parseRuleCard(entry: Record<string, unknown>): RuleCard | null {
         validFrom: readString(interval, "validFrom"),
         validTo: readString(interval, "validTo"),
         endType: readString(interval, "endType"),
-        reasons: collectReasons(entry, rule, interval),
+        reasons: collectReasons(entry, rule),
         provisionId,
         sourceDocumentId,
     };
@@ -275,10 +274,10 @@ function readTexts(source: Record<string, unknown>, key: string, field: string):
     return readRows(source, key, (item) => readString(item, field));
 }
 
-function collectReasons(entry: Record<string, unknown>, rule: Record<string, unknown>, interval: Record<string, unknown>): string[] {
-    const warnings = readRows(interval, "warnings", (warning) => readString(warning, "message"));
+function collectReasons(entry: Record<string, unknown>, rule: Record<string, unknown>): string[] {
+    const codes = [...readStringList(rule, "uncertaintyReasons"), ...readStringList(entry, "reasonCodes")];
 
-    return [...new Set([...readStringList(entry, "reasons"), ...readStringList(rule, "uncertaintyReasons"), ...warnings])];
+    return [...new Set(codes.map(describeReason))];
 }
 
 function parseChangeEvent(row: Record<string, unknown>): ChangeEventView | null {
@@ -297,7 +296,6 @@ function parseChangeEvent(row: Record<string, unknown>): ChangeEventView | null 
         changeTypes: readStringList(row, "changeTypes").filter(isChangeType),
         details: readRows(row, "details", parseChangeDetail),
         effectiveAt: readString(row, "effectiveAt"),
-        notes: readStringList(row, "notes"),
         evidenceDocumentId: readString(evidence, "fromDocumentId"),
     };
 }
@@ -315,6 +313,5 @@ export function parseCorpusScope(value: unknown): CorpusScope {
         documentCount: readNumber(scope, "documentCount") ?? 0,
         lastImportedAt: readString(scope, "lastImportedAt"),
         frontier: readStringList(scope, "frontier"),
-        disclaimer: readString(scope, "disclaimer") ?? "",
     };
 }

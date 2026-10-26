@@ -39,8 +39,10 @@ function encodeQuery(parameters: Record<string, string | null>): string {
     return text ? `?${text}` : "";
 }
 
-export function searchDocuments(fetcher: Fetcher, query: string, documentType: string | null): Promise<DocumentSearch> {
-    return getParsed(fetcher, `/api/documents${encodeQuery({ q: query.trim(), document_type: documentType })}`, parseDocumentSearch);
+export function searchDocuments(fetcher: Fetcher, query: string, documentType: string | null, limit: number | null = null): Promise<DocumentSearch> {
+    const parameters = { q: query.trim(), document_type: documentType, limit: limit === null ? null : String(limit) };
+
+    return getParsed(fetcher, `/api/documents${encodeQuery(parameters)}`, parseDocumentSearch);
 }
 
 export function getDocument(fetcher: Fetcher, documentId: string): Promise<DocumentView> {

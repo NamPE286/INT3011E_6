@@ -10,7 +10,7 @@
 </svelte:head>
 
 <!-- TODO(#4): restrict this admin page once authentication is implemented. -->
-<main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 bg-muted/30 p-6">
+<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 bg-muted/30 p-6">
     <header>
         <h1 class="text-2xl font-semibold tracking-tight">Nhập văn bản pháp luật giao thông</h1>
         <p class="text-sm text-muted-foreground">

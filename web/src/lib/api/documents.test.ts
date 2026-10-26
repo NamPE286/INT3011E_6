@@ -37,7 +37,6 @@ describe("parseDocumentSearch", () => {
         expect(parsed?.documents).toEqual([
             { id: "a", title: "T", documentNumber: "100/2019/NĐ-CP", documentType: "Nghị định", agency: null, issuedAt: "2019-12-30" },
         ]);
-        expect(parsed?.disclaimer).toBe("d");
     });
 
     test("rejects a response without a documents list", () => {
@@ -175,7 +174,6 @@ describe("parseDocumentRelations", () => {
         expect(relations?.candidates).toHaveLength(1);
         expect(relations?.candidates[0]).toMatchObject({ status: "UNRESOLVED", targetDocumentNumber: "46/2016/NĐ-CP" });
         expect(relations?.frontier).toEqual(["46/2016/NĐ-CP"]);
-        expect(relations?.disclaimer).toBe("Not exhaustive");
     });
 
     test("never presents a candidate as a verified edge", () => {

@@ -44,3 +44,28 @@ export function formatPeriod(validFrom: string | null, validTo: string | null): 
 export function todayIso(now: Date = new Date()): string {
     return now.toISOString().slice(0, 10);
 }
+
+/** Renders a before/after value of a semantic change event for people; objects with a fine range read as money. */
+export function describeChangeValue(value: unknown): string {
+    if (value === null || value === undefined) {
+        return "không có";
+    }
+
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+    }
+
+    if (Array.isArray(value)) {
+        return value.length === 0 ? "không có" : value.map(describeChangeValue).join("; ");
+    }
+
+    if (typeof value === "object" && "min" in value && "max" in value && typeof value.min === "number" && typeof value.max === "number") {
+        return formatFineRange({ min: value.min, max: value.max });
+    }
+
+    return JSON.stringify(value);
+}

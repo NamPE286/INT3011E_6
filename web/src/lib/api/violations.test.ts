@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CHANGE_TYPE_LABELS, RULE_STATUS_LABELS, parseViolationHistory, parseViolationRulesAsOf, parseViolationSearch } from "./violations";
 
-function ruleAtDate(id: string, status: string, overrides: { rule?: Record<string, unknown>; interval?: Record<string, unknown>; reasons?: string[] } = {}): Record<string, unknown> {
+function ruleAtDate(id: string, status: string, overrides: { rule?: Record<string, unknown>; interval?: Record<string, unknown>; reasonCodes?: string[] } = {}): Record<string, unknown> {
     return {
         rule: {
             id,
@@ -26,7 +26,8 @@ function ruleAtDate(id: string, status: string, overrides: { rule?: Record<strin
         },
         interval: { validFrom: "2020-01-01", validTo: null, endType: null, warnings: [], ...overrides.interval },
         status,
-        reasons: overrides.reasons ?? [],
+        reasons: [],
+        reasonCodes: overrides.reasonCodes ?? [],
     };
 }
 
@@ -54,10 +55,10 @@ describe("parseViolationRulesAsOf", () => {
                 lineageId: "l1",
                 contextIr: { vehicles: ["ô tô"], subject: null, subjectScope: null },
                 applicable: [ruleAtDate("r1", "CURRENT")],
-                uncertain: [ruleAtDate("r2", "UNCERTAIN", { reasons: ["Quan hệ chưa xác minh"], interval: { warnings: [{ code: "UNVERIFIED_RELATION", message: "Cần kiểm tra", effectiveFrom: null }] } })],
+                uncertain: [ruleAtDate("r2", "UNCERTAIN", { rule: { uncertaintyReasons: ["NO_FINE"] }, reasonCodes: ["UNVERIFIED_RELATION"] })],
             },
         ],
-        scope: { documentCount: 2, lastImportedAt: "2026-10-26T00:00:00.000Z", frontier: ["46/2016/NĐ-CP"], disclaimer: "Chỉ tính trên corpus" },
+        scope: { documentCount: 2, lastImportedAt: "2026-10-26T00:00:00.000Z", frontier: ["46/2016/NĐ-CP"], disclaimer: "English text from the server" },
     };
 
     test("reads the rule card with fine, effects and source provision", () => {
@@ -86,7 +87,10 @@ describe("parseViolationRulesAsOf", () => {
 
         expect(lineage.applicable.map((rule) => rule.ruleId)).toEqual(["r1"]);
         expect(lineage.uncertain.map((rule) => rule.ruleId)).toEqual(["r2"]);
-        expect(lineage.uncertain[0].reasons).toEqual(["Quan hệ chưa xác minh", "Cần kiểm tra"]);
+        expect(lineage.uncertain[0].reasons).toEqual([
+            "Chưa đọc được mức phạt từ văn bản",
+            "Có văn bản tác động chưa được xác minh có thể ảnh hưởng tới quy định",
+        ]);
     });
 
     test("carries the corpus scope and its frontier", () => {
@@ -94,7 +98,6 @@ describe("parseViolationRulesAsOf", () => {
             documentCount: 2,
             lastImportedAt: "2026-10-26T00:00:00.000Z",
             frontier: ["46/2016/NĐ-CP"],
-            disclaimer: "Chỉ tính trên corpus",
         });
     });
 
@@ -128,7 +131,7 @@ describe("parseViolationHistory", () => {
                             changeTypes: ["SANCTION_INCREASE"],
                             details: [{ field: "fine", before: { min: 3000000 }, after: { min: 4000000 } }],
                             effectiveAt: "2022-01-01",
-                            notes: [],
+                            notes: ["English note"],
                             evidence: { kind: "PROVISION_RELATION", relationId: "pr1", relationType: "AMENDS", fromDocumentId: "nd-123-2021", effectiveFrom: "2022-01-01" },
                         },
                     ],

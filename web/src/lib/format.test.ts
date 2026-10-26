@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDate, formatFineRange, formatMoney, formatPeriod, todayIso } from "./format";
+import { describeChangeValue, formatDate, formatFineRange, formatMoney, formatPeriod, todayIso } from "./format";
 
 describe("format", () => {
     test("groups thousands with dots", () => {
@@ -28,5 +28,14 @@ describe("format", () => {
 
     test("uses the UTC calendar day as today", () => {
         expect(todayIso(new Date("2026-10-26T23:30:00.000Z"))).toBe("2026-10-26");
+    });
+
+    test("describes change values for people", () => {
+        expect(describeChangeValue(null)).toBe("không có");
+        expect(describeChangeValue("ô tô")).toBe("ô tô");
+        expect(describeChangeValue(["ô tô", "xe máy"])).toBe("ô tô; xe máy");
+        expect(describeChangeValue([])).toBe("không có");
+        expect(describeChangeValue({ min: 3000000, max: 5000000 })).toBe("3.000.000 đồng – 5.000.000 đồng");
+        expect(describeChangeValue({ other: 1 })).toBe('{"other":1}');
     });
 });

@@ -11,7 +11,6 @@ export type DocumentListItem = {
 
 export type DocumentSearch = {
     documents: DocumentListItem[];
-    disclaimer: string;
 };
 
 export type DocumentMetadata = {
@@ -58,7 +57,6 @@ export type DocumentView = {
     metadata: DocumentMetadata | null;
     provisions: Provision[];
     amendments: Amendment[];
-    disclaimer: string;
 };
 
 export type ProvisionNode = {
@@ -91,7 +89,6 @@ export type RelationCandidate = {
     proposedRelationType: string;
     scope: string;
     status: string;
-    resolutionReason: string;
     quotedText: string;
     sourceProvisionId: string | null;
 };
@@ -102,7 +99,6 @@ export type DocumentRelations = {
     candidates: RelationCandidate[];
     statusCounts: Record<string, number>;
     frontier: string[];
-    disclaimer: string;
 };
 
 export function parseDocumentSearch(value: unknown): DocumentSearch | null {
@@ -112,7 +108,6 @@ export function parseDocumentSearch(value: unknown): DocumentSearch | null {
 
     return {
         documents: readRows(value, "documents", parseListItem),
-        disclaimer: readString(value, "disclaimer") ?? "",
     };
 }
 
@@ -133,7 +128,6 @@ export function parseDocumentView(value: unknown): DocumentView | null {
         metadata: isRecord(value.metadata) ? parseMetadata(value.metadata) : null,
         provisions: readRows(value, "provisions", parseProvision),
         amendments: readRows(value, "amendments", parseAmendment),
-        disclaimer: readString(value, "disclaimer") ?? "",
     };
 }
 
@@ -150,7 +144,6 @@ export function parseDocumentRelations(value: unknown): DocumentRelations | null
         candidates: readRows(value, "candidates", parseCandidate),
         statusCounts: readCounts(coverage.statusCounts),
         frontier: readStringList(coverage, "frontier"),
-        disclaimer: readString(value, "disclaimer") ?? "",
     };
 }
 
@@ -318,7 +311,6 @@ function parseCandidate(row: Record<string, unknown>): RelationCandidate | null 
         proposedRelationType: readString(row, "proposedRelationType") ?? "UNKNOWN",
         scope: readString(row, "scope") ?? "UNKNOWN",
         status,
-        resolutionReason: readString(row, "resolutionReason") ?? "",
         quotedText: readString(row, "quotedText") ?? "",
         sourceProvisionId: readString(row, "sourceProvisionId"),
     };
