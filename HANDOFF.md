@@ -1,28 +1,33 @@
 # HANDOFF — Epic Preprocessing (#38)
 
-Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành bộ evaluation.
+Trạng thái để người/agent tiếp theo tiếp tục. Cập nhật lần cuối: 26/10/2026, khi epic hoàn thành.
 
 ## Đã xong
-- PR #48 (document graph extractor) — review, sửa (taxonomy SRS, Unicode, style), merged.
-- PR #49 (provisions #8) — review, sửa (provenance FR-04, hook pipeline, test), merged.
-- #5 Document graph: metadata, candidate, resolver, cạnh ACCEPTED, API, hook pipeline. Xem `docs/preprocessing.md`.
 
-- #11 Change graph: `backend/src/modules/changes/*`, ProvisionRelation tổng hợp lại vào document graph.
+| Hạng mục | PR | Mã nguồn |
+| --- | --- | --- |
+| Review + sửa PR document graph extractor | #48 | `backend/src/modules/documents/document-graph.extractor.ts` |
+| Review + sửa PR provisions (#8) | #49 | `backend/src/modules/provisions/*` |
+| #5 Document graph (metadata, candidate, resolver, cạnh, API) | #50 | `backend/src/modules/documents/document-graph.*` |
+| #11 ChangeInstruction + ProvisionRelation | #51 | `backend/src/modules/changes/*` |
+| #15 ViolationRule + Sanction (+ LLM theo vocabulary) | #52 | `backend/src/modules/violations/*` |
+| #17 Identity + alias | #53 | `backend/src/modules/identity/*` |
+| #18 Lineage, khoảng hiệu lực, as-of | #54 | `backend/src/modules/history/*` |
+| #19 Change events | #55 | `backend/src/modules/history/change-events.ts` |
+| Bộ đánh giá + 2 lỗi nó tìm ra | #56 | `data/eval/*`, `backend/scripts/eval-preprocessing.ts` |
 
-- #15 Violation rules: `backend/src/modules/violations/*` (deterministic + LLM vocabulary-guided, đã smoke test với OpenAI thật).
+Các bước chạy qua `runPreprocessing` (`backend/src/modules/processing/preprocessing.ts`). Tài liệu: `docs/preprocessing.md`. Slide báo cáo epic: artifact "Báo cáo Epic Preprocessing" (claude.ai, private — chủ sở hữu cần Share trước khi gửi nhóm).
 
-- #17 Identity: `backend/src/modules/identity/*`; tất cả bước chạy qua `runPreprocessing`.
+## Còn mở / gợi ý tiếp theo
 
-- #18 History: `backend/src/modules/history/*` (lineage, intervals, as-of).
-
-- #19 Semantic change: `backend/src/modules/history/change-events.ts`.
-
-- Evaluation: `data/eval/preprocessing-dev-v1.json`, `backend/scripts/eval-preprocessing.ts` (`bun run eval`), báo cáo trong `data/eval/reports/`.
-
-## Còn lại
-7. Slide báo cáo epic
+- #29: held-out annotation trên PDF đầy đủ (100/2019, 123/2021, 168/2024); dev-v1 chỉ là regression set.
+- Acquisition tự động cho frontier (FR-02) và coverage trong ImportJob.
+- Xác thực Admin cho các endpoint rebuild/extract/resolve (TODO #4).
+- `add_vocab` similarity ký tự coi "xe mô tô" ≈ "xe ô tô" là AMBIGUOUS.
+- Chế độ LLM: danh sách phương tiện không ổn định → `VEHICLE_SCOPE_CHANGED` sai (micro F1 change types 0,94).
 
 ## Ghi chú môi trường
+
 - OpenAI key chỉ để trong `backend/.dev.vars` (gitignored), không commit.
-- Chạy: `cd backend && bun test && bun run typecheck`.
-- Quy tắc code: `docs/ai-rules/*` (brace mọi control flow, 4 spaces, test trước).
+- Kiểm tra: `cd backend && bun test && bun run typecheck`; đánh giá: `bun run eval` (thêm `-- --llm` với `OPENAI_API_KEY`).
+- Quy tắc code: `docs/ai-rules/*`.
