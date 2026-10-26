@@ -11,7 +11,7 @@ and stores the exact evidence quote and character offsets. Every output starts w
 
 - `backend/src/modules/documents/document-graph.types.ts`: relation, evidence, candidate and result types.
 - `backend/src/modules/documents/document-graph.extractor.ts`: phrase-based candidate extraction.
-- `backend/src/modules/documents/document-graph.extractor.test.ts`: automated unit tests.
+- `backend/test/document-graph-extractor.test.ts`: automated unit tests.
 - `docs/research/document-graph-build.md`: broader design and evaluation plan.
 
 ## 3. Run tests locally
@@ -25,7 +25,7 @@ git fetch origin
 git switch --track origin/feature/document-relation-schema
 cd backend
 bun install
-bun test src/modules/documents/document-graph.extractor.test.ts
+bun test test/document-graph-extractor.test.ts
 bun run typecheck
 ```
 
@@ -61,7 +61,7 @@ bun run try-document-graph.ts
 ```
 
 Inspect the output. At least one candidate should have:
-- `relation_type: "AMENDS_OR_SUPPLEMENTS"`
+- `relation_type: "AMENDS_OR_SUPPLEMENTS"` (taxonomy from SRS §4.3; replacement/repeal also carry `scope` FULL / PARTIAL / UNKNOWN)
 - `target_document_number: "100/2019/NĐ-CP"` (the affected document, not the amending document)
 - `status: "UNRESOLVED"`
 - an evidence quote that is exactly equal to `text.slice(evidence.start, evidence.end)`

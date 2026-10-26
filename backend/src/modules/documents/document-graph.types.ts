@@ -1,30 +1,61 @@
 /**
- * Types for the evidence-backed legal-document graph MVP.
+ * Types for the evidence-backed legal-document graph (SRS §4.3, FR-03).
  *
  * These are extraction candidates, not legally verified relationships.
- * A candidate must be resolved and reviewed before it is materialized as a
- * canonical relation in the legal knowledge graph.
+ * A candidate must be resolved before it is materialized as an accepted relation.
  */
 
+/** Relation taxonomy from SRS §4.3. Impact edges point from the acting document to the affected one. */
 export const DOCUMENT_RELATION_TYPES = [
-    "LEGAL_BASIS",
-    "REFERENCES",
-    "GUIDES",
+    "AMENDS",
+    "SUPPLEMENTS",
     "AMENDS_OR_SUPPLEMENTS",
-    "REPLACES",
-    "REPEALS",
-    "SUSPENDS_EXECUTION",
+    "PARTIALLY_REPLACES",
+    "FULLY_REPLACES",
+    "PARTIALLY_REPEALS",
+    "FULLY_REPEALS",
+    "CORRECTS",
+    "REFERENCES",
+    "LEGAL_BASIS",
+    "GUIDES",
+    "DETAILS",
+    "EXPLAINS",
+    "SUSPENDS",
+    "EXTENDS_EFFECT",
+    "RESUMES_EFFECT",
+    "CONTINUES_APPLICATION",
+    "CONSOLIDATES",
     "UNKNOWN",
 ] as const;
 
 export type DocumentRelationType = (typeof DOCUMENT_RELATION_TYPES)[number];
 
-export type RelationCandidateStatus =
-    | "CANDIDATE"
-    | "UNRESOLVED"
-    | "AMBIGUOUS"
-    | "ACCEPTED"
-    | "REJECTED";
+/** Legal action named by the cue, before scope decides the final relation type. */
+export type RelationAction =
+    | "AMEND"
+    | "SUPPLEMENT"
+    | "AMEND_OR_SUPPLEMENT"
+    | "REPLACE"
+    | "REPEAL"
+    | "CORRECT"
+    | "SUSPEND"
+    | "GUIDE"
+    | "DETAIL"
+    | "LEGAL_BASIS";
+
+/** Whether the action covers the whole target document; UNKNOWN when the wording does not say. */
+export type RelationScope = "FULL" | "PARTIAL" | "UNKNOWN";
+
+export const RELATION_CANDIDATE_STATUSES = [
+    "CANDIDATE",
+    "UNRESOLVED",
+    "AMBIGUOUS",
+    "CONFLICT",
+    "ACCEPTED",
+    "REJECTED",
+] as const;
+
+export type RelationCandidateStatus = (typeof RELATION_CANDIDATE_STATUSES)[number];
 
 export interface RelationEvidence {
     /** Offsets are JavaScript UTF-16 string offsets into the exact input text. */
@@ -40,7 +71,9 @@ export interface DocumentRelationCandidate {
     source_document_id: string;
     target_reference_raw: string;
     target_document_number: string | null;
+    action: RelationAction;
     relation_type: DocumentRelationType;
+    scope: RelationScope;
     status: RelationCandidateStatus;
     evidence: RelationEvidence;
     resolution_reason: string;
