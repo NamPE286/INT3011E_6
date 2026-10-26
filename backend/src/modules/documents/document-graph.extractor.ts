@@ -31,7 +31,7 @@ const RELATION_CUES: RelationCue[] = [
  * This is a discovery regex, not a complete grammar for every historical format.
  */
 const DOCUMENT_REFERENCE_REGEX =
-    /\b(?:(?:Bộ\s+luật|Luật|Nghị\s+định|Thông\s+tư(?:\s+liên\s+tịch)?|Quyết\s+định|Nghị\s+quyết|Pháp\s+lệnh|Chỉ\s+thị)\s+(?:số\s+)?[^,;.!?\n]{1,140}?)(?=\s+(?:sửa đổi|bổ sung|thay thế|bãi bỏ|quy định chi tiết|hướng dẫn thi hành)|[,;.!?\n]|$)/giu;
+    /\b(?:(?:Bộ\s+luật|Luật|Nghị\s+định|Thông\s+tư(?:\s+liên\s+tịch)?|Quyết\s+định|Nghị\s+quyết|Pháp\s+lệnh|Chỉ\s+thị)\s+(?:số\s+)?[^;.!?\n]{1,180}?)(?=\s+(?:sửa đổi|bổ sung|thay thế|bãi bỏ|quy định chi tiết|hướng dẫn thi hành)|[;.!?\n]|$)/giu;
 
 const DOCUMENT_NUMBER_REGEX =
     /\b\d{1,4}\s*\/\s*\d{4}\s*\/[\p{L}\d_-]+(?:\/[\p{L}\d_-]+)?\b/iu;
