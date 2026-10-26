@@ -99,12 +99,17 @@ export function extractDocumentRelationCandidates(
             DOCUMENT_REFERENCE_REGEX.lastIndex = 0;
             let referenceMatch: RegExpExecArray | null;
             while ((referenceMatch = DOCUMENT_REFERENCE_REGEX.exec(sentence)) !== null) {
+                const absoluteStart = bounds.start + referenceMatch.index;
+
+                // For legal-basis, amendment, repeal, replacement and guidance cues,
+                // prefer the legal instrument named after the cue. In a sentence such
+                // as "Nghị định A sửa đổi ... Nghị định B", A is the source and B is
+                // the affected target, so A must not be emitted as the target.
+                if (absoluteStart < cueOffset + cueMatch[0].length) continue;
+
                 const rawReference = cleanReference(referenceMatch[0]);
                 if (!rawReference) continue;
 
-                // For a legal-basis cue, retain the referenced legal instrument.
-                // For change cues, do not assume every reference in the sentence is affected.
-                const absoluteStart = bounds.start + referenceMatch.index;
                 const absoluteEnd = absoluteStart + referenceMatch[0].length;
                 const candidateId = stableCandidateId(
                     input.source_document_id,
@@ -135,7 +140,6 @@ export function extractDocumentRelationCandidates(
                         "Reference detected by phrase rules; target identity and legal effect require verification.",
                 });
             }
-
             // Keep the variable intentionally used to make it explicit that cue and
             // reference positions are in the same sentence coordinate space.
             void localCueOffset;
