@@ -2,7 +2,7 @@
 
 Nền tảng Legal AI hỗ trợ truy vết quy định xử phạt vi phạm giao thông đường bộ Việt Nam theo từng hành vi, căn cứ pháp lý và lịch sử thay đổi của quy định.
 
-Repository hiện có: luồng nhập PDF văn bản pháp luật (kể cả bản scan) thành JSON có cấu trúc bằng LLM ([chi tiết](docs/pdf-upload-api.md)), dashboard admin để upload và theo dõi job, và MCP server nội bộ cho vocabulary và tìm văn bản ([chi tiết](docs/mcp-server.md)). Phạm vi sản phẩm hoàn chỉnh được quy định trong SRS.
+Repository hiện có: luồng nhập PDF văn bản pháp luật (kể cả bản scan) thành JSON có cấu trúc bằng LLM ([chi tiết](docs/pdf-upload-api.md)), dashboard admin để upload và theo dõi job, MCP server nội bộ cho vocabulary và tìm văn bản ([chi tiết](docs/mcp-server.md)), và pipeline tiền xử lý chạy sau khi đọc PDF ([chi tiết](docs/preprocessing.md)). Phạm vi sản phẩm hoàn chỉnh được quy định trong SRS.
 
 ## Overview
 
