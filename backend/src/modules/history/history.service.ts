@@ -141,7 +141,7 @@ function toRuleAtDate(rule: StoredViolationRule | undefined, interval: RuleInter
     return [{ rule, interval, status, reasons }];
 }
 
-async function readScope(db: D1Database, rules: StoredViolationRule[]): Promise<CorpusScope> {
+export async function readScope(db: D1Database, rules: StoredViolationRule[]): Promise<CorpusScope> {
     const corpus = await db.prepare("SELECT COUNT(*) AS total, MAX(created_at) AS last_imported_at FROM legal_documents WHERE review_status = 'ACCEPTED'").first<{ total: number; last_imported_at: string | null }>();
     const documentIds = [...new Set(rules.flatMap((rule) => [rule.sourceDocumentId, rule.governedDocumentId]))];
     const frontier = documentIds.length === 0
