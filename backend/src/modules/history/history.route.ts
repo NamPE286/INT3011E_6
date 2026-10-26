@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { extractEnvFromRequest } from "../../plugins/context";
 import { getViolationSummary } from "../identity/identity.repository";
-import { getRulesAsOf, getViolationHistory, refreshHistory } from "./history.service";
+import { getRulesAsOf, getViolationChanges, getViolationHistory, refreshHistory } from "./history.service";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -61,6 +61,31 @@ export const historyModule = new Elysia({ prefix: "/api" })
             }
 
             return getViolationHistory(env.DB, params.violationId);
+        },
+        {
+            params: t.Object({
+                violationId: t.String(),
+            }),
+        }
+    )
+    .get(
+        "/violations/:violationId/changes",
+        async ({ params, set, request }) => {
+            const env = extractEnvFromRequest(request);
+
+            if (!env?.DB) {
+                set.status = 503;
+
+                return { message: "Database service unavailable" };
+            }
+
+            if (!(await getViolationSummary(env.DB, params.violationId))) {
+                set.status = 404;
+
+                return { message: "Traffic violation not found" };
+            }
+
+            return getViolationChanges(env.DB, params.violationId);
         },
         {
             params: t.Object({

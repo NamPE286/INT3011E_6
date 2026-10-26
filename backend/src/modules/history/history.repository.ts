@@ -1,4 +1,5 @@
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
+import type { ChangeEvent } from "./change-events";
 import { HISTORY_VERSION, type RuleInterval, type RuleLineage } from "./history.types";
 
 type LineageRow = {
@@ -8,6 +9,19 @@ type LineageRow = {
     context_ir: string;
     rule_ids: string;
     links: string;
+};
+
+type ChangeEventRow = {
+    id: string;
+    traffic_violation_id: string;
+    lineage_id: string;
+    old_rule_id: string | null;
+    new_rule_id: string | null;
+    change_types: string;
+    details: string;
+    evidence: string | null;
+    effective_at: string | null;
+    notes: string;
 };
 
 type IntervalRow = {
@@ -22,9 +36,13 @@ type IntervalRow = {
 };
 
 /** The history is always derived from the whole corpus, so it is rewritten in one batch. */
-export async function replaceHistory(db: D1Database, lineages: RuleLineage[], intervals: RuleInterval[]): Promise<void> {
+export async function replaceHistory(db: D1Database, lineages: RuleLineage[], intervals: RuleInterval[], events: ChangeEvent[]): Promise<void> {
     const now = new Date().toISOString();
-    const statements: D1PreparedStatement[] = [db.prepare("DELETE FROM rule_lineages"), db.prepare("DELETE FROM rule_intervals")];
+    const statements: D1PreparedStatement[] = [
+        db.prepare("DELETE FROM rule_lineages"),
+        db.prepare("DELETE FROM rule_intervals"),
+        db.prepare("DELETE FROM change_events"),
+    ];
 
     for (const lineage of lineages) {
         statements.push(
@@ -63,7 +81,50 @@ export async function replaceHistory(db: D1Database, lineages: RuleLineage[], in
         );
     }
 
+    for (const event of events) {
+        statements.push(
+            db.prepare(
+                `INSERT INTO change_events (
+                    id, traffic_violation_id, lineage_id, old_rule_id, new_rule_id, change_types, details, evidence, effective_at, notes, method, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+                event.id,
+                event.trafficViolationId,
+                event.lineageId,
+                event.oldRuleId,
+                event.newRuleId,
+                JSON.stringify(event.changeTypes),
+                JSON.stringify(event.details),
+                event.evidence ? JSON.stringify(event.evidence) : null,
+                event.effectiveAt,
+                JSON.stringify(event.notes),
+                HISTORY_VERSION,
+                now,
+            ),
+        );
+    }
+
     await db.batch(statements);
+}
+
+export async function listChangeEventsOf(db: D1Database, violationId: string): Promise<ChangeEvent[]> {
+    const result = await db
+        .prepare("SELECT * FROM change_events WHERE traffic_violation_id = ? ORDER BY effective_at, id")
+        .bind(violationId)
+        .all<ChangeEventRow>();
+
+    return result.results.map((row) => ({
+        id: row.id,
+        trafficViolationId: row.traffic_violation_id,
+        lineageId: row.lineage_id,
+        oldRuleId: row.old_rule_id,
+        newRuleId: row.new_rule_id,
+        changeTypes: JSON.parse(row.change_types),
+        details: JSON.parse(row.details),
+        evidence: row.evidence ? JSON.parse(row.evidence) : null,
+        effectiveAt: row.effective_at,
+        notes: JSON.parse(row.notes),
+    }));
 }
 
 export async function listLineagesOf(db: D1Database, violationId: string): Promise<RuleLineage[]> {

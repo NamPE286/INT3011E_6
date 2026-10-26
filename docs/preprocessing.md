@@ -9,7 +9,7 @@ saveLegalDocument (ACCEPTED)
   └─ 3. Change graph (#11)       change_instructions, provision_relations (+ cạnh document_relations suy ra)
   └─ 4. Violation rules (#15)    extraction_runs, violation_rules, sanctions, sanction_effects
   └─ 5. Identity (#17)           traffic_violations, violation_aliases, identity_decisions
-  └─ 6. History (#18)            rule_lineages, rule_intervals
+  └─ 6. History (#18, #19)       rule_lineages, rule_intervals, change_events
 ```
 
 Các bước được gọi tuần tự bởi `runPreprocessing` (`backend/src/modules/processing/preprocessing.ts`) trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
@@ -133,3 +133,18 @@ Rule cùng hành vi nhưng khác phương tiện/chủ thể không có evidence
 | `GET` | `/api/violations/:violationId/rules?as_of=YYYY-MM-DD` | Theo từng lineage: rule áp dụng tại ngày (mặc định hôm nay) và rule `UNCERTAIN` kèm lý do; kèm `scope`. |
 | `GET` | `/api/violations/:violationId/history` | Mọi lineage, rule theo thứ tự, khoảng hiệu lực, evidence kết thúc, trạng thái hôm nay. |
 | `POST` | `/api/history/rebuild` | Tính lại lineage và khoảng hiệu lực cho toàn corpus. |
+
+## 7. Thay đổi ngữ nghĩa giữa các phiên bản (#19, FR-13)
+
+`change_events` được tính cùng lúc với history, chỉ giữa các rule liên tiếp trong **cùng lineage** (đã có evidence pháp lý nối), không bao giờ giữa hai rule bất kỳ của cùng violation:
+
+- chuyển tiếp rule → successor: diff trên trường có cấu trúc — điều kiện/ngoại lệ (`*_ADDED/REMOVED/CHANGED`), chủ thể, phương tiện, địa điểm (`*_CHANGED`), mức phạt (`SANCTION_INCREASE/DECREASE/CHANGED`), trừ điểm (`POINT_DEDUCTION_APPLICABILITY_CHANGED`, `POINT_DEDUCTION_CHANGED`), tước GPLX, tịch thu, chế tài bổ sung/khắc phục; thay thế văn bản thêm `REPLACED`;
+- rule bị bãi bỏ không có successor → `REPEALED` + `VIOLATION_REMOVED`; lineage bắt đầu bằng rule do văn bản sửa đổi thêm vào → `VIOLATION_ADDED`;
+- không có khác biệt cấu trúc: câu chữ giống hệt → `NO_SEMANTIC_CHANGE`; câu chữ khác nhưng action cùng canonical vocab id → `NO_SEMANTIC_CHANGE` (ghi chú "wording changed"); câu chữ khác mà không chứng minh được tương đương → `UNKNOWN` (không mặc định là thay đổi hay không thay đổi).
+
+Mỗi event giữ rule trước/sau, chi tiết trước/sau từng trường, evidence (ProvisionRelation hoặc DocumentRelation) và ngày hiệu lực.
+
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/violations/:violationId/changes` | Các change event của violation theo thời gian. |
+| `GET` | `/api/violations/:violationId/history` | Như trên, nhóm theo lineage (`changeEvents`). |
