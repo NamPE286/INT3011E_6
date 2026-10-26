@@ -7,6 +7,7 @@ saveLegalDocument (ACCEPTED)
   └─ 1. Provisions (#8)          provisions
   └─ 2. Document graph (#5)      document_metadata, document_relation_candidates, document_relations
   └─ 3. Change graph (#11)       change_instructions, provision_relations (+ cạnh document_relations suy ra)
+  └─ 4. Violation rules (#15)    extraction_runs, violation_rules, sanctions, sanction_effects
 ```
 
 Mỗi bước được gọi trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
@@ -63,3 +64,30 @@ Instruction tác động toàn văn bản (ví dụ "Nghị định số 46/2016
 | `GET` | `/api/documents/:documentId/changes` | Instruction của văn bản kèm ProvisionRelation đã resolve. |
 | `POST` | `/api/documents/:documentId/changes/rebuild` | Trích xuất lại instruction và resolve lại toàn corpus; `409` nếu cần review. |
 | `GET` | `/api/provisions/:provisionId/relations` | `outgoing`/`incoming` của một provision, mỗi cạnh kèm instruction làm evidence. |
+
+## 4. ViolationRule và Sanction (#15, FR-08/FR-09)
+
+**Vị trí của rule.** Mỗi provision được đặt tại địa chỉ nó điều chỉnh: văn bản thường điều chỉnh chính nó; nội dung mới trong ngoặc kép của văn bản sửa đổi điều chỉnh địa chỉ mà instruction đã resolve (ví dụ điểm a mới của Nghị định 123 điều chỉnh `nd-100-2019:dieu_5_khoan_5_diem_a`). Nội dung trích dẫn không resolve được đúng một địa chỉ bị bỏ qua.
+
+**Tách rule (deterministic).**
+- Khoản có mức phạt và liệt kê hành vi ("… một trong các hành vi vi phạm sau đây:") → mỗi điểm là một rule; khoản có mức phạt nêu trực tiếp hành vi → chính khoản đó là một rule.
+- Điểm được sửa mà khoản bao ngoài không bị sửa → rule kế thừa mức phạt của khoản trong văn bản gốc.
+- Khoản phạt khác nhau cho cá nhân/tổ chức → một rule cho mỗi chủ thể (`subject_scope`).
+
+**Sanction.** `fine_min/fine_max/currency`, `warning_allowed`, `point_deduction_applicability` (`APPLIES` chỉ khi có câu "trừ điểm giấy phép lái xe N điểm" trích dẫn đúng hành vi; còn lại `UNKNOWN`, không suy `NOT_APPLICABLE` từ việc thiếu dữ liệu), `sanction_effects` typed (`LICENSE_SUSPENSION` có thời hạn, `LICENSE_POINT_DEDUCTION`, `VEHICLE_CONFISCATION`, `OTHER`), biện pháp khắc phục. Hình thức bổ sung được gắn qua câu dẫn chiếu "Thực hiện hành vi quy định tại điểm a, điểm b khoản 5 Điều này …"; "tạm giữ" là thủ tục, không thành effect. Mỗi sanction giữ `evidence_provision_ids`.
+
+**Behaviour signature (FR-08.1).**
+- Baseline deterministic: action = câu chữ hành vi, polarity, phương tiện/chủ thể/địa điểm/điều kiện/ngoại lệ/hậu quả chỉ khi câu chữ nêu.
+- Khi có `OPENAI_API_KEY`: LLM nhận snapshot vocabulary (`get_vocab_snapshot`) và trả từng dimension kèm `evidence`. Backend kiểm tra evidence phải là trích dẫn nguyên văn từ rule/tiêu đề Điều và `vocab_id` phải tồn tại đúng loại trong snapshot; giá trị sai bị loại và ghi vào `rejected_values`. Giá trị chưa có id được gửi tuần tự qua `add_vocab` (provenance = provision của rule): `EXISTING`/`CREATED` gắn canonical id, `AMBIGUOUS` giữ unresolved, `STALE_VERSION` nạp lại version.
+- Lỗi model không làm hỏng rule: signature deterministic được giữ, run `FAILED` ghi lỗi.
+
+**Trạng thái.** `UNCERTAIN` khi thiếu mức phạt, nhiều mức phạt không phân biệt được chủ thể, chất lượng đọc thấp, effect mâu thuẫn hoặc model báo không chắc chắn.
+
+**ExtractionRun.** Mỗi lần trích xuất ghi method, model, prompt version, vocabulary version trước/sau, vocab id đã dùng/tạo, giá trị bị loại, trạng thái.
+
+Văn bản sửa đổi nhập trước văn bản gốc được trích xuất lại khi văn bản gốc được nhập.
+
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/documents/:documentId/violation-rules` | Rule + sanction + effects và các extraction run. |
+| `POST` | `/api/documents/:documentId/violation-rules/extract` | Trích xuất lại (dùng LLM nếu có key); `409` nếu cần review. |
