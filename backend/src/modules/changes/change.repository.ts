@@ -163,6 +163,15 @@ export async function listProvisionRelationsTouching(db: D1Database, provisionId
     return result.results.map(toRelation);
 }
 
+export async function listProvisionRelationsTo(db: D1Database, documentId: string): Promise<ProvisionRelation[]> {
+    const result = await db
+        .prepare("SELECT * FROM provision_relations WHERE to_document_id = ? AND from_document_id != to_document_id ORDER BY id")
+        .bind(documentId)
+        .all<RelationRow>();
+
+    return result.results.map(toRelation);
+}
+
 export async function listProvisionRelationsFrom(db: D1Database, documentId: string): Promise<ProvisionRelation[]> {
     const result = await db
         .prepare("SELECT * FROM provision_relations WHERE from_document_id = ? ORDER BY id")
