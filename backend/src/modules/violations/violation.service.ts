@@ -2,7 +2,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { listProvisionRelationsFrom } from "../changes/change.repository";
 import type { ProvisionRelation } from "../changes/change.types";
 import { getDocumentMetadata } from "../documents/document-graph.repository";
-import { listProvisions, type StoredProvision } from "../provisions/provision.repository";
+import { listProvisions, markQuotedBehaviours, type StoredProvision } from "../provisions/provision.repository";
 import { VocabularyRepository } from "../vocabulary/vocabulary.repository";
 import { VocabularyService } from "../vocabulary/vocabulary.service";
 import { assembleRules } from "./rule.assembler";
@@ -86,6 +86,7 @@ export async function extractViolationRules(db: D1Database, documentId: string, 
 
     run.finishedAt = new Date().toISOString();
     await replaceViolationRules(db, documentId, drafts, run);
+    await markQuotedBehaviours(db, drafts.filter((draft) => draft.sanctionProvisionId !== draft.provisionId).map((draft) => draft.provisionId));
 
     return { outcome: "EXTRACTED", documentId, ruleCount: drafts.length, run };
 }

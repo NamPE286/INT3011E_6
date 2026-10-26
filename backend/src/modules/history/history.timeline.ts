@@ -143,33 +143,67 @@ function buildLineages(rules: StoredViolationRule[], documentRelations: StoredDo
     });
 }
 
-/** "Nghị định B thay thế Nghị định A": a rule of A continues in B only when exactly one candidate matches on each side. */
+/**
+ * "Nghị định B thay thế Nghị định A": a lineage of A continues in B when the behaviour is the same, the
+ * subject scope is the same and the context is compatible (overlapping vehicles, else the same subject), and the
+ * pairing is one-to-one. Model-read vehicle lists vary between documents, so exact equality is not required.
+ */
 function linkReplacement(
     relation: StoredDocumentRelation,
     rules: StoredViolationRule[],
     find: (id: string) => string,
     union: (from: StoredViolationRule, to: StoredViolationRule, link: "DOCUMENT_REPLACEMENT", evidenceId: string) => void,
 ): void {
-    const replaced = rules.filter((rule) => rule.governedDocumentId === relation.toDocumentId);
-    const replacing = rules.filter((rule) => rule.sourceDocumentId === relation.fromDocumentId && rule.governedDocumentId === relation.fromDocumentId);
-    const keyOf = (rule: StoredViolationRule): string => `${rule.trafficViolationId}|${contextKeyOf(rule)}`;
-    const replacingByKey = groupBy(replacing, keyOf);
+    const replaced = groupBy(rules.filter((rule) => rule.governedDocumentId === relation.toDocumentId), (rule) => find(rule.id));
+    const replacing = groupBy(
+        rules.filter((rule) => rule.sourceDocumentId === relation.fromDocumentId && rule.governedDocumentId === relation.fromDocumentId),
+        (rule) => find(rule.id),
+    );
+    const pairs: { oldGroup: string; newGroup: string }[] = [];
 
-    for (const [key, oldRules] of groupBy(replaced, keyOf)) {
-        const newRules = replacingByKey.get(key) ?? [];
-        const oldGroups = new Set(oldRules.map((rule) => find(rule.id)));
-        const newGroups = new Set(newRules.map((rule) => find(rule.id)));
+    for (const [oldGroup, oldRules] of replaced) {
+        const latestOld = orderByDate(oldRules)[oldRules.length - 1];
 
-        if (oldGroups.size === 1 && newGroups.size === 1) {
-            const orderedOld = orderByDate(oldRules);
-            const latestOld = orderedOld[orderedOld.length - 1];
-            const earliestNew = orderByDate(newRules)[0];
-
-            if (latestOld && earliestNew) {
-                union(latestOld, earliestNew, "DOCUMENT_REPLACEMENT", relation.id);
+        for (const [newGroup, newRules] of replacing) {
+            if (newRules.some((candidate) => continuesContext(latestOld, candidate))) {
+                pairs.push({ oldGroup, newGroup });
             }
         }
     }
+
+    for (const pair of pairs) {
+        const oneToOne = pairs.filter((other) => other.oldGroup === pair.oldGroup).length === 1
+            && pairs.filter((other) => other.newGroup === pair.newGroup).length === 1;
+
+        if (!oneToOne) {
+            continue;
+        }
+
+        const oldRules = orderByDate(replaced.get(pair.oldGroup) ?? []);
+        const newRules = orderByDate(replacing.get(pair.newGroup) ?? []);
+
+        union(oldRules[oldRules.length - 1], newRules[0], "DOCUMENT_REPLACEMENT", relation.id);
+    }
+}
+
+function continuesContext(previous: StoredViolationRule, next: StoredViolationRule): boolean {
+    if (previous.trafficViolationId !== next.trafficViolationId || previous.subjectScope !== next.subjectScope) {
+        return false;
+    }
+
+    const previousContext = contextOf(previous);
+    const nextContext = contextOf(next);
+
+    // Vehicles separate parallel rules most reliably; the subject ("người điều khiển") is often generic.
+    if (previousContext.vehicles.length > 0 && nextContext.vehicles.length > 0) {
+        return previousContext.vehicles.some((vehicle) => nextContext.vehicles.includes(vehicle));
+    }
+
+    if (previousContext.subject && nextContext.subject) {
+        return previousContext.subject === nextContext.subject;
+    }
+
+    return true;
 }
 
 function buildInterval(rule: StoredViolationRule, lineage: RuleLineage | undefined, rules: StoredViolationRule[], input: HistoryInput): RuleInterval {
@@ -358,6 +392,7 @@ function groupBy<T>(items: T[], keyOf: (item: T) => string): Map<string, T[]> {
     return groups;
 }
 
+/** Labels, not vocab ids: the same vehicle may be canonical in one rule and still unresolved in another. */
 function valueKey(value: SemanticValue): string {
-    return value.vocabId ?? value.label.toLowerCase();
+    return value.label.replace(/\s+/g, " ").trim().toLowerCase();
 }

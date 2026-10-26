@@ -211,6 +211,17 @@ describe("analyzeLegalDocument amendment documents", () => {
         expect(find(provisions, "dieu_1_khoan_2").containerProvisionId).toBeNull();
     });
 
+    it("leaves quoted wording without a sanction uncertain until its target is known", () => {
+        const provisions = analyze([
+            node("1", null, {
+                title: "Sửa đổi Nghị định",
+                clauses: [node("1", "Sửa đổi điểm a khoản 5 Điều 5 như sau:", { points: [node("a", "“a) Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;”")] })],
+            }),
+        ]);
+
+        expect(find(provisions, "dieu_1_khoan_1_diem_a")).toMatchObject({ contentRole: "QUOTED_NEW_TEXT", relevance: "UNCERTAIN" });
+    });
+
     it("recognises a node that starts with an opening quote as quoted new text", () => {
         const provisions = analyze([
             node("1", null, {

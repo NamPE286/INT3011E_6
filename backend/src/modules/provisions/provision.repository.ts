@@ -122,6 +122,25 @@ export async function listProvisions(db: D1Database, documentId: string): Promis
     return result.results.map(toStoredProvision);
 }
 
+/**
+ * Rule placement (#15) proved that these quoted units are behaviours of a fine clause in the provision they
+ * rewrite; their relevance, UNCERTAIN until then, becomes VIOLATION_RULE.
+ */
+export async function markQuotedBehaviours(db: D1Database, provisionIds: string[]): Promise<void> {
+    if (provisionIds.length === 0) {
+        return;
+    }
+
+    await db
+        .prepare(
+            `UPDATE provisions SET relevance = 'VIOLATION_RULE'
+             WHERE content_role = 'QUOTED_NEW_TEXT' AND relevance IN ('UNCERTAIN', 'IRRELEVANT', 'REFERENCE')
+               AND id IN (SELECT value FROM json_each(?))`
+        )
+        .bind(JSON.stringify(provisionIds))
+        .run();
+}
+
 export async function deleteProvisions(db: D1Database, documentId: string): Promise<void> {
     await db.prepare("DELETE FROM provisions WHERE document_id = ?").bind(documentId).run();
 }
