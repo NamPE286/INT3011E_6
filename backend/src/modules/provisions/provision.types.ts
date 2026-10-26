@@ -1,4 +1,4 @@
-import type { ReadQuality } from "../processing/legal-types";
+import type { ReadQuality, SourceRegion } from "../processing/legal-types";
 
 export const ROLE_METHOD = "RULE";
 export const ROLE_VERSION = "provision-roles-v1";
@@ -49,6 +49,7 @@ export type ProvisionDraft = {
     pageEnd: number | null;
     sourceQuote: string | null;
     readQuality: ReadQuality | null;
+    sourceRegions: SourceRegion[];
     flags: ProvisionFlag[];
 };
 
@@ -59,6 +60,13 @@ export type Provision = ProvisionDraft & {
     containerProvisionId: string | null;
     /** Text found between quotation marks in this provision (for "Thay cụm từ “A” bằng “B”": ["A", "B"]). */
     quotedSegments: string[];
+};
+
+/** Where the provision text came from (FR-04): the snapshot, its PDF hash and how it was read. */
+export type ProvisionSource = {
+    sourceSnapshotId: string | null;
+    pdfSha256: string | null;
+    readMethod: string | null;
 };
 
 export type ProvisionSummary = {

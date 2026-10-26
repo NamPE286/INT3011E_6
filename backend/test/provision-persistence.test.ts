@@ -7,6 +7,7 @@ import { createTestD1Database } from "./d1-test-db";
 
 const SEED_JOB_ID = "job-seed-nd100";
 const SEED_DOCUMENT_ID = "doc-seed-nd100";
+const NO_SOURCE = { sourceSnapshotId: null, pdfSha256: null, readMethod: null };
 
 async function countProvisions(db: D1Database, documentId: string): Promise<number> {
     const row = await db
@@ -65,6 +66,34 @@ describe("analyzeStoredDocument", () => {
         expect(result.summary.byRelevance.VIOLATION_RULE).toBeGreaterThan(0);
     });
 
+    it("stores the snapshot, PDF hash and read method of the source document on every provision", async () => {
+        const db = createTestD1Database();
+        await db
+            .prepare("UPDATE legal_documents SET extraction_model = 'gpt-test', prompt_version = 'p1', schema_version = 'legal-json-v1' WHERE id = ?")
+            .bind(SEED_DOCUMENT_ID)
+            .run();
+
+        await analyzeStoredDocument(db, SEED_JOB_ID);
+
+        const [first] = await listProvisions(db, SEED_DOCUMENT_ID);
+
+        expect(first).toMatchObject({
+            pdfSha256: "dummy-sha256",
+            readMethod: "LLM:gpt-test;prompt=p1;schema=legal-json-v1",
+            sourceRegions: [],
+        });
+    });
+
+    it("removes provisions of an earlier read once the document needs review", async () => {
+        const db = createTestD1Database();
+
+        await analyzeStoredDocument(db, SEED_JOB_ID);
+        await db.prepare("UPDATE legal_documents SET review_status = 'REVIEW_REQUIRED' WHERE id = ?").bind(SEED_DOCUMENT_ID).run();
+        await analyzeStoredDocument(db, SEED_JOB_ID);
+
+        expect(await countProvisions(db, SEED_DOCUMENT_ID)).toBe(0);
+    });
+
     it("answers NOT_FOUND for an unknown job", async () => {
         const db = createTestD1Database();
 
@@ -85,7 +114,7 @@ describe("analyzeStoredDocument", () => {
         const db = createTestD1Database();
         const staleDocument = { content: null, articles: [{ number: "99", title: "Cũ", content: null, clauses: [] }] };
 
-        await replaceProvisions(db, SEED_DOCUMENT_ID, analyzeLegalDocument(SEED_DOCUMENT_ID, staleDocument));
+        await replaceProvisions(db, SEED_DOCUMENT_ID, analyzeLegalDocument(SEED_DOCUMENT_ID, staleDocument), NO_SOURCE);
         await analyzeStoredDocument(db, SEED_JOB_ID);
 
         const stored = await listProvisions(db, SEED_DOCUMENT_ID);
@@ -105,7 +134,7 @@ describe("replaceProvisions", () => {
         }));
         const provisions = analyzeLegalDocument("big", { content: null, articles: [{ number: "1", title: "Xử phạt", content: null, clauses }] });
 
-        await replaceProvisions(db, "big", provisions);
+        await replaceProvisions(db, "big", provisions, NO_SOURCE);
 
         expect(await countProvisions(db, "big")).toBe(451);
 
@@ -126,7 +155,7 @@ describe("replaceProvisions", () => {
             }],
         });
 
-        await replaceProvisions(db, "amend", provisions);
+        await replaceProvisions(db, "amend", provisions, NO_SOURCE);
 
         const stored = await listProvisions(db, "amend");
         const clause = stored.find((provision) => provision.id === "amend:dieu_1_khoan_1");

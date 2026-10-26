@@ -1,12 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { app } from "../src/app";
+import { createTestD1Database } from "./d1-test-db";
 import { createMockEnv, withEnv } from "./mocks";
 
 const SEED_JOB_ID = "job-seed-nd100";
 
 describe("provision endpoints", () => {
     it("analyzes a stored document and then lists its provisions", async () => {
-        const env = createMockEnv();
+        const env = createMockEnv({ DB: createTestD1Database() });
         const analyzeRequest = new Request(`http://localhost/api/jobs/${SEED_JOB_ID}/provisions/analyze`, { method: "POST" });
 
         const analyzeResponse = await app.fetch(withEnv(analyzeRequest, env));
@@ -24,7 +25,7 @@ describe("provision endpoints", () => {
     });
 
     it("returns 404 when the job has no stored document", async () => {
-        const env = createMockEnv();
+        const env = createMockEnv({ DB: createTestD1Database() });
 
         const listResponse = await app.fetch(withEnv(new Request("http://localhost/api/jobs/missing/provisions"), env));
         const analyzeResponse = await app.fetch(withEnv(new Request("http://localhost/api/jobs/missing/provisions/analyze", { method: "POST" }), env));
@@ -34,7 +35,7 @@ describe("provision endpoints", () => {
     });
 
     it("returns 409 instead of analyzing a document that still needs review", async () => {
-        const env = createMockEnv();
+        const env = createMockEnv({ DB: createTestD1Database() });
         await env.DB.prepare("UPDATE legal_documents SET review_status = 'REVIEW_REQUIRED'").run();
 
         const response = await app.fetch(withEnv(new Request(`http://localhost/api/jobs/${SEED_JOB_ID}/provisions/analyze`, { method: "POST" }), env));

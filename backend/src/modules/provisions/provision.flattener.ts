@@ -1,4 +1,4 @@
-import type { ReadQuality } from "../processing/legal-types";
+import type { ReadQuality, SourceRegion } from "../processing/legal-types";
 import type { ProvisionDraft, ProvisionLevel } from "./provision.types";
 
 type JsonRecord = Record<string, unknown>;
@@ -26,6 +26,7 @@ type NodeSource = {
     pageEnd: number | null;
     sourceQuote: string | null;
     readQuality: ReadQuality | null;
+    sourceRegions: SourceRegion[];
 };
 
 const STRUCTURE_KEYS: readonly { key: StructureKey; level: ProvisionLevel; prefix: string }[] = [
@@ -35,7 +36,7 @@ const STRUCTURE_KEYS: readonly { key: StructureKey; level: ProvisionLevel; prefi
     { key: "articles", level: "ARTICLE", prefix: "dieu" },
 ];
 
-const READ_QUALITIES: readonly string[] = ["GOOD", "PARTIAL", "UNREADABLE"];
+const READ_QUALITIES: readonly ReadQuality[] = ["GOOD", "PARTIAL", "UNREADABLE"];
 const LEGAL_BASIS_LINE = /^Căn\s+cứ\s/iu;
 const ROOT_PARENT: ParentNode = { id: null, stem: "", articleNo: null, paragraphNo: null };
 
@@ -75,6 +76,7 @@ function addLegalBasisLines(state: FlattenState, rootContent: string | null): vo
             pageEnd: null,
             sourceQuote: null,
             readQuality: null,
+            sourceRegions: [],
         };
 
         addDraft(state, "PREAMBLE", `can_cu_${index + 1}`, source, ROOT_PARENT, { articleNo: null, paragraphNo: null, pointNo: null });
@@ -204,6 +206,7 @@ function addDraft(
         pageEnd: source.pageEnd,
         sourceQuote: source.sourceQuote,
         readQuality: source.readQuality,
+        sourceRegions: source.sourceRegions,
         flags: isDuplicate ? ["DUPLICATE_ID"] : [],
     };
 
@@ -255,8 +258,41 @@ function readNodeSource(node: JsonRecord): NodeSource {
         pageStart: readInteger(locator?.page_start),
         pageEnd: readInteger(locator?.page_end),
         sourceQuote: readString(locator?.source_quote),
-        readQuality: typeof quality === "string" && READ_QUALITIES.includes(quality) ? (quality as ReadQuality) : null,
+        readQuality: readReadQuality(quality),
+        sourceRegions: readSourceRegions(locator?.regions),
     };
+}
+
+function readReadQuality(value: unknown): ReadQuality | null {
+    for (const quality of READ_QUALITIES) {
+        if (quality === value) {
+            return quality;
+        }
+    }
+
+    return null;
+}
+
+function readSourceRegions(value: unknown): SourceRegion[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    const regions: SourceRegion[] = [];
+
+    for (const item of value) {
+        const record = asRecord(item);
+        const page = readInteger(record?.page);
+        const bbox = record?.bbox;
+
+        if (page === null || !Array.isArray(bbox) || bbox.length !== 4 || !bbox.every((edge) => typeof edge === "number")) {
+            continue;
+        }
+
+        regions.push({ page, bbox: [bbox[0], bbox[1], bbox[2], bbox[3]] });
+    }
+
+    return regions;
 }
 
 function readNodes(container: JsonRecord, key: string): JsonRecord[] {

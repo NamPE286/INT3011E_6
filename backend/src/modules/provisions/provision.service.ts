@@ -1,12 +1,16 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { analyzeLegalDocument } from "./provision.analyzer";
-import { replaceProvisions } from "./provision.repository";
-import type { ContentRole, Provision, ProvisionSummary, Relevance } from "./provision.types";
+import { deleteProvisions, replaceProvisions } from "./provision.repository";
+import type { ContentRole, Provision, ProvisionSource, ProvisionSummary, Relevance } from "./provision.types";
 
 type LegalDocumentRecord = {
     id: string;
     json_content: string;
     review_status: string;
+    pdf_sha256: string;
+    extraction_model: string | null;
+    prompt_version: string | null;
+    schema_version: string | null;
 };
 
 export type AnalysisOutcome =
@@ -29,7 +33,8 @@ export async function findDocumentIdByJobId(db: D1Database, jobId: string): Prom
  */
 export async function analyzeStoredDocument(db: D1Database, jobId: string): Promise<AnalysisOutcome> {
     const record = await db
-        .prepare("SELECT id, json_content, review_status FROM legal_documents WHERE job_id = ?")
+        .prepare(`SELECT id, json_content, review_status, pdf_sha256, extraction_model, prompt_version, schema_version
+             FROM legal_documents WHERE job_id = ?`)
         .bind(jobId)
         .first<LegalDocumentRecord>();
 
@@ -37,16 +42,45 @@ export async function analyzeStoredDocument(db: D1Database, jobId: string): Prom
         return { outcome: "NOT_FOUND" };
     }
 
+    // Provisions from an earlier accepted read must not outlive a re-extraction that now needs review.
     if (record.review_status !== "ACCEPTED") {
+        await deleteProvisions(db, record.id);
+
         return { outcome: "REVIEW_REQUIRED" };
     }
 
     const legalDocument: unknown = JSON.parse(record.json_content);
     const provisions = analyzeLegalDocument(record.id, legalDocument);
 
-    await replaceProvisions(db, record.id, provisions);
+    await replaceProvisions(db, record.id, provisions, readProvisionSource(record, legalDocument));
 
     return { outcome: "ANALYZED", documentId: record.id, summary: summarizeProvisions(provisions) };
+}
+
+function readProvisionSource(record: LegalDocumentRecord, legalDocument: unknown): ProvisionSource {
+    const readMethod = record.extraction_model
+        ? `LLM:${record.extraction_model};prompt=${record.prompt_version ?? "unknown"};schema=${record.schema_version ?? "unknown"}`
+        : null;
+
+    return {
+        sourceSnapshotId: readSnapshotId(legalDocument),
+        pdfSha256: record.pdf_sha256,
+        readMethod,
+    };
+}
+
+function readSnapshotId(legalDocument: unknown): string | null {
+    if (typeof legalDocument !== "object" || legalDocument === null || !("source" in legalDocument)) {
+        return null;
+    }
+
+    const source: unknown = legalDocument.source;
+
+    if (typeof source !== "object" || source === null || !("snapshot_id" in source)) {
+        return null;
+    }
+
+    return typeof source.snapshot_id === "string" ? source.snapshot_id : null;
 }
 
 /**

@@ -6,8 +6,10 @@ import {
     type Provision,
     type ProvisionFlag,
     type ProvisionLevel,
+    type ProvisionSource,
     type Relevance,
 } from "./provision.types";
+import type { SourceRegion } from "../processing/legal-types";
 
 // Rows go in as JSON through json_each so a large document needs a handful of statements,
 // not one bound-parameter list per row (D1 allows only 100 bound parameters per statement).
@@ -29,6 +31,10 @@ export type StoredProvision = {
     pageEnd: number | null;
     sourceQuote: string | null;
     readQuality: string | null;
+    sourceSnapshotId: string | null;
+    pdfSha256: string | null;
+    readMethod: string | null;
+    sourceRegions: SourceRegion[];
     contentRole: ContentRole;
     relevance: Relevance;
     containerProvisionId: string | null;
@@ -54,6 +60,10 @@ type ProvisionRow = {
     page_end: number | null;
     source_quote: string | null;
     read_quality: string | null;
+    source_snapshot_id: string | null;
+    pdf_sha256: string | null;
+    read_method: string | null;
+    source_regions: string;
     content_role: ContentRole;
     relevance: Relevance;
     container_provision_id: string | null;
@@ -65,7 +75,7 @@ type ProvisionRow = {
 
 const INSERT_FROM_JSON = `INSERT INTO provisions (
         id, document_id, parent_id, ordinal, level, number, title, text, article_no, paragraph_no, point_no,
-        page_start, page_end, source_quote, read_quality, content_role, relevance, container_provision_id,
+        page_start, page_end, source_quote, read_quality, source_snapshot_id, pdf_sha256, read_method, source_regions, content_role, relevance, container_provision_id,
         quoted_segments, flags, role_method, role_version, created_at
     )
     SELECT
@@ -74,6 +84,8 @@ const INSERT_FROM_JSON = `INSERT INTO provisions (
         json_extract(value, '$.title'), json_extract(value, '$.text'), json_extract(value, '$.article_no'),
         json_extract(value, '$.paragraph_no'), json_extract(value, '$.point_no'), json_extract(value, '$.page_start'),
         json_extract(value, '$.page_end'), json_extract(value, '$.source_quote'), json_extract(value, '$.read_quality'),
+        json_extract(value, '$.source_snapshot_id'), json_extract(value, '$.pdf_sha256'), json_extract(value, '$.read_method'),
+        json_extract(value, '$.source_regions'),
         json_extract(value, '$.content_role'), json_extract(value, '$.relevance'),
         json_extract(value, '$.container_provision_id'), json_extract(value, '$.quoted_segments'),
         json_extract(value, '$.flags'), json_extract(value, '$.role_method'), json_extract(value, '$.role_version'), ?
@@ -81,14 +93,19 @@ const INSERT_FROM_JSON = `INSERT INTO provisions (
     ORDER BY CAST(key AS INTEGER)`;
 
 /** Replaces every provision of the document in one atomic batch, so a re-run never leaves stale or duplicate rows. */
-export async function replaceProvisions(db: D1Database, documentId: string, provisions: Provision[]): Promise<void> {
+export async function replaceProvisions(
+    db: D1Database,
+    documentId: string,
+    provisions: Provision[],
+    source: ProvisionSource,
+): Promise<void> {
     const createdAt = new Date().toISOString();
     const statements: D1PreparedStatement[] = [
         db.prepare("DELETE FROM provisions WHERE document_id = ?").bind(documentId),
     ];
 
     for (let start = 0; start < provisions.length; start += INSERT_CHUNK_SIZE) {
-        const chunk = provisions.slice(start, start + INSERT_CHUNK_SIZE).map(toRowJson);
+        const chunk = provisions.slice(start, start + INSERT_CHUNK_SIZE).map((provision) => toRowJson(provision, source));
 
         statements.push(db.prepare(INSERT_FROM_JSON).bind(createdAt, JSON.stringify(chunk)));
     }
@@ -105,7 +122,11 @@ export async function listProvisions(db: D1Database, documentId: string): Promis
     return result.results.map(toStoredProvision);
 }
 
-function toRowJson(provision: Provision): Record<string, unknown> {
+export async function deleteProvisions(db: D1Database, documentId: string): Promise<void> {
+    await db.prepare("DELETE FROM provisions WHERE document_id = ?").bind(documentId).run();
+}
+
+function toRowJson(provision: Provision, source: ProvisionSource): Record<string, unknown> {
     return {
         id: provision.id,
         document_id: provision.documentId,
@@ -122,6 +143,10 @@ function toRowJson(provision: Provision): Record<string, unknown> {
         page_end: provision.pageEnd,
         source_quote: provision.sourceQuote,
         read_quality: provision.readQuality,
+        source_snapshot_id: source.sourceSnapshotId,
+        pdf_sha256: source.pdfSha256,
+        read_method: source.readMethod,
+        source_regions: provision.sourceRegions,
         content_role: provision.contentRole,
         relevance: provision.relevance,
         container_provision_id: provision.containerProvisionId,
@@ -149,6 +174,10 @@ function toStoredProvision(row: ProvisionRow): StoredProvision {
         pageEnd: row.page_end,
         sourceQuote: row.source_quote,
         readQuality: row.read_quality,
+        sourceSnapshotId: row.source_snapshot_id,
+        pdfSha256: row.pdf_sha256,
+        readMethod: row.read_method,
+        sourceRegions: JSON.parse(row.source_regions),
         contentRole: row.content_role,
         relevance: row.relevance,
         containerProvisionId: row.container_provision_id,

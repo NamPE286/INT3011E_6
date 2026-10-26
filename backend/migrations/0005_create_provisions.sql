@@ -14,6 +14,10 @@ CREATE TABLE provisions (
     page_end INTEGER,
     source_quote TEXT,
     read_quality TEXT,
+    source_snapshot_id TEXT,
+    pdf_sha256 TEXT,
+    read_method TEXT,
+    source_regions TEXT NOT NULL DEFAULT '[]',
     content_role TEXT NOT NULL,
     relevance TEXT NOT NULL,
     container_provision_id TEXT,
@@ -28,11 +32,3 @@ CREATE TABLE provisions (
 CREATE INDEX idx_provisions_document_ordinal ON provisions (document_id, ordinal);
 
 CREATE INDEX idx_provisions_document_relevance ON provisions (document_id, relevance);
-
-ALTER TABLE provisions ADD COLUMN source_snapshot_id TEXT;
-
-ALTER TABLE provisions ADD COLUMN pdf_sha256 TEXT;
-
-ALTER TABLE provisions ADD COLUMN read_method TEXT;
-
-ALTER TABLE provisions ADD COLUMN source_regions TEXT NOT NULL DEFAULT '[]';

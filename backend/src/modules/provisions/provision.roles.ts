@@ -30,7 +30,6 @@ const WORD_END = "(?=$|[\\s,.:;])";
 const OPERATION_VERBS = "sửa đổi|bổ sung|thay thế|bãi bỏ|đính chính";
 const DOCUMENT_NAMES = "Nghị định|Luật|Thông tư|Pháp lệnh|Nghị quyết|Quyết định";
 
-// const OPERATION_START = new RegExp(`^(?:${OPERATION_VERBS}|thay cụm từ|bỏ cụm từ)${WORD_END}`, "iu");
 // A verb only opens an instruction when a legal object follows it ("Bổ sung hồ sơ trong 05 ngày" is not one).
 const OPERATION_OBJECT = [
     "(?:các\\s+|một số\\s+|những\\s+)?(?:điểm|khoản|điều|mục|chương|phần|phụ lục|cụm từ|từ ngữ|nội dung|quy định|tên|tiêu đề|biểu mẫu)",

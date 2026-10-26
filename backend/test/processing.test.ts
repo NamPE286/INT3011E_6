@@ -6,6 +6,7 @@ import { getJobById, insertJob } from "../src/modules/processing/job.repository"
 import { getLegalDocumentByJobId } from "../src/modules/processing/legal-persistence";
 import { handleProcessingBatch } from "../src/modules/processing/processing.consumer";
 import { executeProcessingPipeline } from "../src/modules/processing/processing.service";
+import { listProvisions } from "../src/modules/provisions/provision.repository";
 import { block, createFakeOpenAi, goodPages } from "./openai-fake";
 import { createMockEnv, type MockEnvironment } from "./mocks";
 
@@ -108,6 +109,13 @@ describe("PDF → legal JSON pipeline", () => {
         expect(runKeys.some((key) => key.endsWith("/chunks/1-2.json"))).toBe(true);
         expect(runKeys.some((key) => key.endsWith("/validated.json"))).toBe(true);
         expect(env.r2Store.has(`uploads/${JOB_ID}/sample.pdf`)).toBe(true);
+
+        const provisions = await listProvisions(env.DB, JOB_ID);
+        const pointA = provisions.find((provision) => provision.id === `${JOB_ID}:dieu_1_khoan_2_diem_a`);
+
+        expect(provisions[0]).toMatchObject({ level: "PREAMBLE", contentRole: "PREAMBLE_BASIS" });
+        expect(pointA).toMatchObject({ sourceSnapshotId: JOB_ID, readMethod: expect.stringContaining("LLM:test-model") });
+        expect(pointA?.pdfSha256).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it("resumes from checkpoints after a transient provider failure", async () => {
