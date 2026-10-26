@@ -9,6 +9,7 @@ import {
     transcribeChunk,
 } from "./legal-llm.service";
 import { saveLegalDocument } from "./legal-persistence";
+import { analyzeAfterExtraction } from "../provisions/provision.service";
 import { LEGAL_SCHEMA_VERSION, NeedsReviewError, type ChunkTranscription } from "./legal-types";
 import {
     extractPageRange,
@@ -104,6 +105,8 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
             model,
             promptVersion: PROMPT_VERSION,
         });
+
+        await analyzeAfterExtraction(env.DB, jobId);
 
         console.log(JSON.stringify({
             level: "info",
