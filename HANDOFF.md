@@ -1,6 +1,6 @@
 # HANDOFF — Epic Preprocessing (#38)
 
-Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành #17.
+Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành #18.
 
 ## Đã xong
 - PR #48 (document graph extractor) — review, sửa (taxonomy SRS, Unicode, style), merged.
@@ -13,8 +13,9 @@ Trạng thái làm việc để người/agent tiếp theo có thể tiếp tụ
 
 - #17 Identity: `backend/src/modules/identity/*`; tất cả bước chạy qua `runPreprocessing`.
 
+- #18 History: `backend/src/modules/history/*` (lineage, intervals, as-of).
+
 ## Còn lại (theo thứ tự phụ thuộc)
-4. #18 Lineage, current rule, as-of (FR-11/12)
 5. #19 Semantic change (FR-13)
 6. Bộ evaluation (gold data + script metric) cho toàn bộ epic — các issue yêu cầu "dataset/metric tái lập được".
 7. Slide báo cáo epic

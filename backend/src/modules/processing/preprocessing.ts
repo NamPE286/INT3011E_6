@@ -1,6 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { buildChangesAfterExtraction } from "../changes/change.service";
 import { buildGraphAfterExtraction } from "../documents/document-graph.service";
+import { refreshHistoryAfterExtraction } from "../history/history.service";
 import { resolveIdentitiesAfterExtraction } from "../identity/identity.service";
 import { analyzeAfterExtraction } from "../provisions/provision.service";
 import { extractRulesAfterExtraction } from "../violations/violation.service";
@@ -25,6 +26,7 @@ export async function runPreprocessing(db: D1Database, documentId: string, optio
         const ruleDocuments = await extractRulesAfterExtraction(db, documentId, options);
 
         await resolveIdentitiesAfterExtraction(db, ruleDocuments, options);
+        await refreshHistoryAfterExtraction(db);
     } catch (error: unknown) {
         const detail = error instanceof Error ? error.message : "Unknown preprocessing error";
 

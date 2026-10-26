@@ -12,6 +12,7 @@ import { documentGraphModule } from "./modules/documents/document-graph.route";
 import { changeModule } from "./modules/changes/change.route";
 import { violationModule } from "./modules/violations/violation.route";
 import { identityModule } from "./modules/identity/identity.route";
+import { historyModule } from "./modules/history/history.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -31,6 +32,7 @@ export const app = new Elysia({ aot: false })
     .use(changeModule)
     .use(violationModule)
     .use(identityModule)
+    .use(historyModule)
     .use(dummyModule)
     .use(mcpModule)
     .onError(({ code, error, set }) => {
