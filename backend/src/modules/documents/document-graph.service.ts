@@ -1,4 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { listAllProvisionRelations, listProvisionRelationsByIds } from "../changes/change.repository";
+import type { ProvisionRelation, ProvisionRelationType } from "../changes/change.types";
 import { listProvisions, type StoredProvision } from "../provisions/provision.repository";
 import { extractDocumentRelationCandidates } from "./document-graph.extractor";
 import {
@@ -18,11 +20,21 @@ import {
     type StoredRelationCandidate,
 } from "./document-graph.repository";
 import { buildCorpusIndex, resolveCandidate } from "./document-graph.resolver";
-import type { RelationCandidateStatus } from "./document-graph.types";
+import type { DocumentRelationType, RelationCandidateStatus } from "./document-graph.types";
 import { readDocumentMetadata, type DocumentMetadata } from "./document-metadata";
 
 export const GRAPH_METHOD = "RULE_CUE";
 export const GRAPH_EXTRACTOR_VERSION = "document-graph-v1";
+const DERIVED_METHOD = "PROVISION_RELATION";
+
+/** Document-level type of an edge summarized from provision relations: they never cover the whole document. */
+const DOCUMENT_TYPE_OF_PROVISION_RELATION: Record<ProvisionRelationType, DocumentRelationType> = {
+    AMENDS: "AMENDS",
+    SUPPLEMENTS: "SUPPLEMENTS",
+    REPLACES: "PARTIALLY_REPLACES",
+    REPEALS: "PARTIALLY_REPEALS",
+    CORRECTS: "CORRECTS",
+};
 
 const GRAPH_DISCLAIMER =
     "Graph built from the stored corpus only. Candidates are not legal relations, and a missing edge or an empty frontier does not prove that no relation exists.";
@@ -52,6 +64,7 @@ export type RelationEdgeView = StoredDocumentRelation & {
     direction: "OUTGOING" | "INCOMING";
     otherDocumentId: string;
     evidence: StoredRelationCandidate[];
+    provisionEvidence: ProvisionRelation[];
 };
 
 export type DocumentRelationsView = {
@@ -141,8 +154,14 @@ export async function getDocumentRelations(db: D1Database, documentId: string): 
         listRelationCandidatesFrom(db, documentId),
     ]);
     const evidenceIds = relations.flatMap((relation) => relation.evidenceCandidateIds);
-    const evidenceById = new Map((await listRelationCandidatesByIds(db, evidenceIds)).map((candidate) => [candidate.id, candidate]));
-    const edges = relations.map((relation) => toEdgeView(relation, documentId, evidenceById));
+    const provisionEvidenceIds = relations.flatMap((relation) => relation.evidenceProvisionRelationIds);
+    const [evidenceRows, provisionEvidenceRows] = await Promise.all([
+        listRelationCandidatesByIds(db, evidenceIds),
+        listProvisionRelationsByIds(db, provisionEvidenceIds),
+    ]);
+    const evidenceById = new Map(evidenceRows.map((candidate) => [candidate.id, candidate]));
+    const provisionEvidenceById = new Map(provisionEvidenceRows.map((relation) => [relation.id, relation]));
+    const edges = relations.map((relation) => toEdgeView(relation, documentId, evidenceById, provisionEvidenceById));
     const openCandidates = candidates.filter((candidate) => candidate.status !== "ACCEPTED");
 
     return {
@@ -161,7 +180,11 @@ export async function getDocumentRelations(db: D1Database, documentId: string): 
 
 /** Re-resolves every stored candidate against the current corpus and re-derives the accepted edges. */
 export async function refreshCorpusGraph(db: D1Database): Promise<StoredRelationCandidate[]> {
-    const [metadata, candidates] = await Promise.all([listDocumentMetadata(db), listAllRelationCandidates(db)]);
+    const [metadata, candidates, provisionRelations] = await Promise.all([
+        listDocumentMetadata(db),
+        listAllRelationCandidates(db),
+        listAllProvisionRelations(db),
+    ]);
     const corpus = buildCorpusIndex(metadata);
     const changed: StoredRelationCandidate[] = [];
     const resolved = candidates.map((candidate) => {
@@ -181,13 +204,19 @@ export async function refreshCorpusGraph(db: D1Database): Promise<StoredRelation
     });
 
     await updateCandidateResolutions(db, changed);
-    await replaceDocumentRelations(db, deriveAcceptedRelations(resolved));
+    await replaceDocumentRelations(db, deriveAcceptedRelations(resolved, provisionRelations));
 
     return resolved;
 }
 
-/** One edge per (from, to, type, scope); every ACCEPTED candidate with that key is kept as its evidence. */
-export function deriveAcceptedRelations(candidates: StoredRelationCandidate[]): StoredDocumentRelation[] {
+/**
+ * One edge per (from, to, type, scope). Its evidence is every ACCEPTED text candidate and every accepted
+ * cross-document provision relation with that key, so dedup never drops a multi-edge or its evidence.
+ */
+export function deriveAcceptedRelations(
+    candidates: StoredRelationCandidate[],
+    provisionRelations: ProvisionRelation[] = [],
+): StoredDocumentRelation[] {
     const relations = new Map<string, StoredDocumentRelation>();
 
     for (const candidate of candidates) {
@@ -213,7 +242,37 @@ export function deriveAcceptedRelations(candidates: StoredRelationCandidate[]): 
             verificationStatus: "ACCEPTED",
             evidenceLevel: "EXPLICIT_LEGAL_TEXT",
             evidenceCandidateIds: [candidate.id],
+            evidenceProvisionRelationIds: [],
             method: GRAPH_METHOD,
+        });
+    }
+
+    for (const relation of provisionRelations) {
+        if (relation.verificationStatus !== "ACCEPTED" || relation.fromDocumentId === relation.toDocumentId) {
+            continue;
+        }
+
+        const relationType = DOCUMENT_TYPE_OF_PROVISION_RELATION[relation.relationType];
+        const id = [relation.fromDocumentId, relation.toDocumentId, relationType, "PARTIAL"].join("|");
+        const existing = relations.get(id);
+
+        if (existing) {
+            existing.evidenceProvisionRelationIds.push(relation.id);
+
+            continue;
+        }
+
+        relations.set(id, {
+            id,
+            fromDocumentId: relation.fromDocumentId,
+            toDocumentId: relation.toDocumentId,
+            relationType,
+            scope: "PARTIAL",
+            verificationStatus: "ACCEPTED",
+            evidenceLevel: "STRUCTURED_DERIVATION",
+            evidenceCandidateIds: [],
+            evidenceProvisionRelationIds: [relation.id],
+            method: DERIVED_METHOD,
         });
     }
 
@@ -304,6 +363,7 @@ function toEdgeView(
     relation: StoredDocumentRelation,
     documentId: string,
     evidenceById: Map<string, StoredRelationCandidate>,
+    provisionEvidenceById: Map<string, ProvisionRelation>,
 ): RelationEdgeView {
     const isOutgoing = relation.fromDocumentId === documentId;
     const evidence: StoredRelationCandidate[] = [];
@@ -316,11 +376,22 @@ function toEdgeView(
         }
     }
 
+    const provisionEvidence: ProvisionRelation[] = [];
+
+    for (const relationId of relation.evidenceProvisionRelationIds) {
+        const provisionRelation = provisionEvidenceById.get(relationId);
+
+        if (provisionRelation) {
+            provisionEvidence.push(provisionRelation);
+        }
+    }
+
     return {
         ...relation,
         direction: isOutgoing ? "OUTGOING" : "INCOMING",
         otherDocumentId: isOutgoing ? relation.toDocumentId : relation.fromDocumentId,
         evidence,
+        provisionEvidence,
     };
 }
 

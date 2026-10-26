@@ -40,6 +40,8 @@ export type StoredDocumentRelation = {
     verificationStatus: "ACCEPTED";
     evidenceLevel: EvidenceLevel;
     evidenceCandidateIds: string[];
+    /** Verified provision relations (#11) that this document-level edge summarizes. */
+    evidenceProvisionRelationIds: string[];
     method: string;
 };
 
@@ -89,6 +91,7 @@ type RelationRow = {
     verification_status: "ACCEPTED";
     evidence_level: EvidenceLevel;
     evidence_candidate_ids: string;
+    evidence_provision_relation_ids: string;
     method: string;
 };
 
@@ -253,8 +256,8 @@ export async function replaceDocumentRelations(db: D1Database, relations: Stored
             db.prepare(
                 `INSERT INTO document_relations (
                     id, from_document_id, to_document_id, relation_type, scope, verification_status,
-                    evidence_level, evidence_candidate_ids, method, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    evidence_level, evidence_candidate_ids, evidence_provision_relation_ids, method, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(
                 relation.id,
                 relation.fromDocumentId,
@@ -264,6 +267,7 @@ export async function replaceDocumentRelations(db: D1Database, relations: Stored
                 relation.verificationStatus,
                 relation.evidenceLevel,
                 JSON.stringify(relation.evidenceCandidateIds),
+                JSON.stringify(relation.evidenceProvisionRelationIds),
                 relation.method,
                 updatedAt,
             ),
@@ -339,6 +343,7 @@ function toRelation(row: RelationRow): StoredDocumentRelation {
         verificationStatus: row.verification_status,
         evidenceLevel: row.evidence_level,
         evidenceCandidateIds: JSON.parse(row.evidence_candidate_ids),
+        evidenceProvisionRelationIds: JSON.parse(row.evidence_provision_relation_ids),
         method: row.method,
     };
 }
