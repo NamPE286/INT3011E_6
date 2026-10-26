@@ -1,0 +1,110 @@
+{
+  "dataset": "preprocessing-dev-v1@1",
+  "mode": "deterministic",
+  "importOrder": [
+    "nd-123-2021",
+    "nd-100-2019",
+    "tt-65-2020",
+    "nd-168-2024"
+  ],
+  "runtimeMs": 87,
+  "metrics": {
+    "provisionRelevance": {
+      "accuracy": 1,
+      "labelled": 16,
+      "errors": []
+    },
+    "documentGraph": {
+      "acceptedEdges": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "truePositives": 6,
+        "predicted": 6,
+        "gold": 6
+      },
+      "baselineHeaderOnly": {
+        "precision": 1,
+        "recall": 0.167,
+        "f1": 0.286,
+        "truePositives": 1,
+        "predicted": 1,
+        "gold": 6
+      },
+      "frontierRecall": 1,
+      "candidateStatusCounts": {
+        "UNRESOLVED": 6,
+        "ACCEPTED": 3
+      },
+      "errors": []
+    },
+    "provisionRelations": {
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "truePositives": 3,
+      "predicted": 3,
+      "gold": 3,
+      "errors": []
+    },
+    "violationRules": {
+      "ruleDetection": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "truePositives": 8,
+        "predicted": 8,
+        "gold": 8
+      },
+      "fineAccuracy": 1,
+      "suspensionAccuracy": 1,
+      "pointDeductionAccuracy": 1,
+      "uncertainRules": 0,
+      "errors": []
+    },
+    "identity": {
+      "pairwise": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "truePositives": 10,
+        "predicted": 10,
+        "gold": 10
+      },
+      "baselineExactText": {
+        "precision": 1,
+        "recall": 0.6,
+        "f1": 0.75,
+        "truePositives": 6,
+        "predicted": 6,
+        "gold": 10
+      },
+      "ambiguousRules": []
+    },
+    "asOf": {
+      "exactMatchAccuracy": 1,
+      "baselineNewestRule": 0.4,
+      "queries": 10,
+      "errors": []
+    },
+    "semanticChanges": {
+      "transitions": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "truePositives": 7,
+        "predicted": 7,
+        "gold": 7
+      },
+      "changeTypesMicro": {
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "truePositives": 16,
+        "predicted": 16,
+        "gold": 16
+      },
+      "errors": []
+    }
+  }
+}

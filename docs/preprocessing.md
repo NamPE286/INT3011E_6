@@ -148,3 +148,23 @@ Mỗi event giữ rule trước/sau, chi tiết trước/sau từng trường, e
 | --- | --- | --- |
 | `GET` | `/api/violations/:violationId/changes` | Các change event của violation theo thời gian. |
 | `GET` | `/api/violations/:violationId/history` | Như trên, nhóm theo lineage (`changeEvents`). |
+
+## 8. Đánh giá
+
+`bun run eval` chạy toàn bộ pipeline trên `data/eval/preprocessing-dev-v1.json` (D1 in-memory) và tính metric cho từng bước so với nhãn gold cùng một baseline (xem [data/eval/README.md](../data/eval/README.md)). Kết quả dev-v1 (2026-10-26):
+
+| Bước | Metric | Hệ thống (deterministic) | + LLM (gpt-5.4) | Baseline |
+| --- | --- | --- | --- | --- |
+| #8 Relevance | accuracy (16 provision) | 1.00 | 1.00 | — |
+| #5 Document graph | F1 cạnh ACCEPTED (6) | 1.00 | 1.00 | header-only 0.29 |
+| #11 Provision relation | F1 (3) | 1.00 | 1.00 | — |
+| #15 Rule + sanction | F1 rule (8); fine/suspension/points accuracy | 1.00; 1.00/1.00/1.00 | 1.00; 1.00/1.00/1.00 | — |
+| #17 Identity | pairwise F1 | 1.00 | 1.00 | so khớp nguyên văn 0.75 |
+| #18 As-of | exact match (10 truy vấn) | 1.00 | 1.00 | rule mới nhất 0.40 |
+| #19 Change types | micro F1 (16) | 1.00 | 0.94 | — |
+
+Dev set được xây cùng lúc với hệ thống nên điểm cao là kỳ vọng (regression), không phải bằng chứng độ chính xác trên corpus thật. Lỗi còn lại ở chế độ LLM: danh sách phương tiện model đọc không ổn định giữa các văn bản (`VEHICLE_SCOPE_CHANGED` sai). Dev set đã phát hiện và giúp sửa một lỗi thật: nội dung mới trong ngoặc kép bị gán `IRRELEVANT`.
+
+### Smoke test LLM thật
+
+Trên corpus mẫu, bước semantic gọi Responses API ~3,5–12 s/văn bản; registry vocabulary được tạo qua `add_vocab` (12 entry), backend loại các giá trị có evidence không nằm trong câu chữ (ví dụ model lấy mức phạt làm "consequence"). Hạn chế đã thấy: `add_vocab` coi "xe mô tô" ≈ "xe ô tô" (similarity ký tự 0,875) là `AMBIGUOUS`, nên giá trị đó giữ unresolved.

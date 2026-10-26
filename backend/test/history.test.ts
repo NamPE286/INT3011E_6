@@ -149,6 +149,29 @@ describe("rule history", () => {
         expect(await applicableAt(db, violationId, "2025-06-01")).toEqual([replacing]);
     });
 
+    it("continues a lineage across a replacement even when the replacing decree lists fewer vehicles", async () => {
+        const db = createTestD1Database({ seedSampleDocument: false });
+        const motorbikes = (document: FixtureDocument, article: string, title: string, clause: string, fine: string): FixtureDocument => ({
+            ...document,
+            articles: [
+                ...document.articles,
+                {
+                    number: article,
+                    title,
+                    clauses: [{ number: clause, content: `Phạt tiền ${fine} đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:`, points: [{ number: "e", content: "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;" }] }],
+                },
+            ],
+        });
+
+        await importDocument(db, motorbikes(BASE_DECREE, "6", "Xử phạt người điều khiển xe mô tô, xe gắn máy", "4", "từ 600.000 đồng đến 1.000.000 đồng"));
+        await importDocument(db, motorbikes(REPLACING_DECREE, "7", "Xử phạt người điều khiển xe gắn máy", "7", "từ 4.000.000 đồng đến 6.000.000 đồng"));
+
+        const history = await getViolationHistory(db, await violationOf(db, RED_LIGHT_CAR));
+
+        expect(history.lineages.map((lineage) => lineage.ruleIds.length).sort()).toEqual([2, 2]);
+        expect(history.lineages.every((lineage) => lineage.links.some((link) => link.link === "DOCUMENT_REPLACEMENT"))).toBe(true);
+    });
+
     it("marks rules uncertain when the end date or the amending relation is not established", async () => {
         const db = createTestD1Database({ seedSampleDocument: false });
         const undated: FixtureDocument = {

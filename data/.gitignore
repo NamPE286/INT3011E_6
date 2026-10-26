@@ -5,3 +5,5 @@
 /manifests/*
 !/manifests/header-validation.json
 !/manifests/coverage.json
+!eval/
+!/eval/**

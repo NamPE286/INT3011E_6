@@ -102,6 +102,10 @@ describe("extractViolationRules — deterministic structure and sanctions", () =
         });
         expect(rules[0].sanction.fine).toMatchObject({ min: 3_000_000, max: 5_000_000 });
         expect(rules[0].sanction.effects.map((effect) => effect.effectType)).toEqual(["LICENSE_SUSPENSION"]);
+
+        const quoted = await db.prepare("SELECT relevance FROM provisions WHERE id = ?").bind(`${AMENDING_DECREE.id}:dieu_2_khoan_10_diem_a`).first<{ relevance: string }>();
+
+        expect(quoted?.relevance).toBe("VIOLATION_RULE");
     });
 
     it("splits a clause that fines individuals and organizations differently, and reads point deduction", async () => {
@@ -184,7 +188,7 @@ describe("extractViolationRules — vocabulary-guided semantic step", () => {
         }
 
         expect(model.calls.sort()).toEqual(rules.map((rule) => rule.id).sort());
-        expect(result.run).toMatchObject({ status: "COMPLETED", method: "RULE+LLM", promptVersion: "violation-ir-v1", vocabularyVersionBefore: 1 });
+        expect(result.run).toMatchObject({ status: "COMPLETED", method: "RULE+LLM", promptVersion: "violation-ir-v2", vocabularyVersionBefore: 1 });
         expect(result.run.vocabIdsCreated.length).toBeGreaterThan(0);
         expect(result.run.rejectedValues.some((reason) => reason.includes("VEH_MADE_UP"))).toBe(true);
         expect(result.run.rejectedValues.some((reason) => reason.includes("trên đường cao tốc"))).toBe(true);

@@ -1,7 +1,7 @@
 import type { DurationUnit, FineRange, SanctionEffectType } from "./sanction.parser";
 
 export const RULE_EXTRACTOR_VERSION = "violation-rules-v1";
-export const SEMANTIC_PROMPT_VERSION = "violation-ir-v1";
+export const SEMANTIC_PROMPT_VERSION = "violation-ir-v2";
 
 export type PointDeductionApplicability = "APPLIES" | "NOT_APPLICABLE" | "UNKNOWN";
 

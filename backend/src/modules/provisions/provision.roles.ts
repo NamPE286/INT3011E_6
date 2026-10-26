@@ -80,8 +80,10 @@ export function classifyRole(input: RoleInput): RoleResult {
         return { contentRole: "ORDINARY_TEXT", relevance: "UNCERTAIN", introducesViolations: false };
     }
 
+    // New wording only shows its role in the provision it rewrites, which is not known yet: a quoted unit
+    // that names no sanction stays UNCERTAIN (not IRRELEVANT) until rule placement (#15) can tell.
     if (input.isQuotedNode) {
-        const relevance = readRuleRelevance(input, text) ?? readFallbackRelevance(text);
+        const relevance = readRuleRelevance(input, text) ?? (REFERENCE_PHRASE.test(text) ? "REFERENCE" : "UNCERTAIN");
 
         return { contentRole: "QUOTED_NEW_TEXT", relevance, introducesViolations };
     }
