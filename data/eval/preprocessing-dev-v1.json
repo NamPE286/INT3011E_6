@@ -1,0 +1,543 @@
+{
+    "dataset": "preprocessing-dev-v1",
+    "version": 1,
+    "description": "Development set for the preprocessing epic (#38). Excerpts modelled on the wording of Nghị định 100/2019/NĐ-CP, 123/2021/NĐ-CP, 168/2024/NĐ-CP and Thông tư 65/2020/TT-BCA, reduced and partly adapted so that every stage has at least one case. Gold labels were written by hand from the legal wording, not from system output. It is a regression/dev set, not a held-out benchmark: real held-out annotation on full PDFs is tracked in #29.",
+    "corpus_scope": "4 documents; everything outside them is out of corpus",
+    "import_order": [
+        "nd-123-2021",
+        "nd-100-2019",
+        "tt-65-2020",
+        "nd-168-2024"
+    ],
+    "documents": [
+        {
+            "id": "nd-100-2019",
+            "title": "NGHỊ ĐỊNH Quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt",
+            "content": "CHÍNH PHỦ\nSố: 100/2019/NĐ-CP\nHà Nội, ngày 30 tháng 12 năm 2019\nCăn cứ Luật Xử lý vi phạm hành chính ngày 20 tháng 6 năm 2012;",
+            "articles": [
+                {
+                    "number": "5",
+                    "title": "Xử phạt người điều khiển xe ô tô và các loại xe tương tự xe ô tô vi phạm quy tắc giao thông đường bộ",
+                    "clauses": [
+                        {
+                            "number": "5",
+                            "content": "Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:",
+                            "points": [
+                                {
+                                    "number": "a",
+                                    "content": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;"
+                                },
+                                {
+                                    "number": "b",
+                                    "content": "Không chấp hành hiệu lệnh, hướng dẫn của người điều khiển giao thông hoặc người kiểm soát giao thông;"
+                                }
+                            ]
+                        },
+                        {
+                            "number": "11",
+                            "content": "Ngoài việc bị phạt tiền, người điều khiển xe thực hiện hành vi vi phạm còn bị áp dụng các hình thức xử phạt bổ sung sau đây:",
+                            "points": [
+                                {
+                                    "number": "a",
+                                    "content": "Thực hiện hành vi quy định tại điểm a, điểm b khoản 5 Điều này bị tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng;"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "number": "6",
+                    "title": "Xử phạt người điều khiển xe mô tô, xe gắn máy vi phạm quy tắc giao thông đường bộ",
+                    "clauses": [
+                        {
+                            "number": "4",
+                            "content": "Phạt tiền từ 600.000 đồng đến 1.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:",
+                            "points": [
+                                {
+                                    "number": "e",
+                                    "content": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;"
+                                },
+                                {
+                                    "number": "i",
+                                    "content": "Chạy trong hầm đường bộ không sử dụng đèn chiếu sáng gần;"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "number": "86",
+                    "title": "Hiệu lực thi hành",
+                    "clauses": [
+                        {
+                            "number": "1",
+                            "content": "Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2020."
+                        },
+                        {
+                            "number": "2",
+                            "content": "Nghị định số 46/2016/NĐ-CP ngày 26 tháng 5 năm 2016 của Chính phủ hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "nd-123-2021",
+            "title": "NGHỊ ĐỊNH Sửa đổi, bổ sung một số điều của các Nghị định quy định xử phạt vi phạm hành chính trong lĩnh vực hàng hải; giao thông đường bộ, đường sắt",
+            "content": "CHÍNH PHỦ\nSố: 123/2021/NĐ-CP\nHà Nội, ngày 28 tháng 12 năm 2021\nCăn cứ Luật Xử lý vi phạm hành chính ngày 20 tháng 6 năm 2012;",
+            "articles": [
+                {
+                    "number": "2",
+                    "title": "Sửa đổi, bổ sung một số điều của Nghị định số 100/2019/NĐ-CP ngày 30 tháng 12 năm 2019 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt",
+                    "clauses": [
+                        {
+                            "number": "10",
+                            "content": "Sửa đổi, bổ sung điểm a khoản 5 Điều 5 như sau:",
+                            "points": [
+                                {
+                                    "number": "a",
+                                    "content": "“a) Không chấp hành hiệu lệnh của đèn tín hiệu giao thông, trừ trường hợp xe ưu tiên đang làm nhiệm vụ;”"
+                                }
+                            ]
+                        },
+                        {
+                            "number": "11",
+                            "content": "Bãi bỏ điểm b khoản 5 Điều 5."
+                        },
+                        {
+                            "number": "12",
+                            "content": "Bổ sung điểm đ vào sau điểm b khoản 5 Điều 5 như sau:",
+                            "points": [
+                                {
+                                    "number": "đ",
+                                    "content": "“đ) Dừng xe, đỗ xe trên đường cao tốc không đúng nơi quy định;”"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "number": "5",
+                    "title": "Hiệu lực thi hành",
+                    "clauses": [
+                        {
+                            "number": "1",
+                            "content": "Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2022."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "nd-168-2024",
+            "title": "NGHỊ ĐỊNH Quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ",
+            "content": "CHÍNH PHỦ\nSố: 168/2024/NĐ-CP\nHà Nội, ngày 26 tháng 12 năm 2024\nCăn cứ Luật Trật tự, an toàn giao thông đường bộ số 36/2024/QH15;",
+            "articles": [
+                {
+                    "number": "6",
+                    "title": "Xử phạt người điều khiển xe ô tô và các loại xe tương tự xe ô tô vi phạm quy tắc giao thông đường bộ",
+                    "clauses": [
+                        {
+                            "number": "9",
+                            "content": "Phạt tiền từ 18.000.000 đồng đến 20.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:",
+                            "points": [
+                                {
+                                    "number": "b",
+                                    "content": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;"
+                                }
+                            ]
+                        },
+                        {
+                            "number": "15",
+                            "content": "Ngoài việc bị phạt tiền, người điều khiển xe thực hiện hành vi vi phạm còn bị trừ điểm giấy phép lái xe như sau:",
+                            "points": [
+                                {
+                                    "number": "d",
+                                    "content": "Thực hiện hành vi quy định tại điểm b khoản 9 Điều này bị trừ điểm giấy phép lái xe 04 điểm."
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "number": "7",
+                    "title": "Xử phạt người điều khiển xe mô tô, xe gắn máy vi phạm quy tắc giao thông đường bộ",
+                    "clauses": [
+                        {
+                            "number": "7",
+                            "content": "Phạt tiền từ 4.000.000 đồng đến 6.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:",
+                            "points": [
+                                {
+                                    "number": "c",
+                                    "content": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;"
+                                }
+                            ]
+                        },
+                        {
+                            "number": "13",
+                            "content": "Ngoài việc bị phạt tiền, người điều khiển xe thực hiện hành vi vi phạm còn bị trừ điểm giấy phép lái xe như sau:",
+                            "points": [
+                                {
+                                    "number": "b",
+                                    "content": "Thực hiện hành vi quy định tại điểm c khoản 7 Điều này bị trừ điểm giấy phép lái xe 04 điểm."
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "number": "54",
+                    "title": "Hiệu lực thi hành",
+                    "clauses": [
+                        {
+                            "number": "1",
+                            "content": "Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2025."
+                        },
+                        {
+                            "number": "2",
+                            "content": "Nghị định số 100/2019/NĐ-CP ngày 30 tháng 12 năm 2019 của Chính phủ hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "tt-65-2020",
+            "title": "THÔNG TƯ Quy định nhiệm vụ, quyền hạn, hình thức, nội dung và quy trình tuần tra, kiểm soát, xử lý vi phạm hành chính về giao thông đường bộ của Cảnh sát giao thông",
+            "content": "BỘ CÔNG AN\nSố: 65/2020/TT-BCA\nHà Nội, ngày 16 tháng 6 năm 2020\nCăn cứ Luật Giao thông đường bộ ngày 13 tháng 11 năm 2008;\nCăn cứ Nghị định số 100/2019/NĐ-CP ngày 30 tháng 12 năm 2019 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt;",
+            "articles": [
+                {
+                    "number": "1",
+                    "title": "Phạm vi điều chỉnh",
+                    "clauses": [
+                        {
+                            "number": "1",
+                            "content": "Thông tư này quy định nhiệm vụ, quyền hạn, hình thức, nội dung tuần tra, kiểm soát của Cảnh sát giao thông."
+                        }
+                    ]
+                },
+                {
+                    "number": "80",
+                    "title": "Hiệu lực thi hành",
+                    "clauses": [
+                        {
+                            "number": "1",
+                            "content": "Thông tư này có hiệu lực thi hành kể từ ngày 05 tháng 8 năm 2020."
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "gold": {
+        "document_relations": [
+            {
+                "from": "nd-123-2021",
+                "to": "nd-100-2019",
+                "type": "AMENDS_OR_SUPPLEMENTS"
+            },
+            {
+                "from": "nd-123-2021",
+                "to": "nd-100-2019",
+                "type": "AMENDS"
+            },
+            {
+                "from": "nd-123-2021",
+                "to": "nd-100-2019",
+                "type": "SUPPLEMENTS"
+            },
+            {
+                "from": "nd-123-2021",
+                "to": "nd-100-2019",
+                "type": "PARTIALLY_REPEALS"
+            },
+            {
+                "from": "nd-168-2024",
+                "to": "nd-100-2019",
+                "type": "FULLY_REPEALS"
+            },
+            {
+                "from": "tt-65-2020",
+                "to": "nd-100-2019",
+                "type": "LEGAL_BASIS"
+            }
+        ],
+        "frontier": {
+            "nd-100-2019": [
+                "46/2016/NĐ-CP"
+            ],
+            "nd-168-2024": [
+                "36/2024/QH15"
+            ]
+        },
+        "provision_relations": [
+            {
+                "from": "nd-123-2021:dieu_2_khoan_10",
+                "to": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "type": "AMENDS"
+            },
+            {
+                "from": "nd-123-2021:dieu_2_khoan_11",
+                "to": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "type": "REPEALS"
+            },
+            {
+                "from": "nd-123-2021:dieu_2_khoan_12",
+                "to": "nd-100-2019:dieu_5_khoan_5",
+                "type": "SUPPLEMENTS"
+            }
+        ],
+        "provision_relevance": {
+            "nd-100-2019:dieu_5_khoan_5": "SANCTION_RULE",
+            "nd-100-2019:dieu_5_khoan_5_diem_a": "VIOLATION_RULE",
+            "nd-100-2019:dieu_5_khoan_5_diem_b": "VIOLATION_RULE",
+            "nd-100-2019:dieu_5_khoan_11_diem_a": "SANCTION_RULE",
+            "nd-100-2019:dieu_6_khoan_4_diem_i": "VIOLATION_RULE",
+            "nd-100-2019:dieu_86_khoan_1": "REFERENCE",
+            "nd-100-2019:dieu_86_khoan_2": "REPEAL_INSTRUCTION",
+            "nd-123-2021:dieu_2_khoan_10": "AMENDMENT_INSTRUCTION",
+            "nd-123-2021:dieu_2_khoan_10_diem_a": "VIOLATION_RULE",
+            "nd-123-2021:dieu_2_khoan_11": "REPEAL_INSTRUCTION",
+            "nd-123-2021:dieu_2_khoan_12": "AMENDMENT_INSTRUCTION",
+            "nd-123-2021:dieu_2_khoan_12_diem_đ": "VIOLATION_RULE",
+            "nd-168-2024:dieu_6_khoan_9": "SANCTION_RULE",
+            "nd-168-2024:dieu_6_khoan_15_diem_d": "SANCTION_RULE",
+            "nd-168-2024:dieu_54_khoan_2": "REPEAL_INSTRUCTION",
+            "tt-65-2020:dieu_1_khoan_1": "IRRELEVANT"
+        },
+        "rules": [
+            {
+                "provision": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "governed": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "fine": [
+                    3000000,
+                    5000000
+                ],
+                "suspension_months": [
+                    1,
+                    3
+                ],
+                "points": null
+            },
+            {
+                "provision": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "governed": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "fine": [
+                    3000000,
+                    5000000
+                ],
+                "suspension_months": [
+                    1,
+                    3
+                ],
+                "points": null
+            },
+            {
+                "provision": "nd-100-2019:dieu_6_khoan_4_diem_e",
+                "governed": "nd-100-2019:dieu_6_khoan_4_diem_e",
+                "fine": [
+                    600000,
+                    1000000
+                ],
+                "suspension_months": null,
+                "points": null
+            },
+            {
+                "provision": "nd-100-2019:dieu_6_khoan_4_diem_i",
+                "governed": "nd-100-2019:dieu_6_khoan_4_diem_i",
+                "fine": [
+                    600000,
+                    1000000
+                ],
+                "suspension_months": null,
+                "points": null
+            },
+            {
+                "provision": "nd-123-2021:dieu_2_khoan_10_diem_a",
+                "governed": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "fine": [
+                    3000000,
+                    5000000
+                ],
+                "suspension_months": [
+                    1,
+                    3
+                ],
+                "points": null
+            },
+            {
+                "provision": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "governed": "nd-100-2019:dieu_5_khoan_5_diem_đ",
+                "fine": [
+                    3000000,
+                    5000000
+                ],
+                "suspension_months": null,
+                "points": null
+            },
+            {
+                "provision": "nd-168-2024:dieu_6_khoan_9_diem_b",
+                "governed": "nd-168-2024:dieu_6_khoan_9_diem_b",
+                "fine": [
+                    18000000,
+                    20000000
+                ],
+                "suspension_months": null,
+                "points": 4
+            },
+            {
+                "provision": "nd-168-2024:dieu_7_khoan_7_diem_c",
+                "governed": "nd-168-2024:dieu_7_khoan_7_diem_c",
+                "fine": [
+                    4000000,
+                    6000000
+                ],
+                "suspension_months": null,
+                "points": 4
+            }
+        ],
+        "identity_clusters": [
+            [
+                "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "nd-100-2019:dieu_6_khoan_4_diem_e",
+                "nd-123-2021:dieu_2_khoan_10_diem_a",
+                "nd-168-2024:dieu_6_khoan_9_diem_b",
+                "nd-168-2024:dieu_7_khoan_7_diem_c"
+            ],
+            [
+                "nd-100-2019:dieu_5_khoan_5_diem_b"
+            ],
+            [
+                "nd-100-2019:dieu_6_khoan_4_diem_i"
+            ],
+            [
+                "nd-123-2021:dieu_2_khoan_12_diem_đ"
+            ]
+        ],
+        "as_of": [
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "date": "2019-06-01",
+                "rules": []
+            },
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "date": "2021-06-01",
+                "rules": [
+                    "nd-100-2019:dieu_5_khoan_5_diem_a",
+                    "nd-100-2019:dieu_6_khoan_4_diem_e"
+                ]
+            },
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "date": "2022-06-01",
+                "rules": [
+                    "nd-123-2021:dieu_2_khoan_10_diem_a",
+                    "nd-100-2019:dieu_6_khoan_4_diem_e"
+                ]
+            },
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "date": "2025-06-01",
+                "rules": [
+                    "nd-168-2024:dieu_6_khoan_9_diem_b",
+                    "nd-168-2024:dieu_7_khoan_7_diem_c"
+                ]
+            },
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "date": "2021-06-01",
+                "rules": [
+                    "nd-100-2019:dieu_5_khoan_5_diem_b"
+                ]
+            },
+            {
+                "anchor": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "date": "2023-01-01",
+                "rules": []
+            },
+            {
+                "anchor": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "date": "2021-06-01",
+                "rules": []
+            },
+            {
+                "anchor": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "date": "2022-06-01",
+                "rules": [
+                    "nd-123-2021:dieu_2_khoan_12_diem_đ"
+                ]
+            },
+            {
+                "anchor": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "date": "2025-06-01",
+                "rules": []
+            },
+            {
+                "anchor": "nd-100-2019:dieu_6_khoan_4_diem_i",
+                "date": "2025-06-01",
+                "rules": []
+            }
+        ],
+        "changes": [
+            {
+                "old": "nd-100-2019:dieu_5_khoan_5_diem_a",
+                "new": "nd-123-2021:dieu_2_khoan_10_diem_a",
+                "types": [
+                    "EXCEPTION_ADDED"
+                ]
+            },
+            {
+                "old": "nd-123-2021:dieu_2_khoan_10_diem_a",
+                "new": "nd-168-2024:dieu_6_khoan_9_diem_b",
+                "types": [
+                    "REPLACED",
+                    "EXCEPTION_REMOVED",
+                    "SANCTION_INCREASE",
+                    "POINT_DEDUCTION_APPLICABILITY_CHANGED",
+                    "LICENSE_SUSPENSION_CHANGED"
+                ]
+            },
+            {
+                "old": "nd-100-2019:dieu_6_khoan_4_diem_e",
+                "new": "nd-168-2024:dieu_7_khoan_7_diem_c",
+                "types": [
+                    "REPLACED",
+                    "SANCTION_INCREASE",
+                    "POINT_DEDUCTION_APPLICABILITY_CHANGED"
+                ]
+            },
+            {
+                "old": "nd-100-2019:dieu_5_khoan_5_diem_b",
+                "new": null,
+                "types": [
+                    "REPEALED",
+                    "VIOLATION_REMOVED"
+                ]
+            },
+            {
+                "old": "nd-100-2019:dieu_6_khoan_4_diem_i",
+                "new": null,
+                "types": [
+                    "REPEALED",
+                    "VIOLATION_REMOVED"
+                ]
+            },
+            {
+                "old": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "new": null,
+                "types": [
+                    "REPEALED",
+                    "VIOLATION_REMOVED"
+                ]
+            },
+            {
+                "old": null,
+                "new": "nd-123-2021:dieu_2_khoan_12_diem_đ",
+                "types": [
+                    "VIOLATION_ADDED"
+                ]
+            }
+        ]
+    }
+}

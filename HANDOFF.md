@@ -1,6 +1,6 @@
 # HANDOFF — Epic Preprocessing (#38)
 
-Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành #19.
+Trạng thái làm việc để người/agent tiếp theo có thể tiếp tục. Cập nhật lần cuối: khi hoàn thành bộ evaluation.
 
 ## Đã xong
 - PR #48 (document graph extractor) — review, sửa (taxonomy SRS, Unicode, style), merged.
@@ -17,8 +17,9 @@ Trạng thái làm việc để người/agent tiếp theo có thể tiếp tụ
 
 - #19 Semantic change: `backend/src/modules/history/change-events.ts`.
 
+- Evaluation: `data/eval/preprocessing-dev-v1.json`, `backend/scripts/eval-preprocessing.ts` (`bun run eval`), báo cáo trong `data/eval/reports/`.
+
 ## Còn lại
-6. Bộ evaluation (gold data + script metric) cho toàn bộ epic — các issue yêu cầu "dataset/metric tái lập được".
 7. Slide báo cáo epic
 
 ## Ghi chú môi trường
