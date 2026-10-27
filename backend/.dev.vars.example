@@ -1,7 +1,7 @@
 # Copy to backend/.dev.vars for `bun run dev`. Never commit real values.
 OPENAI_API_KEY=
 # Optional: model and pages per LLM request for PDF extraction.
-# OPENAI_MODEL=gpt-5.4
+# OPENAI_MODEL=gpt-5.4  # default model; the ask page can also switch to gpt-6-luna
 # PDF_CHUNK_PAGES=3
 
 # Internal MCP server: read token for read tools, write token additionally allows add_vocab.

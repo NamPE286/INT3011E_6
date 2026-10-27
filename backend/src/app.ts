@@ -14,6 +14,7 @@ import { changeModule } from "./modules/changes/change.route";
 import { violationModule } from "./modules/violations/violation.route";
 import { identityModule } from "./modules/identity/identity.route";
 import { askModule } from "./modules/ask/ask.route";
+import { modelsModule } from "./modules/llm/models.route";
 import { historyModule } from "./modules/history/history.route";
 
 export const app = new Elysia({ aot: false })
@@ -37,6 +38,7 @@ export const app = new Elysia({ aot: false })
     .use(identityModule)
     .use(historyModule)
     .use(askModule)
+    .use(modelsModule)
     .use(dummyModule)
     .use(mcpModule)
     .onError(({ code, error, set }) => {

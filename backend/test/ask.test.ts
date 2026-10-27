@@ -233,4 +233,34 @@ describe("POST /api/ask", () => {
         expect(empty.status).toBe(400);
         expect(badDate.status).toBe(400);
     });
+
+    it("sends the model chosen by the client to the provider", async () => {
+        const originalFetch = globalThis.fetch;
+        const requestedModels: unknown[] = [];
+
+        globalThis.fetch = (async (_url: unknown, init?: { body?: unknown }) => {
+            requestedModels.push(typeof init?.body === "string" ? (JSON.parse(init.body) as { model?: unknown }).model : null);
+
+            return Response.json({ status: "completed", output: [] });
+        }) as unknown as typeof fetch;
+
+        try {
+            const env = createMockEnv({ DB: await createCorpus(), OPENAI_API_KEY: "test-key" });
+            const response = await app.fetch(
+                withEnv(
+                    new Request("http://localhost/api/ask", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ question: QUESTION, as_of: "2021-06-01", model: "gpt-6-luna" }),
+                    }),
+                    env
+                )
+            );
+
+            expect(response.status).toBe(200);
+            expect(requestedModels).toEqual(["gpt-6-luna"]);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
 });
