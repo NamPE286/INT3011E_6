@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseJobDocument } from "./review";
+import { parseDocumentActions, parseJobDocument } from "./review";
 
 function locator(quality: string, pageStart = 1): Record<string, unknown> {
     return { page_start: pageStart, page_end: pageStart, quality };
@@ -114,5 +114,34 @@ describe("parseJobDocument", () => {
     test("rejects a response without a known review status", () => {
         expect(parseJobDocument({ ...body, reviewStatus: "WHATEVER" })).toBeNull();
         expect(parseJobDocument(null)).toBeNull();
+    });
+});
+
+describe("parseDocumentActions", () => {
+    const rule = (id: string, action: unknown): Record<string, unknown> => ({
+        id,
+        provisionId: `p-${id}`,
+        behaviorText: `Hành vi ${id}`,
+        semanticIr: { action },
+    });
+
+    test("pairs each rule with its action vocabulary", () => {
+        const actions = parseDocumentActions({
+            rules: [
+                rule("r1", { label: "vượt đèn đỏ", vocabId: "ACTION_001", evidence: "không chấp hành" }),
+                rule("r2", { label: "đi ngược chiều", vocabId: null, evidence: null }),
+                rule("r3", null),
+            ],
+        });
+
+        expect(actions).toEqual([
+            { ruleId: "r1", behaviorText: "Hành vi r1", actionLabel: "vượt đèn đỏ", vocabId: "ACTION_001" },
+            { ruleId: "r2", behaviorText: "Hành vi r2", actionLabel: "đi ngược chiều", vocabId: null },
+            { ruleId: "r3", behaviorText: "Hành vi r3", actionLabel: null, vocabId: null },
+        ]);
+    });
+
+    test("rejects a body without a rules list", () => {
+        expect(parseDocumentActions({ documentId: "d" })).toBeNull();
     });
 });

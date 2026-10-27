@@ -9,6 +9,7 @@
     let { data } = $props();
 
     const job = $derived(data.job);
+    const actions = $derived(data.actions);
     const errorCount = $derived(job.issues.filter((issue) => issue.severity === "ERROR").length);
     const needsReview = $derived(job.reviewStatus === "REVIEW_REQUIRED");
 
@@ -112,6 +113,34 @@
             <p class="text-sm text-muted-foreground">Chưa đọc được Điều nào.</p>
         {:else}
             <ReviewNodeTree nodes={job.nodes} />
+        {/if}
+    </section>
+
+    <section aria-labelledby="actions-heading" class="flex flex-col gap-3">
+        <h2 id="actions-heading" class="text-lg font-semibold">Hành vi vi phạm và từ vựng ({actions.length})</h2>
+
+        {#if actions.length === 0}
+            <p class="text-sm text-muted-foreground">Chưa trích xuất hành vi vi phạm nào cho văn bản này.</p>
+        {:else}
+            <ul class="flex flex-col gap-2">
+                {#each actions as action (action.ruleId)}
+                    <li class="flex flex-col gap-1 rounded-md border p-3 text-sm">
+                        <p>{action.behaviorText}</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            {#if action.actionLabel}
+                                <Badge variant="outline">{action.actionLabel}</Badge>
+                            {:else}
+                                <span class="text-xs text-muted-foreground">Chưa xác định hành vi</span>
+                            {/if}
+                            {#if action.vocabId}
+                                <code class="text-xs text-muted-foreground">{action.vocabId}</code>
+                            {:else if action.actionLabel}
+                                <span class="text-xs text-muted-foreground">Chưa có trong từ vựng</span>
+                            {/if}
+                        </div>
+                    </li>
+                {/each}
+            </ul>
         {/if}
     </section>
 

@@ -3,7 +3,7 @@ import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { invalidResponse, requestJson } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
-import { parseJobDocument, type JobDocument } from "./review";
+import { parseDocumentActions, parseJobDocument, type DocumentAction, type JobDocument } from "./review";
 import {
     parseViolationHistory,
     parseViolationRulesAsOf,
@@ -97,6 +97,10 @@ export async function askQuestion(question: string, asOf: string, model: string 
 
 export function getJobDocument(fetcher: Fetcher, jobId: string): Promise<JobDocument> {
     return getParsed(fetcher, `/api/jobs/${encodeURIComponent(jobId)}/document`, parseJobDocument);
+}
+
+export function getDocumentActions(fetcher: Fetcher, documentId: string): Promise<DocumentAction[]> {
+    return getParsed(fetcher, `/api/documents/${encodeURIComponent(documentId)}/violation-rules`, parseDocumentActions);
 }
 
 /** Publishes a document that was held for review; the backend then runs the preprocessing stages. */

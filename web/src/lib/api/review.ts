@@ -145,3 +145,37 @@ function parseNode(row: Record<string, unknown>, kind: NodeKind): ReviewNode | n
 function parseKind(value: string | null): NodeKind {
     return CHILD_KEYS.find((child) => child.kind === value)?.kind ?? "text";
 }
+
+/** The action (hành vi vi phạm) a rule was read as, and the vocabulary entry it was matched to. */
+export type DocumentAction = {
+    ruleId: string;
+    behaviorText: string;
+    actionLabel: string | null;
+    vocabId: string | null;
+};
+
+export function parseDocumentActions(value: unknown): DocumentAction[] | null {
+    if (!isRecord(value) || !Array.isArray(value.rules)) {
+        return null;
+    }
+
+    return readRows(value, "rules", parseDocumentAction);
+}
+
+function parseDocumentAction(row: Record<string, unknown>): DocumentAction | null {
+    const ruleId = readString(row, "id");
+
+    if (!ruleId) {
+        return null;
+    }
+
+    const semantics = isRecord(row.semanticIr) ? row.semanticIr : {};
+    const action = isRecord(semantics.action) ? semantics.action : {};
+
+    return {
+        ruleId,
+        behaviorText: readString(row, "behaviorText") ?? "",
+        actionLabel: readString(action, "label"),
+        vocabId: readString(action, "vocabId"),
+    };
+}
