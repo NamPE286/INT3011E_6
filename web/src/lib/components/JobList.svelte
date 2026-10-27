@@ -164,14 +164,12 @@
                                 {/if}
                             </Table.Cell>
                             <Table.Cell class="text-right">
-                                {#if job.status === "needs_review"}
-                                    <Button variant="outline" size="sm" href={`/admin/review/${job.id}`}>
-                                        <ClipboardCheck class="size-4" />
-                                        Xem xét
-                                    </Button>
-                                {/if}
-
                                 {#if hasDocument(job)}
+                                    <Button variant={job.status === "needs_review" ? "outline" : "ghost"} size="sm" href={`/admin/review/${job.id}`}>
+                                        <ClipboardCheck class="size-4" />
+                                        {job.status === "needs_review" ? "Xem xét" : "Xem lại"}
+                                    </Button>
+
                                     <Button
                                         variant="ghost"
                                         size="sm"

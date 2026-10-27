@@ -1,23 +1,16 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
     import { acceptJobDocument } from "$lib/api/client";
-    import type { ReadQuality } from "$lib/api/review";
+    import ReviewNodeTree from "$lib/components/ReviewNodeTree.svelte";
     import { Alert, AlertDescription, AlertTitle } from "$lib/components/ui/alert";
     import { Badge } from "$lib/components/ui/badge";
     import { Button } from "$lib/components/ui/button";
-    import * as Table from "$lib/components/ui/table";
 
     let { data } = $props();
 
     const job = $derived(data.job);
     const errorCount = $derived(job.issues.filter((issue) => issue.severity === "ERROR").length);
     const needsReview = $derived(job.reviewStatus === "REVIEW_REQUIRED");
-
-    const QUALITY_LABELS: Record<ReadQuality, string> = {
-        GOOD: "Đọc tốt",
-        PARTIAL: "Đọc một phần",
-        UNREADABLE: "Không đọc được",
-    };
 
     let accepting = $state(false);
     let errorMessage = $state<string | null>(null);
@@ -65,7 +58,7 @@
         <Alert>
             <AlertTitle>{errorCount} lỗi đang chặn việc công bố</AlertTitle>
             <AlertDescription>
-                Văn bản được lưu nhưng chưa dùng cho tra cứu và hỏi đáp. Đối chiếu từng lỗi và danh sách Điều với PDF gốc; chỉ duyệt khi nội dung đúng.
+                Văn bản được lưu nhưng chưa dùng cho tra cứu và hỏi đáp. Đối chiếu từng lỗi và nội dung bên dưới với PDF gốc; chỉ duyệt khi nội dung đúng.
             </AlertDescription>
         </Alert>
     {/if}
@@ -95,35 +88,37 @@
         {/if}
     </section>
 
-    <section aria-labelledby="articles-heading" class="flex flex-col gap-3">
-        <h2 id="articles-heading" class="text-lg font-semibold">Các Điều đã đọc ({job.articles.length})</h2>
+    <section aria-labelledby="meta-heading" class="flex flex-col gap-3">
+        <h2 id="meta-heading" class="text-lg font-semibold">Thông tin văn bản</h2>
 
-        <Table.Root>
-            <Table.Header>
-                <Table.Row>
-                    <Table.Head>Điều</Table.Head>
-                    <Table.Head>Tiêu đề</Table.Head>
-                    <Table.Head>Khoản</Table.Head>
-                    <Table.Head>Trang</Table.Head>
-                    <Table.Head>Chất lượng đọc</Table.Head>
-                </Table.Row>
-            </Table.Header>
-
-            <Table.Body>
-                {#each job.articles as article, index (index)}
-                    <Table.Row>
-                        <Table.Cell class="whitespace-nowrap font-medium">Điều {article.number}</Table.Cell>
-                        <Table.Cell class="whitespace-normal">{article.title ?? "—"}</Table.Cell>
-                        <Table.Cell>{article.clauseCount}</Table.Cell>
-                        <Table.Cell>{article.pageStart ?? "—"}</Table.Cell>
-                        <Table.Cell>
-                            <Badge variant={article.quality === "GOOD" ? "outline" : "destructive"}>{QUALITY_LABELS[article.quality]}</Badge>
-                        </Table.Cell>
-                    </Table.Row>
-                {/each}
-            </Table.Body>
-        </Table.Root>
+        <dl class="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
+            <dt class="text-muted-foreground">Tiêu đề</dt>
+            <dd>{job.title ?? "—"}</dd>
+            <dt class="text-muted-foreground">Mã snapshot</dt>
+            <dd class="break-all">{job.source.snapshotId ?? "—"}</dd>
+            <dt class="text-muted-foreground">SHA-256 của PDF</dt>
+            <dd class="break-all">{job.source.pdfSha256 ?? "—"}</dd>
+            <dt class="text-muted-foreground">Phần thứ</dt>
+            <dd>{job.source.partIndex ?? "—"}</dd>
+            <dt class="text-muted-foreground">Phần mở đầu</dt>
+            <dd class="whitespace-pre-line">{job.content ?? "—"}</dd>
+        </dl>
     </section>
+
+    <section aria-labelledby="content-heading" class="flex flex-col gap-3">
+        <h2 id="content-heading" class="text-lg font-semibold">Nội dung đã đọc</h2>
+
+        {#if job.nodes.length === 0}
+            <p class="text-sm text-muted-foreground">Chưa đọc được Điều nào.</p>
+        {:else}
+            <ReviewNodeTree nodes={job.nodes} />
+        {/if}
+    </section>
+
+    <details class="rounded-md border p-3">
+        <summary class="cursor-pointer text-sm font-medium">JSON gốc</summary>
+        <pre class="mt-3 max-h-[32rem] overflow-auto text-xs">{JSON.stringify(job.raw, null, 4)}</pre>
+    </details>
 
     <div aria-live="polite" class="flex flex-col gap-3">
         {#if errorMessage}

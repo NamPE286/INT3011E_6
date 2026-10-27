@@ -10,12 +10,26 @@ export type ReviewIssue = {
     page: number | null;
 };
 
-export type ReviewArticle = {
+export type NodeKind = "part" | "chapter" | "section" | "article" | "clause" | "point" | "text";
+
+export type ReviewNode = {
+    kind: NodeKind;
     number: string;
     title: string | null;
-    clauseCount: number;
+    content: string | null;
     pageStart: number | null;
+    pageEnd: number | null;
     quality: ReadQuality;
+    sourceQuote: string | null;
+    /** Wording an amendment quotes; it is not part of the document's own numbering. */
+    quoted: ReviewNode[];
+    children: ReviewNode[];
+};
+
+export type DocumentSource = {
+    snapshotId: string | null;
+    pdfSha256: string | null;
+    partIndex: number | null;
 };
 
 export type JobDocument = {
@@ -25,7 +39,10 @@ export type JobDocument = {
     model: string | null;
     pageCount: number | null;
     issues: ReviewIssue[];
-    articles: ReviewArticle[];
+    content: string | null;
+    source: DocumentSource;
+    nodes: ReviewNode[];
+    raw: unknown;
 };
 
 export function parseJobDocument(value: unknown): JobDocument | null {
@@ -50,7 +67,10 @@ export function parseJobDocument(value: unknown): JobDocument | null {
         model: readString(extraction, "model"),
         pageCount: readNumber(extraction, "pageCount"),
         issues: readRows(value, "issues", parseIssue),
-        articles: collectArticles(document),
+        content: readString(document, "content"),
+        source: parseSource(document.source),
+        nodes: parseChildren(document, ["parts", "chapters", "sections", "articles"]),
+        raw: value.document ?? null,
     };
 }
 
@@ -66,36 +86,62 @@ function parseIssue(row: Record<string, unknown>): ReviewIssue | null {
     return { severity, code, message, page: readNumber(row, "page") };
 }
 
-/** Articles can sit under parts, chapters and sections; grouped articles come before the document's own. */
-function collectArticles(container: Record<string, unknown>): ReviewArticle[] {
-    const articles: ReviewArticle[] = [];
+function parseSource(value: unknown): DocumentSource {
+    const source = isRecord(value) ? value : {};
 
-    for (const key of ["parts", "chapters", "sections"]) {
-        for (const child of readRows(container, key, (row) => row)) {
-            articles.push(...collectArticles(child));
+    return {
+        snapshotId: readString(source, "snapshot_id"),
+        pdfSha256: readString(source, "pdf_sha256"),
+        partIndex: readNumber(source, "part_index"),
+    };
+}
+
+const CHILD_KEYS: { key: string; kind: NodeKind }[] = [
+    { key: "parts", kind: "part" },
+    { key: "chapters", kind: "chapter" },
+    { key: "sections", kind: "section" },
+    { key: "articles", kind: "article" },
+    { key: "clauses", kind: "clause" },
+    { key: "points", kind: "point" },
+];
+
+function parseChildren(container: Record<string, unknown>, keys: string[]): ReviewNode[] {
+    const nodes: ReviewNode[] = [];
+
+    for (const { key, kind } of CHILD_KEYS) {
+        if (keys.includes(key)) {
+            nodes.push(...readRows(container, key, (row) => parseNode(row, kind)));
         }
     }
 
-    articles.push(...readRows(container, "articles", parseArticle));
-
-    return articles;
+    return nodes;
 }
 
-function parseArticle(row: Record<string, unknown>): ReviewArticle | null {
+function parseNode(row: Record<string, unknown>, kind: NodeKind): ReviewNode | null {
     const number = readString(row, "number");
 
-    if (!number) {
+    if (number === null) {
         return null;
     }
 
     const locator = isRecord(row.source_locator) ? row.source_locator : {};
     const quality = readString(locator, "quality");
+    const quoted = readRows(row, "quoted", (quotedRow) => parseNode(quotedRow, parseKind(readString(quotedRow, "kind"))));
 
     return {
+        kind,
         number,
         title: readString(row, "title"),
-        clauseCount: Array.isArray(row.clauses) ? row.clauses.length : 0,
+        content: readString(row, "content"),
         pageStart: readNumber(locator, "page_start"),
+        pageEnd: readNumber(locator, "page_end"),
         quality: quality === "PARTIAL" || quality === "UNREADABLE" ? quality : "GOOD",
+        sourceQuote: readString(locator, "source_quote"),
+        quoted,
+        children: parseChildren(row, CHILD_KEYS.map((child) => child.key)),
     };
+}
+
+function parseKind(value: string | null): NodeKind {
+    return CHILD_KEYS.find((child) => child.kind === value)?.kind ?? "text";
 }
