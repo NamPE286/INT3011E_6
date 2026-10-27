@@ -7,7 +7,7 @@
     import { Progress } from "$lib/components/ui/progress";
     import * as Table from "$lib/components/ui/table";
     import { isJobActive, parseJobList, type JobSummary } from "$lib/file-processing-response";
-    import { FileJson, RefreshCw } from "@lucide/svelte";
+    import { ClipboardCheck, FileJson, RefreshCw } from "@lucide/svelte";
 
     const ACTIVE_POLL_INTERVAL_MS = 3000;
     const backendUrl = PUBLIC_BACKEND_URL.replace(/\/$/, "");
@@ -165,6 +165,11 @@
                             </Table.Cell>
                             <Table.Cell class="text-right">
                                 {#if hasDocument(job)}
+                                    <Button variant={job.status === "needs_review" ? "outline" : "ghost"} size="sm" href={`/admin/review/${job.id}`}>
+                                        <ClipboardCheck class="size-4" />
+                                        {job.status === "needs_review" ? "Xem xét" : "Xem lại"}
+                                    </Button>
+
                                     <Button
                                         variant="ghost"
                                         size="sm"

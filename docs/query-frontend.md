@@ -33,7 +33,8 @@ Giới hạn: retrieval chỉ khớp theo từ trong tên/alias đã lưu, nên 
 | `/violations` | Tìm hành vi theo alias. |
 | `/violations/[id]?as_of=` | Quy định áp dụng tại ngày chọn (mỗi lineage/ngữ cảnh hiển thị riêng, rule `UNCERTAIN` có lý do) và lịch sử thay đổi theo lineage. |
 | `/ask` | Hỏi đáp AI; mỗi claim có chip nguồn dẫn tới provision. |
-| `/admin` | Trang nhập PDF trước đây ở `/` (vẫn chưa có xác thực, TODO #4). |
+| `/admin` | Trang nhập PDF trước đây ở `/` (vẫn chưa có xác thực, TODO #4). Job `needs_review` có nút **Xem xét**. |
+| `/admin/review/[jobId]` | Xem lỗi/cảnh báo validation và danh sách Điều đã đọc của văn bản `REVIEW_REQUIRED`; nút **Duyệt và công bố** gọi `POST /api/jobs/:jobId/review`. |
 
 Mọi liên kết nguồn có dạng `/documents/<documentId>#<provisionId>`. Phản hồi backend được kiểm tra ở biên (`web/src/lib/api/*`): dòng sai định dạng bị bỏ, status/loại không biết không được hiển thị như kết quả. Văn bản giải thích hiển thị cho người dùng do frontend sở hữu (tiếng Việt); không hiển thị chuỗi tiếng Anh từ backend.
 

@@ -10,7 +10,9 @@
     import { Textarea } from "$lib/components/ui/textarea";
     import { formatDate, formatFineRange, formatPeriod, todayIso } from "$lib/format";
     import { provisionHref } from "$lib/labels";
+    import { NativeSelect, NativeSelectOption } from "$lib/components/ui/native-select";
     import { Loader } from "@lucide/svelte";
+    import type { PageProps } from "./$types";
 
     const MAX_QUESTION_LENGTH = 500;
     const STATUS_LABELS: Record<AnswerStatus, string> = {
@@ -20,7 +22,12 @@
         NO_ANSWER: "Không đủ căn cứ để trả lời",
     };
 
+    let { data }: PageProps = $props();
+
     let question = $state("");
+    // The default only seeds the select; later changes are the user's.
+    // svelte-ignore state_referenced_locally
+    let model = $state(data.modelOptions.defaultModel);
     let asOf = $state(todayIso());
     let loading = $state(false);
     let errorMessage = $state<string | null>(null);
@@ -37,7 +44,7 @@
         errorMessage = null;
 
         try {
-            answer = await askQuestion(question.trim(), asOf);
+            answer = await askQuestion(question.trim(), asOf, model);
         } catch (cause: unknown) {
             answer = null;
             errorMessage = cause instanceof ApiError ? cause.message : "Không thể gửi câu hỏi";
@@ -78,6 +85,17 @@
                 <label for="as-of" class="text-sm font-medium">Áp dụng tại ngày</label>
                 <Input id="as-of" type="date" bind:value={asOf} required />
             </div>
+
+            {#if data.modelOptions.models.length > 0}
+                <div class="flex flex-col gap-1.5">
+                    <label for="model" class="text-sm font-medium">Mô hình</label>
+                    <NativeSelect id="model" bind:value={model}>
+                        {#each data.modelOptions.models as option (option.id)}
+                            <NativeSelectOption value={option.id}>{option.label}</NativeSelectOption>
+                        {/each}
+                    </NativeSelect>
+                </div>
+            {/if}
 
             <Button type="submit" disabled={loading || question.trim().length === 0}>
                 {#if loading}

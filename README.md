@@ -153,6 +153,17 @@ bun run check
 bun run build
 ```
 
+### Deploy frontend
+
+Workflow [`.github/workflows/web.yml`](.github/workflows/web.yml) chạy test, `svelte-check` và build cho mỗi PR đổi `web/`; khi merge vào `main` nó deploy lên [Cloudflare Pages](https://developers.cloudflare.com/pages/) (adapter `@sveltejs/adapter-cloudflare`). Cần cấu hình một lần trong GitHub (environment `production`):
+
+| Loại | Tên | Giá trị |
+| --- | --- | --- |
+| Secret | `CLOUDFLARE_API_TOKEN` | Token có quyền Cloudflare Pages: Edit. |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | Account ID của Cloudflare. |
+| Variable | `CLOUDFLARE_PAGES_PROJECT` | Tên project Pages đã tạo sẵn. |
+| Variable | `PUBLIC_BACKEND_URL` | URL backend được nhúng vào bản build. |
+
 ### Các lệnh thường dùng
 
 | Thư mục | Lệnh | Chức năng |
