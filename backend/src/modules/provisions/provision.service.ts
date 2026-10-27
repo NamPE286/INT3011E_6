@@ -83,28 +83,6 @@ function readSnapshotId(legalDocument: unknown): string | null {
     return typeof source.snapshot_id === "string" ? source.snapshot_id : null;
 }
 
-/**
- * Pipeline hook. The document is already saved when this runs, so a failure here is logged and can be
- * repaired by calling the analyze endpoint again; it must not turn a finished job into a failed one.
- */
-export async function analyzeAfterExtraction(db: D1Database, jobId: string): Promise<void> {
-    try {
-        const result = await analyzeStoredDocument(db, jobId);
-
-        console.log(JSON.stringify({
-            level: "info",
-            module: "provisions",
-            jobId,
-            outcome: result.outcome,
-            total: result.outcome === "ANALYZED" ? result.summary.total : 0,
-        }));
-    } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : "Unknown provision analysis error";
-
-        console.error(`[Provisions] Analysis failed for ${jobId}`, detail);
-    }
-}
-
 export function summarizeProvisions(provisions: Provision[]): ProvisionSummary {
     const byContentRole: Partial<Record<ContentRole, number>> = {};
     const byRelevance: Partial<Record<Relevance, number>> = {};

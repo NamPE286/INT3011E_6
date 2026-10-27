@@ -9,7 +9,7 @@ import {
     transcribeChunk,
 } from "./legal-llm.service";
 import { saveLegalDocument } from "./legal-persistence";
-import { runPreprocessing } from "./preprocessing";
+import { enqueueMissingStages, resetPreprocessingStages, runPreprocessing } from "./preprocessing";
 import { LEGAL_SCHEMA_VERSION, NeedsReviewError, type ChunkTranscription } from "./legal-types";
 import {
     extractPageRange,
@@ -108,7 +108,14 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
             promptVersion: PROMPT_VERSION,
         });
 
-        await runPreprocessing(env.DB, jobId, { apiKey: env.OPENAI_API_KEY, model, fetcher: options.fetcher });
+        await resetPreprocessingStages(env.DB, jobId);
+
+        if (reviewStatus === "ACCEPTED") {
+            await enqueueMissingStages(env.DB, env.PROCESSING_QUEUE, jobId);
+        } else {
+            // Clears what was derived from an earlier read; the stages run once the document is accepted.
+            await runPreprocessing(env.DB, jobId, { apiKey: env.OPENAI_API_KEY, model, fetcher: options.fetcher });
+        }
 
         console.log(JSON.stringify({
             level: "info",

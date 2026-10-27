@@ -12,6 +12,16 @@ import { createMockEnv, type MockEnvironment } from "./mocks";
 
 const JOB_ID = "job-nd-sample";
 
+/** Hands queued messages to the consumer one at a time until the queue is empty. */
+async function deliverQueuedMessages(env: MockEnvironment): Promise<void> {
+    while (env.queueMessages.length > 0) {
+        const body = env.queueMessages.shift()!;
+        const message = { body, ack() {}, retry() {} } as unknown as Message<ProcessingQueueMessage>;
+
+        await handleProcessingBatch({ messages: [message] } as unknown as MessageBatch<ProcessingQueueMessage>, env);
+    }
+}
+
 async function createEnvWithPdf(pageCount: number): Promise<MockEnvironment> {
     const env = createMockEnv({ OPENAI_API_KEY: "test-key", OPENAI_MODEL: "test-model", PDF_CHUNK_PAGES: "2" });
     const pdf = await PDFDocument.create();
@@ -110,6 +120,9 @@ describe("PDF → legal JSON pipeline", () => {
         expect(runKeys.some((key) => key.endsWith("/chunks/1-2.json"))).toBe(true);
         expect(runKeys.some((key) => key.endsWith("/validated.json"))).toBe(true);
         expect(env.r2Store.has(`uploads/${JOB_ID}/sample.pdf`)).toBe(true);
+        expect(env.queueMessages).toEqual([{ jobId: JOB_ID, stage: "PROVISIONS" }]);
+
+        await deliverQueuedMessages(env);
 
         const provisions = await listProvisions(env.DB, JOB_ID);
         const pointA = provisions.find((provision) => provision.id === `${JOB_ID}:dieu_1_khoan_2_diem_a`);

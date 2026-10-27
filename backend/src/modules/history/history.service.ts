@@ -62,18 +62,6 @@ export async function refreshHistory(db: D1Database): Promise<{ lineages: number
     return { lineages: lineages.length, intervals: intervals.length, changeEvents: events.length };
 }
 
-export async function refreshHistoryAfterExtraction(db: D1Database): Promise<void> {
-    try {
-        const result = await refreshHistory(db);
-
-        console.log(JSON.stringify({ level: "info", module: "history", ...result }));
-    } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : "Unknown history error";
-
-        console.error("[History] Refresh failed", detail);
-    }
-}
-
 /**
  * FR-12.2: the rules of a violation that apply on `date`, per lineage. Lineages with different context
  * (vehicle, subject) are all returned; nothing is picked arbitrarily.

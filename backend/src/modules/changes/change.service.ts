@@ -84,25 +84,6 @@ export async function buildChangeGraph(db: D1Database, documentId: string): Prom
     };
 }
 
-export async function buildChangesAfterExtraction(db: D1Database, documentId: string): Promise<void> {
-    try {
-        const result = await buildChangeGraph(db, documentId);
-
-        console.log(JSON.stringify({
-            level: "info",
-            module: "changes",
-            documentId,
-            outcome: result.outcome,
-            instructions: result.outcome === "BUILT" ? result.instructionCount : 0,
-            relations: result.outcome === "BUILT" ? result.relationCount : 0,
-        }));
-    } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : "Unknown change graph error";
-
-        console.error(`[Changes] Build failed for ${documentId}`, detail);
-    }
-}
-
 /** Re-resolves all instructions, rewrites provision relations and re-derives the document graph from both. */
 export async function refreshChanges(db: D1Database): Promise<{ instructions: ChangeInstruction[]; relations: ProvisionRelation[] }> {
     const [stored, metadata] = await Promise.all([listAllChangeInstructions(db), listDocumentMetadata(db)]);

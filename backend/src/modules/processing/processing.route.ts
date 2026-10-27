@@ -2,8 +2,7 @@ import { Elysia, t } from "elysia";
 import { extractEnvFromRequest } from "../../plugins/context";
 import { getJobById, getRecentJobs, toJobResponse } from "./job.repository";
 import { acceptReviewedDocument, getLegalDocumentByJobId } from "./legal-persistence";
-import { DEFAULT_OPENAI_MODEL } from "./legal-llm.service";
-import { runPreprocessing } from "./preprocessing";
+import { enqueueMissingStages, listPreprocessingStages } from "./preprocessing";
 
 // TODO(#4): these admin endpoints must require Admin authorization once authPlugin is implemented.
 export const processingModule = new Elysia({ prefix: "/api" })
@@ -114,9 +113,7 @@ export const processingModule = new Elysia({ prefix: "/api" })
                 return { message: "The document is not waiting for review" };
             }
 
-            const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
-
-            await runPreprocessing(env.DB, params.jobId, { apiKey: env.OPENAI_API_KEY, model });
+            await enqueueMissingStages(env.DB, env.PROCESSING_QUEUE, params.jobId);
 
             return { jobId: params.jobId, reviewStatus: "ACCEPTED" };
         },
@@ -126,6 +123,70 @@ export const processingModule = new Elysia({ prefix: "/api" })
             }),
             body: t.Object({
                 decision: t.Literal("accept"),
+            }),
+        }
+    )
+    .get(
+        "/jobs/:jobId/preprocessing",
+        async ({ params, set, request }) => {
+            const env = extractEnvFromRequest(request);
+
+            if (!env?.DB) {
+                set.status = 503;
+
+                return { message: "Database service unavailable" };
+            }
+
+            const stored = await getLegalDocumentByJobId(env.DB, params.jobId);
+
+            if (!stored) {
+                set.status = 404;
+
+                return { message: "Legal document not found for this job" };
+            }
+
+            return { jobId: params.jobId, stages: await listPreprocessingStages(env.DB, params.jobId) };
+        },
+        {
+            params: t.Object({
+                jobId: t.String(),
+            }),
+        }
+    )
+    .post(
+        "/jobs/:jobId/preprocessing",
+        async ({ params, set, request }) => {
+            const env = extractEnvFromRequest(request);
+
+            if (!env?.DB) {
+                set.status = 503;
+
+                return { message: "Database service unavailable" };
+            }
+
+            const stored = await getLegalDocumentByJobId(env.DB, params.jobId);
+
+            if (!stored) {
+                set.status = 404;
+
+                return { message: "Legal document not found for this job" };
+            }
+
+            if (stored.reviewStatus !== "ACCEPTED") {
+                set.status = 409;
+
+                return { message: "The document still needs review, so it is not preprocessed" };
+            }
+
+            const startStage = await enqueueMissingStages(env.DB, env.PROCESSING_QUEUE, params.jobId);
+
+            set.status = startStage ? 202 : 200;
+
+            return { jobId: params.jobId, startStage };
+        },
+        {
+            params: t.Object({
+                jobId: t.String(),
             }),
         }
     );

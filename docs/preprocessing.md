@@ -12,7 +12,22 @@ saveLegalDocument (ACCEPTED)
   └─ 6. History (#18, #19)       rule_lineages, rule_intervals, change_events
 ```
 
-Các bước được gọi tuần tự bởi `runPreprocessing` (`backend/src/modules/processing/preprocessing.ts`) trong `executeProcessingPipeline` ngay sau khi lưu văn bản. Lỗi của một bước được log và có thể chạy lại bằng endpoint tương ứng; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
+Các bước chạy theo thứ tự trên (`backend/src/modules/processing/preprocessing.ts`). Lỗi của một bước được ghi vào checklist và có thể chạy lại; nó không biến job đã hoàn tất thành `failed`. Văn bản `REVIEW_REQUIRED` không được phân tích, và dữ liệu phái sinh của lần đọc trước bị xóa.
+
+### Checklist tiền xử lý
+
+Bảng `preprocessing_stages` giữ một dòng cho mỗi `(job_id, stage)` với `status` `PENDING / RUNNING / DONE / FAILED` và `error`. Không có dòng nghĩa là bước chưa chạy, nên văn bản nhập trước khi có checklist sẽ được chạy lại toàn bộ.
+
+- **Khi công bố** — lưu văn bản `ACCEPTED` ngay sau khi đọc, hoặc `POST /api/jobs/:jobId/review` — checklist của lần đọc mới được đặt lại và bước đầu tiên chưa `DONE` được gửi vào queue `pdf-convert` (`{ jobId, stage }`). Vì vậy hành vi vi phạm và từ vựng (bước 4) luôn được trích xuất sau khi đọc được điều khoản hoặc sau khi duyệt.
+- **Mỗi bước một lần gọi queue**: consumer chạy một bước, ghi kết quả, rồi gửi bước kế tiếp. Văn bản dài không còn mất các bước sau vì một request duy nhất hết thời gian hoặc CPU. Bước `FAILED` không chặn các bước sau, trừ `PROVISIONS` (các bước khác không có dữ liệu đầu vào).
+- **Chạy lại**: chạy từ bước đầu tiên chưa `DONE` đến hết, vì mỗi bước đọc dữ liệu của các bước trước.
+
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/jobs/:jobId/preprocessing` | Checklist `stages[]` (`stage`, `status`, `error`, `updatedAt`). |
+| `POST` | `/api/jobs/:jobId/preprocessing` | Đưa các bước còn thiếu vào queue: `202 { startStage }`, `200 { startStage: null }` khi đã đủ, `409` nếu văn bản cần review. |
+
+Trang `/admin/review/[jobId]` hiển thị checklist và nút chạy lại các bước còn thiếu; trang `/documents/[id]` có tab "Hành vi vi phạm" liệt kê nhãn hành vi và `vocab_id` của từng rule.
 
 > Các endpoint dưới đây chưa có xác thực Admin (TODO #4, giống `/api/jobs*`).
 

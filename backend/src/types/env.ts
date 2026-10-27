@@ -1,7 +1,9 @@
 import type { D1Database, R2Bucket, Queue } from "@cloudflare/workers-types";
 
+/** Without `stage` the message reads the PDF; with it, it runs that preprocessing stage of the document. */
 export interface ProcessingQueueMessage {
     jobId: string;
+    stage?: string;
 }
 
 export interface Env {

@@ -92,41 +92,16 @@ export async function extractViolationRules(db: D1Database, documentId: string, 
 }
 
 /**
- * Pipeline hook. Amendments imported earlier only place their rewritten rules once the document they
- * amend exists, so their rules are extracted again after this document's.
+ * The documents whose rules depend on this one: the document itself and the amendments imported earlier,
+ * which only place their rewritten rules once the document they amend exists.
  */
-export async function extractRulesAfterExtraction(db: D1Database, documentId: string, options: ExtractionOptions): Promise<string[]> {
+export async function listRuleDocuments(db: D1Database, documentId: string): Promise<string[]> {
     const amenders = await db
         .prepare("SELECT DISTINCT from_document_id FROM provision_relations WHERE to_document_id = ? AND from_document_id != ?")
         .bind(documentId, documentId)
         .all<{ from_document_id: string }>();
 
-    const documentIds = [documentId, ...amenders.results.map((row) => row.from_document_id)];
-
-    for (const id of documentIds) {
-        await extractRulesLogged(db, id, options);
-    }
-
-    return documentIds;
-}
-
-async function extractRulesLogged(db: D1Database, documentId: string, options: ExtractionOptions): Promise<void> {
-    try {
-        const result = await extractViolationRules(db, documentId, options);
-
-        console.log(JSON.stringify({
-            level: "info",
-            module: "violations",
-            documentId,
-            outcome: result.outcome,
-            rules: result.outcome === "EXTRACTED" ? result.ruleCount : 0,
-            semantic: result.outcome === "EXTRACTED" ? result.run.status : null,
-        }));
-    } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : "Unknown violation extraction error";
-
-        console.error(`[Violations] Extraction failed for ${documentId}`, detail);
-    }
+    return [documentId, ...amenders.results.map((row) => row.from_document_id)];
 }
 
 export async function getViolationRules(db: D1Database, documentId: string): Promise<{ documentId: string; rules: StoredViolationRule[]; runs: ExtractionRun[] }> {

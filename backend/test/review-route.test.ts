@@ -40,6 +40,7 @@ describe("document review", () => {
 
         expect(job?.status).toBe("completed");
         expect(job?.error_message).toBeNull();
+        expect(env.queueMessages).toEqual([{ jobId: SEED_JOB_ID, stage: "PROVISIONS" }]);
 
         const documentResponse = await app.fetch(withEnv(new Request(`http://localhost/api/jobs/${SEED_JOB_ID}/document`), env));
         const documentBody = (await documentResponse.json()) as { reviewStatus: string };

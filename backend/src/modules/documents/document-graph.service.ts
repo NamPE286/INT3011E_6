@@ -128,25 +128,6 @@ export async function buildDocumentGraph(db: D1Database, documentId: string): Pr
     };
 }
 
-/** Pipeline hook: a graph failure is logged and can be repaired by the rebuild endpoint; the job stays finished. */
-export async function buildGraphAfterExtraction(db: D1Database, documentId: string): Promise<void> {
-    try {
-        const result = await buildDocumentGraph(db, documentId);
-
-        console.log(JSON.stringify({
-            level: "info",
-            module: "document-graph",
-            documentId,
-            outcome: result.outcome,
-            candidates: result.outcome === "BUILT" ? result.candidateCount : 0,
-        }));
-    } catch (error: unknown) {
-        const detail = error instanceof Error ? error.message : "Unknown document graph error";
-
-        console.error(`[DocumentGraph] Build failed for ${documentId}`, detail);
-    }
-}
-
 export async function getDocumentRelations(db: D1Database, documentId: string): Promise<DocumentRelationsView> {
     const [metadata, relations, candidates] = await Promise.all([
         getDocumentMetadata(db, documentId),

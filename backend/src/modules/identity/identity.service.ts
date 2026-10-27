@@ -90,20 +90,6 @@ export async function resolveDocumentIdentities(db: D1Database, documentId: stri
     return { documentId, counts: countDecisions(decisions), decisions };
 }
 
-export async function resolveIdentitiesAfterExtraction(db: D1Database, documentIds: string[], options: IdentityOptions): Promise<void> {
-    for (const documentId of documentIds) {
-        try {
-            const result = await resolveDocumentIdentities(db, documentId, options);
-
-            console.log(JSON.stringify({ level: "info", module: "identity", documentId, counts: result.counts }));
-        } catch (error: unknown) {
-            const detail = error instanceof Error ? error.message : "Unknown identity resolution error";
-
-            console.error(`[Identity] Resolution failed for ${documentId}`, detail);
-        }
-    }
-}
-
 export async function findViolations(db: D1Database, query: string, limit = 20): Promise<ViolationSummary[]> {
     return searchViolations(db, normalizeBehaviour(query), Math.min(Math.max(limit, 1), 100));
 }

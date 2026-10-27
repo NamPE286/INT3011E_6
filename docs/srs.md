@@ -130,7 +130,9 @@ Admin có thể:
 
 Admin và Reviewer được gộp thành một role.
 
-MVP không có manual review queue bắt buộc: văn bản `REVIEW_REQUIRED` không chặn các văn bản khác, và chỉ được dùng cho tra cứu, hỏi đáp sau khi Admin/Reviewer duyệt. Duyệt chỉ chuyển trạng thái sang `ACCEPTED` (không sửa nội dung) rồi chạy các bước tiền xử lý; văn bản sai được xử lý bằng cách upload lại.
+MVP không có manual review queue bắt buộc: văn bản `REVIEW_REQUIRED` không chặn các văn bản khác, và chỉ được dùng cho tra cứu, hỏi đáp sau khi Admin/Reviewer duyệt. Duyệt chỉ chuyển trạng thái sang `ACCEPTED` (không sửa nội dung) rồi đưa các bước tiền xử lý vào hàng đợi; văn bản sai được xử lý bằng cách upload lại.
+
+Mỗi job có checklist tiền xử lý (`PROVISIONS → DOCUMENT_GRAPH → CHANGE_GRAPH → VIOLATION_RULES → IDENTITY → HISTORY`), trạng thái `PENDING / RUNNING / DONE / FAILED` từng bước. Hành vi vi phạm và từ vựng (`VIOLATION_RULES`) được trích xuất ngay khi văn bản được công bố, dù tự động (đọc không lỗi) hay sau khi duyệt. Mỗi bước chạy trong một lần gọi queue riêng; bước lỗi được ghi lại và không chặn các bước sau (trừ khi không đọc được Điều/Khoản/Điểm). Khi công bố hoặc khi Admin yêu cầu chạy lại, hệ thống chạy lại từ bước đầu tiên chưa `DONE` đến hết; văn bản chưa có checklist được coi là chưa chạy bước nào.
 
 ### 3.3. System
 
@@ -600,7 +602,7 @@ Evidence bundle gồm context, effective interval, sanction fields, history tran
 | Khía cạnh | Hiện có trong code | Thiết kế đích cần triển khai |
 | --- | --- | --- |
 | Upload | `POST /api/uploads`: kiểm tra `%PDF-`, parse được cấu trúc, không mã hóa, ≤ 50 MB và ≤ 300 trang; lưu snapshot R2, tạo `processing_jobs`, gửi `{ jobId }`. | Admin PDF import nhiều phần/phụ lục, hash dedup và provenance. |
-| Job tracking | `GET /api/jobs`, `GET /api/jobs/:jobId`, `GET /api/jobs/:jobId/document`, `POST /api/jobs/:jobId/review` (duyệt văn bản `REVIEW_REQUIRED`, trang `/admin/review/[jobId]`); trạng thái `queued / processing / completed / needs_review / failed` (`failed` = lỗi tạm thời đang chờ retry). | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
+| Job tracking | `GET /api/jobs`, `GET /api/jobs/:jobId`, `GET /api/jobs/:jobId/document`, `POST /api/jobs/:jobId/review` (duyệt văn bản `REVIEW_REQUIRED`, trang `/admin/review/[jobId]`), `GET/POST /api/jobs/:jobId/preprocessing` (checklist tiền xử lý và chạy lại các bước còn thiếu); trạng thái `queued / processing / completed / needs_review / failed` (`failed` = lỗi tạm thời đang chờ retry). | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
 | Consumer | LLM đọc PDF theo cụm trang (checkpoint R2, retry/resume), ghép cây Phần→Điểm deterministic, kiểm tra số thứ tự/độ phủ trang/chất lượng, lưu `legal_documents` với `review_status` và run provenance ([chi tiết](pdf-upload-api.md)). | Discovery/graph, semantic extraction và publish/index thật. |
 | Domain storage | `processing_jobs`, `legal_documents` (JSON contract v1 dạng blob), `vocab_entries`/`vocab_metadata`. | Schema domain theo mục 7–8 (Document/Provision tách bảng), constraints và indexes. |
 | MCP | `POST /mcp`: `get_vocab_snapshot`, `add_vocab`, `search_legal_documents`; token đọc và token ghi riêng, fail closed ([chi tiết](mcp-server.md)). | Ghi `vocabulary_version` theo ExtractionRun khi có pipeline trích xuất hành vi. |

@@ -35,7 +35,7 @@ Assembler còn chuẩn hóa chữ Cyrillic trông giống chữ Latin trong ký 
 - Output LLM sai schema được thử lại 1 lần. Nếu vẫn sai, các trang của cụm đó bị đánh dấu `UNREADABLE` (không lặp vô hạn, không bịa nội dung).
 - Lỗi vĩnh viễn (PDF hỏng, thiếu `OPENAI_API_KEY`, không tìm thấy cấu trúc) → `needs_review`, message được `ack()`.
 - Message trùng cho job đã `completed`/`needs_review` được bỏ qua.
-- Duyệt: `POST /api/jobs/:jobId/review` với `{ "decision": "accept" }` chuyển document `REVIEW_REQUIRED` sang `ACCEPTED`, job sang `completed` rồi chạy preprocessing; `409` nếu document không chờ review, `404` nếu không có document.
+- Duyệt: `POST /api/jobs/:jobId/review` với `{ "decision": "accept" }` chuyển document `REVIEW_REQUIRED` sang `ACCEPTED`, job sang `completed` rồi đưa preprocessing vào queue ([checklist](preprocessing.md#checklist-tiền-xử-lý)); `409` nếu document không chờ review, `404` nếu không có document.
 
 ### Mức độ issue
 
