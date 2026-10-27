@@ -6,7 +6,8 @@ export class DocumentRepository {
 
     public async searchCorpusDocuments(
         queryTerms: string[],
-        maxFetch: number = 50
+        maxFetch: number = 50,
+        acceptedOnly: boolean = false
     ): Promise<LegalDocumentRecord[]> {
         // Fast SQL filtering on D1 to bound memory and execution cost
         if (queryTerms.length === 0) {
@@ -22,6 +23,7 @@ export class DocumentRepository {
                         pdf_sha256,
                         created_at
                     FROM legal_documents
+                    ${acceptedOnly ? "WHERE review_status = 'ACCEPTED'" : ""}
                     ORDER BY created_at DESC
                     LIMIT ?
                 `)
@@ -65,7 +67,8 @@ export class DocumentRepository {
                 pdf_sha256,
                 created_at
             FROM legal_documents
-            WHERE ${likeClauses.join(" OR ")}
+            WHERE (${likeClauses.join(" OR ")})
+            ${acceptedOnly ? "AND review_status = 'ACCEPTED'" : ""}
             ORDER BY created_at DESC
             LIMIT ?
         `;

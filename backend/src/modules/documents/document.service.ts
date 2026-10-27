@@ -11,7 +11,10 @@ const DISCLAIMER_TEXT =
     "Kết quả tìm kiếm rỗng không chứng minh văn bản không tồn tại trong hệ thống pháp luật Việt Nam. Danh sách trả về chỉ bao gồm các candidate được phát hiện trong kho corpus nội bộ; việc phân giải canonical identity và quan hệ pháp lý phải do backend resolver chuyên biệt thực hiện.";
 
 export class DocumentService {
-    constructor(private readonly repository: DocumentRepository) {}
+    constructor(
+        private readonly repository: DocumentRepository,
+        private readonly options: { acceptedOnly?: boolean } = {}
+    ) {}
 
     public async searchLegalDocuments(
         input: SearchLegalDocumentsInput
@@ -58,7 +61,7 @@ export class DocumentService {
         terms.push(...queryWords.slice(0, 4));
 
         // Fetch candidates with bounded SQL query
-        const records = await this.repository.searchCorpusDocuments(terms, Math.min(100, limit * 4));
+        const records = await this.repository.searchCorpusDocuments(terms, Math.min(100, limit * 4), this.options.acceptedOnly ?? false);
 
         if (records.length === 0) {
             const emptyResponse: SearchLegalDocumentsResponse = {

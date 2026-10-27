@@ -31,3 +31,15 @@ Các bước chạy qua `runPreprocessing` (`backend/src/modules/processing/prep
 - OpenAI key chỉ để trong `backend/.dev.vars` (gitignored), không commit.
 - Kiểm tra: `cd backend && bun test && bun run typecheck`; đánh giá: `bun run eval` (thêm `-- --llm` với `OPENAI_API_KEY`).
 - Quy tắc code: `docs/ai-rules/*`.
+
+## Epic Truy vấn (#39) — giao diện và API
+
+Đã làm (nhánh `claude/feat/query-frontend`, chưa push): tìm/xem văn bản (#23), tra cứu hành vi + as-of + lịch sử (#24), hỏi đáp AI có dẫn nguồn (#26). Xem [docs/query-frontend.md](docs/query-frontend.md).
+
+Còn thiếu so với tiêu chí nghiệm thu:
+
+- Metric retrieval tái lập và bộ QA held-out (retrieval, correctness, citation) — thuộc #29.
+- Tìm hành vi chỉ theo alias; chưa có full-text trên nội dung provision.
+- Frontend chưa có test component/e2e (chỉ test phần logic thuần); đã kiểm tra thủ công bằng trình duyệt trên dữ liệu fixture.
+- `/api/ask` và các endpoint admin chưa có xác thực/rate limit.
+- Nhãn tên văn bản ở tab Quan hệ chỉ tra được trong 50 văn bản mới nhất; ngoài đó hiển thị id.
