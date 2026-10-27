@@ -2,6 +2,7 @@ import { PUBLIC_BACKEND_URL } from "$env/static/public";
 import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { invalidResponse, requestJson } from "./http";
+import { parseModelOptions, type ModelOptions } from "./models";
 import {
     parseViolationHistory,
     parseViolationRulesAsOf,
@@ -69,14 +70,18 @@ export function getViolationHistory(fetcher: Fetcher, violationId: string): Prom
     return getParsed(fetcher, `/api/violations/${encodeURIComponent(violationId)}/history`, parseViolationHistory);
 }
 
-export async function askQuestion(question: string, asOf: string, fetcher: Fetcher = fetch): Promise<AskAnswer> {
+export function getModelOptions(fetcher: Fetcher): Promise<ModelOptions> {
+    return getParsed(fetcher, "/api/models", parseModelOptions);
+}
+
+export async function askQuestion(question: string, asOf: string, model: string | null, fetcher: Fetcher = fetch): Promise<AskAnswer> {
     const body = await requestJson(
         PUBLIC_BACKEND_URL,
         "/api/ask",
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question, as_of: asOf }),
+            body: JSON.stringify({ question, as_of: asOf, model: model || undefined }),
         },
         fetcher,
     );
