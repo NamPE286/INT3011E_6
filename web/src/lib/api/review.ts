@@ -179,3 +179,34 @@ function parseDocumentAction(row: Record<string, unknown>): DocumentAction | nul
         vocabId: readString(action, "vocabId"),
     };
 }
+
+export type StageStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED";
+
+/** One item of a document's preprocessing checklist (docs/preprocessing.md). */
+export type PreprocessingStage = {
+    stage: string;
+    status: StageStatus;
+    error: string | null;
+};
+
+const STAGE_STATUSES: readonly StageStatus[] = ["PENDING", "RUNNING", "DONE", "FAILED"];
+
+export function parsePreprocessingChecklist(value: unknown): PreprocessingStage[] | null {
+    if (!isRecord(value) || !Array.isArray(value.stages)) {
+        return null;
+    }
+
+    return readRows(value, "stages", parsePreprocessingStage);
+}
+
+function parsePreprocessingStage(row: Record<string, unknown>): PreprocessingStage | null {
+    const stage = readString(row, "stage");
+
+    if (!stage) {
+        return null;
+    }
+
+    const status = STAGE_STATUSES.find((known) => known === row.status) ?? "PENDING";
+
+    return { stage, status, error: readString(row, "error") };
+}

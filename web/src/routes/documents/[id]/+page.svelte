@@ -1,5 +1,6 @@
 <script lang="ts">
     import { amendmentsByProvision, buildProvisionTree } from "$lib/api/documents";
+    import DocumentActions from "$lib/components/DocumentActions.svelte";
     import ProvisionTree from "$lib/components/ProvisionTree.svelte";
     import RelationsPanel from "$lib/components/RelationsPanel.svelte";
     import ScopeNotice from "$lib/components/ScopeNotice.svelte";
@@ -57,6 +58,7 @@
     <Tabs value="content">
         <TabsList>
             <TabsTrigger value="content">Nội dung</TabsTrigger>
+            <TabsTrigger value="actions">Hành vi vi phạm ({data.actions.length})</TabsTrigger>
             <TabsTrigger value="relations">Quan hệ</TabsTrigger>
         </TabsList>
 
@@ -73,6 +75,11 @@
             {/if}
 
             <ScopeNotice kind="document" />
+        </TabsContent>
+
+        <TabsContent value="actions" class="flex flex-col gap-3 pt-4">
+            <p class="text-sm text-muted-foreground">Hành vi mỗi quy tắc xử phạt được đọc thành, và mục từ vựng hành vi đã khớp.</p>
+            <DocumentActions actions={data.actions} />
         </TabsContent>
 
         <TabsContent value="relations" class="pt-4">

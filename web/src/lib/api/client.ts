@@ -3,7 +3,14 @@ import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { invalidResponse, requestJson } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
-import { parseDocumentActions, parseJobDocument, type DocumentAction, type JobDocument } from "./review";
+import {
+    parseDocumentActions,
+    parseJobDocument,
+    parsePreprocessingChecklist,
+    type DocumentAction,
+    type JobDocument,
+    type PreprocessingStage,
+} from "./review";
 import {
     parseViolationHistory,
     parseViolationRulesAsOf,
@@ -103,7 +110,16 @@ export function getDocumentActions(fetcher: Fetcher, documentId: string): Promis
     return getParsed(fetcher, `/api/documents/${encodeURIComponent(documentId)}/violation-rules`, parseDocumentActions);
 }
 
-/** Publishes a document that was held for review; the backend then runs the preprocessing stages. */
+export function getPreprocessingChecklist(fetcher: Fetcher, jobId: string): Promise<PreprocessingStage[]> {
+    return getParsed(fetcher, `/api/jobs/${encodeURIComponent(jobId)}/preprocessing`, parsePreprocessingChecklist);
+}
+
+/** Queues the checklist again from its first stage that is not done. */
+export async function rerunMissingPreprocessing(fetcher: Fetcher, jobId: string): Promise<void> {
+    await requestJson(PUBLIC_BACKEND_URL, `/api/jobs/${encodeURIComponent(jobId)}/preprocessing`, { method: "POST" }, fetcher);
+}
+
+/** Publishes a document that was held for review; the backend then queues the preprocessing stages. */
 export async function acceptJobDocument(fetcher: Fetcher, jobId: string): Promise<void> {
     const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "accept" }) };
 

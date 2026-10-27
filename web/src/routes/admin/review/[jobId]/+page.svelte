@@ -1,6 +1,8 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
-    import { acceptJobDocument } from "$lib/api/client";
+    import { acceptJobDocument, rerunMissingPreprocessing } from "$lib/api/client";
+    import DocumentActions from "$lib/components/DocumentActions.svelte";
+    import PreprocessingChecklist from "$lib/components/PreprocessingChecklist.svelte";
     import ReviewNodeTree from "$lib/components/ReviewNodeTree.svelte";
     import { Alert, AlertDescription, AlertTitle } from "$lib/components/ui/alert";
     import { Badge } from "$lib/components/ui/badge";
@@ -10,11 +12,15 @@
 
     const job = $derived(data.job);
     const actions = $derived(data.actions);
+    const checklist = $derived(data.checklist);
+    const missingStages = $derived(checklist.filter((item) => item.status !== "DONE").length);
     const errorCount = $derived(job.issues.filter((issue) => issue.severity === "ERROR").length);
     const needsReview = $derived(job.reviewStatus === "REVIEW_REQUIRED");
 
     let accepting = $state(false);
+    let rerunning = $state(false);
     let errorMessage = $state<string | null>(null);
+    let rerunError = $state<string | null>(null);
 
     async function accept(): Promise<void> {
         accepting = true;
@@ -27,6 +33,20 @@
             errorMessage = cause instanceof Error ? cause.message : "Không thể duyệt văn bản";
         } finally {
             accepting = false;
+        }
+    }
+
+    async function rerunMissing(): Promise<void> {
+        rerunning = true;
+        rerunError = null;
+
+        try {
+            await rerunMissingPreprocessing(fetch, job.jobId);
+            await invalidateAll();
+        } catch (cause: unknown) {
+            rerunError = cause instanceof Error ? cause.message : "Không thể chạy lại tiền xử lý";
+        } finally {
+            rerunning = false;
         }
     }
 </script>
@@ -116,32 +136,36 @@
         {/if}
     </section>
 
+    {#if !needsReview}
+        <section aria-labelledby="checklist-heading" class="flex flex-col gap-3">
+            <h2 id="checklist-heading" class="text-lg font-semibold">Tiền xử lý ({checklist.length - missingStages}/{checklist.length})</h2>
+
+            <PreprocessingChecklist stages={checklist} />
+
+            <div aria-live="polite" class="flex flex-col gap-2">
+                {#if rerunError}
+                    <Alert variant="destructive">
+                        <AlertTitle>Không chạy lại được</AlertTitle>
+                        <AlertDescription>{rerunError}</AlertDescription>
+                    </Alert>
+                {/if}
+
+                {#if missingStages > 0}
+                    <div class="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" onclick={rerunMissing} disabled={rerunning}>
+                            {rerunning ? "Đang đưa vào hàng đợi…" : "Chạy lại các bước còn thiếu"}
+                        </Button>
+                        <Button variant="ghost" onclick={() => invalidateAll()}>Làm mới</Button>
+                    </div>
+                {/if}
+            </div>
+        </section>
+    {/if}
+
     <section aria-labelledby="actions-heading" class="flex flex-col gap-3">
         <h2 id="actions-heading" class="text-lg font-semibold">Hành vi vi phạm và từ vựng ({actions.length})</h2>
 
-        {#if actions.length === 0}
-            <p class="text-sm text-muted-foreground">Chưa trích xuất hành vi vi phạm nào cho văn bản này.</p>
-        {:else}
-            <ul class="flex flex-col gap-2">
-                {#each actions as action (action.ruleId)}
-                    <li class="flex flex-col gap-1 rounded-md border p-3 text-sm">
-                        <p>{action.behaviorText}</p>
-                        <div class="flex flex-wrap items-center gap-2">
-                            {#if action.actionLabel}
-                                <Badge variant="outline">{action.actionLabel}</Badge>
-                            {:else}
-                                <span class="text-xs text-muted-foreground">Chưa xác định hành vi</span>
-                            {/if}
-                            {#if action.vocabId}
-                                <code class="text-xs text-muted-foreground">{action.vocabId}</code>
-                            {:else if action.actionLabel}
-                                <span class="text-xs text-muted-foreground">Chưa có trong từ vựng</span>
-                            {/if}
-                        </div>
-                    </li>
-                {/each}
-            </ul>
-        {/if}
+        <DocumentActions {actions} />
     </section>
 
     <details class="rounded-md border p-3">

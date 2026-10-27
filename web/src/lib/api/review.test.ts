@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseDocumentActions, parseJobDocument } from "./review";
+import { parseDocumentActions, parseJobDocument, parsePreprocessingChecklist } from "./review";
 
 function locator(quality: string, pageStart = 1): Record<string, unknown> {
     return { page_start: pageStart, page_end: pageStart, quality };
@@ -143,5 +143,28 @@ describe("parseDocumentActions", () => {
 
     test("rejects a body without a rules list", () => {
         expect(parseDocumentActions({ documentId: "d" })).toBeNull();
+    });
+});
+
+describe("parsePreprocessingChecklist", () => {
+    test("reads each stage and its status", () => {
+        const checklist = parsePreprocessingChecklist({
+            jobId: "j",
+            stages: [
+                { stage: "PROVISIONS", status: "DONE", error: null, updatedAt: "2026-10-27T00:00:00Z" },
+                { stage: "VIOLATION_RULES", status: "FAILED", error: "timeout", updatedAt: null },
+                { stage: "HISTORY", status: "SOMETHING_ELSE", error: null, updatedAt: null },
+            ],
+        });
+
+        expect(checklist).toEqual([
+            { stage: "PROVISIONS", status: "DONE", error: null },
+            { stage: "VIOLATION_RULES", status: "FAILED", error: "timeout" },
+            { stage: "HISTORY", status: "PENDING", error: null },
+        ]);
+    });
+
+    test("rejects a body without stages", () => {
+        expect(parsePreprocessingChecklist({ jobId: "j" })).toBeNull();
     });
 });
