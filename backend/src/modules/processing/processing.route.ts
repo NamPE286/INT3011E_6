@@ -1,7 +1,9 @@
 import { Elysia, t } from "elysia";
 import { extractEnvFromRequest } from "../../plugins/context";
 import { getJobById, getRecentJobs, toJobResponse } from "./job.repository";
-import { getLegalDocumentByJobId } from "./legal-persistence";
+import { acceptReviewedDocument, getLegalDocumentByJobId } from "./legal-persistence";
+import { DEFAULT_OPENAI_MODEL } from "./legal-llm.service";
+import { runPreprocessing } from "./preprocessing";
 
 // TODO(#4): these admin endpoints must require Admin authorization once authPlugin is implemented.
 export const processingModule = new Elysia({ prefix: "/api" })
@@ -82,6 +84,48 @@ export const processingModule = new Elysia({ prefix: "/api" })
         {
             params: t.Object({
                 jobId: t.String(),
+            }),
+        }
+    )
+    .post(
+        "/jobs/:jobId/review",
+        async ({ params, set, request }) => {
+            const env = extractEnvFromRequest(request);
+
+            if (!env?.DB) {
+                set.status = 503;
+
+                return { message: "Database service unavailable" };
+            }
+
+            const stored = await getLegalDocumentByJobId(env.DB, params.jobId);
+
+            if (!stored) {
+                set.status = 404;
+
+                return { message: "Legal document not found for this job" };
+            }
+
+            const accepted = await acceptReviewedDocument(env.DB, params.jobId);
+
+            if (!accepted) {
+                set.status = 409;
+
+                return { message: "The document is not waiting for review" };
+            }
+
+            const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+
+            await runPreprocessing(env.DB, params.jobId, { apiKey: env.OPENAI_API_KEY, model });
+
+            return { jobId: params.jobId, reviewStatus: "ACCEPTED" };
+        },
+        {
+            params: t.Object({
+                jobId: t.String(),
+            }),
+            body: t.Object({
+                decision: t.Literal("accept"),
             }),
         }
     );

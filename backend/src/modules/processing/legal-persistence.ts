@@ -129,6 +129,25 @@ export async function getLegalDocumentByJobId(db: D1Database, jobId: string): Pr
     };
 }
 
+/**
+ * Marks a reviewed document as accepted and completes its job in one D1 batch. Returns false when the
+ * document is not waiting for review, so a repeated or stale request changes nothing.
+ */
+export async function acceptReviewedDocument(db: D1Database, jobId: string): Promise<boolean> {
+    const now = new Date().toISOString();
+
+    const results = await db.batch([
+        db.prepare("UPDATE legal_documents SET review_status = 'ACCEPTED' WHERE job_id = ? AND review_status = 'REVIEW_REQUIRED'").bind(jobId),
+        db.prepare(
+            `UPDATE processing_jobs
+             SET status = 'completed', step = 'completed', error_message = NULL, updated_at = ?, completed_at = ?
+             WHERE id = ? AND status = 'needs_review'`
+        ).bind(now, now, jobId),
+    ]);
+
+    return (results[0]?.meta.changes ?? 0) > 0;
+}
+
 function summarizeIssues(issues: ValidationIssue[]): string {
     const preview = issues.slice(0, 3).map((issue) => issue.message).join("; ");
     const remaining = issues.length > 3 ? ` (+${issues.length - 3} more)` : "";
