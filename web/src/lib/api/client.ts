@@ -3,6 +3,7 @@ import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { invalidResponse, requestJson } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
+import { parseJobDocument, type JobDocument } from "./review";
 import {
     parseViolationHistory,
     parseViolationRulesAsOf,
@@ -92,4 +93,15 @@ export async function askQuestion(question: string, asOf: string, model: string 
     }
 
     return answer;
+}
+
+export function getJobDocument(fetcher: Fetcher, jobId: string): Promise<JobDocument> {
+    return getParsed(fetcher, `/api/jobs/${encodeURIComponent(jobId)}/document`, parseJobDocument);
+}
+
+/** Publishes a document that was held for review; the backend then runs the preprocessing stages. */
+export async function acceptJobDocument(fetcher: Fetcher, jobId: string): Promise<void> {
+    const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "accept" }) };
+
+    await requestJson(PUBLIC_BACKEND_URL, `/api/jobs/${encodeURIComponent(jobId)}/review`, init, fetcher);
 }
