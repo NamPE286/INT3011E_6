@@ -11,7 +11,13 @@ describe("file processing responses", () => {
     test("accepts a valid upload response", () => {
         const response = parseUploadResponse('{"jobId":"job-123"}');
 
-        expect(response).toEqual({ jobId: "job-123" });
+        expect(response).toEqual({ jobId: "job-123", duplicate: false });
+    });
+
+    test("reads that the PDF was imported before", () => {
+        const response = parseUploadResponse('{"jobId":"job-123","status":"completed","duplicate":true}');
+
+        expect(response).toEqual({ jobId: "job-123", duplicate: true });
     });
 
     test("rejects an upload response without a job ID", () => {
