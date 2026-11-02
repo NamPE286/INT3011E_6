@@ -6,7 +6,8 @@ import type { RuleNode } from "./violation.types";
 const RULE_LEVELS = new Set(["ARTICLE", "CLAUSE", "POINT"]);
 const SKIPPED_ROLES = new Set(["OPERATIVE_INSTRUCTION", "TITLE_REFERENCE", "HISTORICAL_DESCRIPTION", "PREAMBLE_BASIS", "QUOTED_OLD_TEXT"]);
 const LEADING_MARKER = /^\s*[“"]?\s*(?:Điều\s+\d+[a-zđ]?\.|\d+[a-zđ]?\.|[a-zđ]\d*\))\s*/iu;
-const SURROUNDING_QUOTES = /^[\s“"]+|[\s”"]+$/gu;
+/** Opening marks, and closing marks with the punctuation an instruction puts after them ("…bộ.”."). */
+const SURROUNDING_QUOTES = /^[\s“"]+|[\s”"]+[.;,:]*\s*$/gu;
 
 /**
  * Places every rule-bearing provision of one document at the address it governs. Ordinary text governs
