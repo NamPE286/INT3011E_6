@@ -142,25 +142,29 @@ describe("fake decrees end to end", () => {
         expect(await countRows(reversed, "provision_relations")).toBe(await countRows(env, "provision_relations"));
     });
 
-    // Known defects found by this suite (docs/srs-coverage.md). They pass once fixed; remove `.failing` then.
-    it.failing("ranks the decree whose number is searched above decrees that only cite it", async () => {
+    // Regressions for the defects this suite found (docs/srs-coverage.md, D1–D4).
+    it("ranks the decree whose number is searched above decrees that only cite it", async () => {
         const body = await getJson<{ documents: DocumentSummary[] }>(env, `/api/documents?q=${encodeURIComponent("01/2030")}`);
 
         expect(body.documents[0].documentNumber).toBe("01/2030/NĐ-CP");
     });
 
-    it.failing("does not keep closing quote marks of amended wording in the behaviour text", async () => {
+    it("does not keep closing quote marks of amended wording in the behaviour text", async () => {
         const violationId = await findViolationId(env, "đèn tín hiệu");
         const body = await getJson<{ aliases: string[] }>(env, `/api/violations/${encodeURIComponent(violationId!)}`);
 
         expect(body.aliases.some((alias) => alias.includes("”"))).toBe(false);
     });
 
-    it.failing("finds a behaviour by words that are not one contiguous alias (FR-16.1 full text)", async () => {
+    it("finds a behaviour by words that are not one contiguous alias (FR-16.1 full text)", async () => {
         expect(await findViolationId(env, "đỗ xe ngoài đô thị")).not.toBeNull();
     });
 
-    it.failing("does not duplicate entities or lose relations when the same PDF is uploaded again (AC 25)", async () => {
+    it("matches whole words only, so a word that merely starts like another finds nothing", async () => {
+        expect(await findViolationId(env, "xem")).toBeNull();
+    });
+
+    it("does not duplicate entities or lose relations when the same PDF is uploaded again (AC 25)", async () => {
         const again = createEnv();
 
         await importFakeDecree(again, "nd-01-2030");

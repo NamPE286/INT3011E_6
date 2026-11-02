@@ -39,6 +39,7 @@ async function createEnvWithPdf(pageCount: number): Promise<MockEnvironment> {
         originalFilename: "sample.pdf",
         mimeType: "application/pdf",
         fileSize: 100,
+        pdfSha256: `sha-${JOB_ID}`,
     });
 
     return env;
