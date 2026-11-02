@@ -3,6 +3,8 @@ import { getDocumentMetadata } from "../documents/document-graph.repository";
 import { getRulesAsOf, type LineageAtDate, type RuleAtDate } from "../history/history.service";
 import { searchViolations, type ViolationSummary } from "../identity/identity.repository";
 import { normalizeBehaviour } from "../identity/identity.resolver";
+import { isRecord } from "../llm/openai-json";
+import { requestViolationMatches, type CatalogueEntry } from "./ask.llm";
 import { describeUncertainty } from "./ask.reasons";
 import type { AnswerEvidence } from "./ask.types";
 
@@ -11,6 +13,7 @@ const MIN_ALIAS_TOKENS = 2;
 const MAX_VIOLATIONS = 3;
 const NEAR_TOP_MARGIN = 0.15;
 const VIOLATION_SCAN_LIMIT = 100;
+const CATALOGUE_ALIASES = 3;
 const IGNORED_TOKENS = new Set(["cua", "va", "la", "bi", "khi", "co", "cho", "theo", "nhu", "sau", "day", "mot", "trong", "cac", "nay"]);
 
 export type RetrievedViolation = {
@@ -37,6 +40,52 @@ export async function retrieveViolations(db: D1Database, question: string): Prom
     const nearTop = scored.filter((entry) => entry.score >= scored[0].score - NEAR_TOP_MARGIN);
 
     return nearTop.slice(0, MAX_VIOLATIONS);
+}
+
+export type ModelRetrievalOptions = {
+    apiKey: string;
+    model: string;
+    fetcher?: typeof fetch;
+};
+
+/**
+ * Lets the model map a question worded unlike any alias ("vượt đèn đỏ") to stored behaviours. The model
+ * only chooses from the catalogue it is shown; an id outside it is ignored and a failed call finds nothing.
+ */
+export async function retrieveViolationsWithModel(db: D1Database, question: string, options: ModelRetrievalOptions): Promise<RetrievedViolation[]> {
+    const violations = await searchViolations(db, "", VIOLATION_SCAN_LIMIT);
+
+    if (violations.length === 0) {
+        return [];
+    }
+
+    const violationByShortId = new Map(violations.map((violation, index) => [`V${index + 1}`, violation]));
+    const catalogue: CatalogueEntry[] = [...violationByShortId].map(([id, violation]) => ({
+        id,
+        name: violation.canonicalName,
+        aliases: violation.aliases.filter((alias) => alias !== violation.canonicalName).slice(0, CATALOGUE_ALIASES),
+    }));
+
+    let reply: unknown;
+
+    try {
+        reply = await requestViolationMatches({ question, catalogue, ...options });
+    } catch (error: unknown) {
+        console.error("[Ask] Retrieval model call failed", error instanceof Error ? error.message : "unknown error");
+
+        return [];
+    }
+
+    if (!isRecord(reply) || !Array.isArray(reply.violation_ids)) {
+        return [];
+    }
+
+    const chosen = reply.violation_ids
+        .filter((id): id is string => typeof id === "string")
+        .map((id) => violationByShortId.get(id))
+        .filter((violation) => violation !== undefined);
+
+    return [...new Set(chosen)].slice(0, MAX_VIOLATIONS).map((violation) => ({ violation, score: 0 }));
 }
 
 /**

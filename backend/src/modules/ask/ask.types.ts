@@ -41,6 +41,8 @@ export type ComposedAnswer = {
 
 export type AnswerProvenance = {
     method: "RULE_ONLY" | "LLM";
+    /** LEXICAL: words matched an alias. MODEL: no word matched and the model chose from the stored behaviours. */
+    retrievalMethod: "LEXICAL" | "MODEL";
     model: string | null;
     promptVersion: string | null;
     retrievedViolationIds: string[];

@@ -177,6 +177,74 @@ describe("answerQuestion", () => {
     });
 });
 
+/** Fake model: the retrieval call gets `matchReply`, the phrasing call falls back to the rule-based claims. */
+function retrievalModel(matchReply: unknown): { fetcher: typeof fetch; catalogues: string[] } {
+    const catalogues: string[] = [];
+    const fetcher = (async (_url: unknown, init?: RequestInit) => {
+        const body = String(init?.body ?? "");
+
+        if (!body.includes("violation_match")) {
+            return Response.json({ error: { message: "phrasing disabled in this test" } }, { status: 400 });
+        }
+
+        catalogues.push(body);
+
+        return Response.json({
+            status: "completed",
+            output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(matchReply) }] }],
+        });
+    }) as unknown as typeof fetch;
+
+    return { fetcher, catalogues };
+}
+
+describe("answerQuestion with model retrieval", () => {
+    const COLLOQUIAL = "Vượt đèn đỏ bị phạt bao nhiêu?";
+
+    it("lets the model pick the stored behaviour a colloquial question means when no word matches", async () => {
+        const db = await createCorpus();
+        const model = retrievalModel({ violation_ids: ["V1"] });
+
+        const answer = await answerQuestion(db, { question: COLLOQUIAL, asOf: "2021-06-01" }, { ...OPTIONS, apiKey: "key", fetcher: model.fetcher });
+
+        expect(model.catalogues).toHaveLength(1);
+        expect(model.catalogues[0]).toContain("Không chấp hành hiệu lệnh của đèn tín hiệu giao thông");
+        expect(answer.status).toBe("ANSWERED");
+        expect(answer.provenance.retrievalMethod).toBe("MODEL");
+        expect(answer.evidence[0]).toMatchObject({ ruleId: BASE_RULE, fine: { min: 3_000_000, max: 5_000_000 } });
+    });
+
+    it("ignores ids the model invents and answers that nothing was found", async () => {
+        const db = await createCorpus();
+        const model = retrievalModel({ violation_ids: ["V999", "tv:made-up"] });
+
+        const answer = await answerQuestion(db, { question: COLLOQUIAL, asOf: "2021-06-01" }, { ...OPTIONS, apiKey: "key", fetcher: model.fetcher });
+
+        expect(answer.status).toBe("NO_ANSWER");
+        expect(answer.evidence).toEqual([]);
+    });
+
+    it("answers that nothing was found when the retrieval call fails", async () => {
+        const db = await createCorpus();
+        const failing = (async () => new Response("down", { status: 503 })) as unknown as typeof fetch;
+
+        const answer = await answerQuestion(db, { question: COLLOQUIAL, asOf: "2021-06-01" }, { ...OPTIONS, apiKey: "key", fetcher: failing });
+
+        expect(answer.status).toBe("NO_ANSWER");
+        expect(answer.provenance.retrievalMethod).toBe("LEXICAL");
+    });
+
+    it("does not call the model to retrieve when the words already match", async () => {
+        const db = await createCorpus();
+        const model = retrievalModel({ violation_ids: [] });
+
+        const answer = await answerQuestion(db, { question: QUESTION, asOf: "2021-06-01" }, { ...OPTIONS, apiKey: "key", fetcher: model.fetcher });
+
+        expect(model.catalogues).toEqual([]);
+        expect(answer.provenance.retrievalMethod).toBe("LEXICAL");
+    });
+});
+
 describe("composeAnswer", () => {
     it("reports ambiguity instead of choosing between rules of different contexts", () => {
         const answer = composeAnswer([
