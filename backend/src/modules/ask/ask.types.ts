@@ -1,7 +1,7 @@
 import type { CorpusScope } from "../history/history.service";
 import type { RuleStatus } from "../history/history.types";
 
-export const ASK_PROMPT_VERSION = "grounded-answer-v1";
+export const ASK_PROMPT_VERSION = "grounded-answer-v2";
 
 export type AnswerStatus = "ANSWERED" | "AMBIGUOUS" | "UNCERTAIN" | "NO_ANSWER";
 

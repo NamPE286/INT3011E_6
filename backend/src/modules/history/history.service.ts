@@ -23,7 +23,11 @@ export type LineageAtDate = {
     applicable: RuleAtDate[];
     /** Rules whose state on the date depends on unverified or missing evidence. */
     uncertain: RuleAtDate[];
+    /** Rules of the lineage that had already ended (amended, repealed, superseded) by the date, oldest first. */
+    earlier: RuleAtDate[];
 };
+
+const ENDED_STATUSES = new Set(["AMENDED", "REPEALED", "SUPERSEDED"]);
 
 export type CorpusScope = {
     documentCount: number;
@@ -78,6 +82,9 @@ export async function getRulesAsOf(db: D1Database, violationId: string, date: st
             contextIr: lineage.contextIr,
             applicable: entries.filter((entry) => entry.status === "CURRENT"),
             uncertain: entries.filter((entry) => entry.status === "UNCERTAIN"),
+            earlier: entries
+                .filter((entry) => ENDED_STATUSES.has(entry.status))
+                .sort((left, right) => (left.interval.validFrom ?? "").localeCompare(right.interval.validFrom ?? "")),
         });
     }
 

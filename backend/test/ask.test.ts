@@ -104,7 +104,10 @@ describe("answerQuestion", () => {
         const after = await answerQuestion(db, { question: QUESTION, asOf: "2022-06-01" }, OPTIONS);
 
         expect(before.evidence.map((item) => item.ruleId)).toEqual([BASE_RULE]);
-        expect(after.evidence.map((item) => item.ruleId)).toEqual([AMENDED_RULE]);
+        expect(after.evidence.map((item) => [item.ruleId, item.status])).toEqual([
+            [AMENDED_RULE, "CURRENT"],
+            [BASE_RULE, "AMENDED"],
+        ]);
         expect(after.asOf).toBe("2022-06-01");
     });
 
@@ -191,6 +194,27 @@ describe("composeAnswer", () => {
 
         expect(answer.status).toBe("UNCERTAIN");
         expect(answer.claims[0].text).toContain("Ngày có hiệu lực chưa đọc được");
+    });
+
+    it("describes earlier rules as history without counting them as rules in force", () => {
+        const answer = composeAnswer([
+            evidence("E1", { fine: { min: 4_000_000, max: 6_000_000 }, validFrom: "2022-01-01" }),
+            evidence("E2", { status: "AMENDED", fine: { min: 3_000_000, max: 5_000_000 }, validFrom: "2020-01-01", validTo: "2022-01-01" }),
+        ]);
+
+        expect(answer.status).toBe("ANSWERED");
+        expect(answer.claims[1]).toEqual({
+            text: 'Trước đây, hành vi "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông": phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng; áp dụng từ 2020-01-01 đến 2022-01-01, sau đó bị sửa đổi.',
+            evidenceIds: ["E2"],
+        });
+    });
+
+    it("says a rule ended without a known replacement instead of reporting a current fine", () => {
+        const answer = composeAnswer([evidence("E1", { status: "REPEALED", validFrom: "2020-01-01", validTo: "2022-01-01" })]);
+
+        expect(answer.status).toBe("UNCERTAIN");
+        expect(answer.claims[0].text).toContain("bị bãi bỏ");
+        expect(answer.claims[answer.claims.length - 1].text).toContain("Không tìm thấy quy định đang áp dụng");
     });
 
     it("says the fine could not be read instead of inventing one", () => {

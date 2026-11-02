@@ -142,6 +142,22 @@ describe("fake decrees end to end", () => {
         expect(await countRows(reversed, "provision_relations")).toBe(await countRows(env, "provision_relations"));
     });
 
+    it("answers with the current fine and the fine before the amendment, each citing its rule", async () => {
+        // Without a key the answer is composed from the rules alone, so the test never reaches the model.
+        const response = await request({ ...env, OPENAI_API_KEY: undefined }, "/api/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: "Không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ bị phạt bao nhiêu, trước đây thế nào?", as_of: "2033-06-01" }),
+        });
+        const answer = (await response.json()) as { status: string; evidence: { id: string; status: string; fine: Fine | null }[] };
+
+        expect(answer.status).toBe("ANSWERED");
+        expect(answer.evidence.map((item) => [item.status, item.fine?.min])).toEqual([
+            ["CURRENT", 400000],
+            ["AMENDED", 200000],
+        ]);
+    });
+
     // Regressions for the defects this suite found (docs/srs-coverage.md, D1–D4).
     it("ranks the decree whose number is searched above decrees that only cite it", async () => {
         const body = await getJson<{ documents: DocumentSummary[] }>(env, `/api/documents?q=${encodeURIComponent("01/2030")}`);

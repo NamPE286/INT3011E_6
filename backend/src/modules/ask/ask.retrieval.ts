@@ -39,7 +39,10 @@ export async function retrieveViolations(db: D1Database, question: string): Prom
     return nearTop.slice(0, MAX_VIOLATIONS);
 }
 
-/** The rules of the retrieved behaviours that applied, or may have applied, on the date. */
+/**
+ * The rules of the retrieved behaviours that applied, or may have applied, on the date, followed by the
+ * earlier rules of the same lineages, so the answer can say how the rule changed (FR-16.2).
+ */
 export async function collectEvidence(db: D1Database, retrieved: RetrievedViolation[], question: string, asOf: string): Promise<AnswerEvidence[]> {
     const questionTokens = new Set(tokensOf(question));
     const documents = new Map<string, { number: string | null; title: string | null }>();
@@ -49,7 +52,7 @@ export async function collectEvidence(db: D1Database, retrieved: RetrievedViolat
         const { lineages } = await getRulesAsOf(db, violation.id, asOf);
 
         for (const lineage of narrowByVehicle(lineages, questionTokens)) {
-            for (const entry of [...lineage.applicable, ...lineage.uncertain]) {
+            for (const entry of [...lineage.applicable, ...lineage.uncertain, ...lineage.earlier]) {
                 const source = await readDocument(db, documents, entry.rule.sourceDocumentId);
 
                 evidence.push(toEvidence(`E${evidence.length + 1}`, violation, entry, source));
