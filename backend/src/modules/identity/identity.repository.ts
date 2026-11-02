@@ -183,18 +183,38 @@ export async function listIdentityDecisions(db: D1Database, ruleIds: string[]): 
     }));
 }
 
-/** Violations whose canonical name or any alias contains the (accent-insensitive) query; all when empty. */
+/** At most this many query words are matched; longer queries rarely add precision and grow the statement. */
+const MAX_QUERY_WORDS = 12;
+
+/**
+ * Full-text search over aliases (FR-16.1): a violation matches when one of its aliases contains every
+ * word of the (accent-insensitive) query as a whole word, in any order. Aliases holding the query as one
+ * contiguous phrase rank first. All violations when the query is empty.
+ */
 export async function searchViolations(db: D1Database, normalizedQuery: string, limit: number): Promise<ViolationSummary[]> {
-    const pattern = `%${normalizedQuery}%`;
+    const words = [...new Set(normalizedQuery.split(" ").filter((word) => word.length > 0))].slice(0, MAX_QUERY_WORDS);
+
+    if (words.length === 0) {
+        const all = await db
+            .prepare("SELECT id, canonical_name, signature_key, semantic_ir FROM traffic_violations ORDER BY canonical_name LIMIT ?")
+            .bind(limit)
+            .all<ViolationRow>();
+
+        return attachAliases(db, all.results);
+    }
+
+    const wordConditions = words.map(() => "(' ' || a.normalized_alias || ' ') LIKE ?").join(" AND ");
     const violations = await db
         .prepare(
-            `SELECT DISTINCT v.id, v.canonical_name, v.signature_key, v.semantic_ir
-             FROM traffic_violations v LEFT JOIN violation_aliases a ON a.traffic_violation_id = v.id
-             WHERE ? = '' OR a.normalized_alias LIKE ?
-             ORDER BY v.canonical_name
+            `SELECT v.id, v.canonical_name, v.signature_key, v.semantic_ir,
+                    MIN(CASE WHEN (' ' || a.normalized_alias || ' ') LIKE ? THEN 0 ELSE 1 END) AS phrase_rank
+             FROM traffic_violations v JOIN violation_aliases a ON a.traffic_violation_id = v.id
+             WHERE ${wordConditions}
+             GROUP BY v.id
+             ORDER BY phrase_rank, v.canonical_name
              LIMIT ?`
         )
-        .bind(normalizedQuery, pattern, limit)
+        .bind(`% ${normalizedQuery} %`, ...words.map((word) => `% ${word} %`), limit)
         .all<ViolationRow>();
 
     return attachAliases(db, violations.results);

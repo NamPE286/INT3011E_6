@@ -12,7 +12,16 @@ const SUBJECT_LABELS = {
     ORGANIZATION: "tổ chức",
 } as const;
 
-/** Deterministic answer built only from the stored rules. The status never depends on a model. */
+const END_LABELS: Partial<Record<AnswerEvidence["status"], string>> = {
+    AMENDED: "sau đó bị sửa đổi",
+    REPEALED: "sau đó bị bãi bỏ",
+    SUPERSEDED: "sau đó bị thay thế",
+};
+
+/**
+ * Deterministic answer built only from the stored rules. The status never depends on a model, and only
+ * the rules of the date decide it: earlier rules are history and are described after them.
+ */
 export function composeAnswer(evidence: AnswerEvidence[]): ComposedAnswer {
     if (evidence.length === 0) {
         return { status: "NO_ANSWER", claims: [], clarification: null };
@@ -20,19 +29,30 @@ export function composeAnswer(evidence: AnswerEvidence[]): ComposedAnswer {
 
     const current = evidence.filter((item) => item.status === "CURRENT");
     const uncertain = evidence.filter((item) => item.status === "UNCERTAIN");
+    const earlier = evidence.filter((item) => END_LABELS[item.status] !== undefined);
     const uncertainClaims = uncertain.map(describeUncertainRule);
+    const historyClaims = earlier.map(describeEarlierRule);
+
+    if (current.length === 0 && uncertain.length === 0) {
+        const noneInForce = {
+            text: "Không tìm thấy quy định đang áp dụng cho hành vi này tại thời điểm hỏi trong dữ liệu đã nhập; quy định có thể đã được thay bằng văn bản chưa nhập.",
+            evidenceIds: earlier.map((item) => item.id),
+        };
+
+        return { status: "UNCERTAIN", claims: [...historyClaims, noneInForce], clarification: null };
+    }
 
     if (current.length === 0) {
-        return { status: "UNCERTAIN", claims: uncertainClaims, clarification: null };
+        return { status: "UNCERTAIN", claims: [...uncertainClaims, ...historyClaims], clarification: null };
     }
 
     const currentClaims = current.map(describeRule);
 
     if (current.length > 1) {
-        return { status: "AMBIGUOUS", claims: [...currentClaims, ...uncertainClaims], clarification: AMBIGUOUS_CLARIFICATION };
+        return { status: "AMBIGUOUS", claims: [...currentClaims, ...uncertainClaims, ...historyClaims], clarification: AMBIGUOUS_CLARIFICATION };
     }
 
-    return { status: "ANSWERED", claims: [...currentClaims, ...uncertainClaims], clarification: null };
+    return { status: "ANSWERED", claims: [...currentClaims, ...uncertainClaims, ...historyClaims], clarification: null };
 }
 
 /**
@@ -117,6 +137,14 @@ function describeRule(item: AnswerEvidence): AnswerClaim {
     const period = describePeriod(item);
 
     return { text: `${subject}${cleanBehaviour(item.behaviorText)}: ${penalty}${additional}${period}.`, evidenceIds: [item.id] };
+}
+
+function describeEarlierRule(item: AnswerEvidence): AnswerClaim {
+    const penalty = item.fine ? `phạt tiền từ ${formatMoney(item.fine.min)} đồng đến ${formatMoney(item.fine.max)} đồng` : "chưa đọc được mức phạt tiền từ văn bản";
+    const period = item.validFrom ? `; áp dụng từ ${item.validFrom} đến ${item.validTo}` : `; áp dụng đến ${item.validTo}`;
+    const context = describeContext(item).replace(/^Đối với/u, "đối với").replace(/^Hành vi/u, "hành vi");
+
+    return { text: `Trước đây, ${context}${cleanBehaviour(item.behaviorText)}: ${penalty}${period}, ${END_LABELS[item.status]}.`, evidenceIds: [item.id] };
 }
 
 function describeUncertainRule(item: AnswerEvidence): AnswerClaim {

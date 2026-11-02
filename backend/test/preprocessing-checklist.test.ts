@@ -109,4 +109,34 @@ describe("preprocessing checklist", () => {
 
         expect(response.status).toBe(409);
     });
+
+    it("marks the rules stage failed when the model call fails, keeping the rules read without it", async () => {
+        const env = seededEnv();
+        const unreachable = (async () => {
+            throw new Error("ECONNRESET");
+        }) as unknown as typeof fetch;
+
+        await runPreprocessing(env.DB, SEED_JOB_ID, { apiKey: "key", model: "test-model", fetcher: unreachable });
+
+        const stages = await listPreprocessingStages(env.DB, SEED_JOB_ID);
+        const rulesStage = stages.find((stage) => stage.stage === "VIOLATION_RULES");
+        const rules = await env.DB.prepare("SELECT COUNT(*) AS count FROM violation_rules WHERE source_document_id = ?")
+            .bind(SEED_DOCUMENT_ID)
+            .first<{ count: number }>();
+
+        expect(rulesStage?.status).toBe("FAILED");
+        expect(rulesStage?.error).toContain("ECONNRESET");
+        expect(rules?.count).toBeGreaterThan(0);
+        expect(stages.find((stage) => stage.stage === "HISTORY")?.status).toBe("DONE");
+    });
+
+    it("keeps the rules stage done when no model is configured", async () => {
+        const env = seededEnv();
+
+        await runPreprocessing(env.DB, SEED_JOB_ID, { model: "test-model" });
+
+        const stages = await listPreprocessingStages(env.DB, SEED_JOB_ID);
+
+        expect(stages.find((stage) => stage.stage === "VIOLATION_RULES")?.status).toBe("DONE");
+    });
 });

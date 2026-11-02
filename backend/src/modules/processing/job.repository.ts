@@ -14,6 +14,7 @@ export type NewJob = {
     originalFilename: string;
     mimeType: string | null;
     fileSize: number;
+    pdfSha256: string;
 };
 
 export type JobStageUpdate = {
@@ -37,6 +38,15 @@ export function toJobResponse(job: ProcessingJobRecord): JobResponse {
         updatedAt: job.updated_at,
         completedAt: job.completed_at,
     };
+}
+
+export async function deleteJob(db: D1Database, id: string): Promise<void> {
+    await db.prepare("DELETE FROM processing_jobs WHERE id = ?").bind(id).run();
+}
+
+/** The job that imported a PDF with this exact content, if any. */
+export async function findJobByPdfSha256(db: D1Database, pdfSha256: string): Promise<ProcessingJobRecord | null> {
+    return db.prepare("SELECT * FROM processing_jobs WHERE pdf_sha256 = ?").bind(pdfSha256).first<ProcessingJobRecord>();
 }
 
 export async function getJobById(db: D1Database, id: string): Promise<ProcessingJobRecord | null> {
@@ -63,11 +73,11 @@ export async function insertJob(db: D1Database, job: NewJob): Promise<void> {
     await db
         .prepare(
             `INSERT INTO processing_jobs (
-                id, file_key, original_filename, mime_type, file_size,
+                id, file_key, original_filename, mime_type, file_size, pdf_sha256,
                 status, step, progress, error_message, created_at, updated_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, 'queued', 'queued', 0, NULL, ?, ?, NULL)`
+            ) VALUES (?, ?, ?, ?, ?, ?, 'queued', 'queued', 0, NULL, ?, ?, NULL)`
         )
-        .bind(job.id, job.fileKey, job.originalFilename, job.mimeType, job.fileSize, now, now)
+        .bind(job.id, job.fileKey, job.originalFilename, job.mimeType, job.fileSize, job.pdfSha256, now, now)
         .run();
 }
 

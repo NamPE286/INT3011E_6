@@ -41,6 +41,7 @@
     let uploadTotalBytes = $state(0);
 
     let jobId = $state<string | null>(null);
+    let isDuplicate = $state(false);
     let currentStep = $state<ProcessingStep | null>(null);
     let processingProgress = $state(0);
     let errorMessage = $state<string | null>(null);
@@ -102,6 +103,7 @@
         uploadTotalBytes = selectedFile.size;
         errorMessage = null;
         jobId = null;
+        isDuplicate = false;
         currentStep = null;
         processingProgress = 0;
 
@@ -135,6 +137,7 @@
 
             uploadProgress = 100;
             jobId = uploadResponse.jobId;
+            isDuplicate = uploadResponse.duplicate;
             uiState = "processing";
             currentStep = "queued";
             startPolling(uploadResponse.jobId);
@@ -238,6 +241,7 @@
         uploadLoadedBytes = 0;
         uploadTotalBytes = 0;
         jobId = null;
+        isDuplicate = false;
         currentStep = null;
         processingProgress = 0;
         errorMessage = null;
@@ -411,6 +415,12 @@
         <!-- Processing & Step Visualizer -->
         {#if uiState === "processing" || uiState === "completed" || ((uiState === "failed" || uiState === "needs_review") && jobId)}
             <div class="space-y-4 border rounded-lg p-4 bg-muted/20">
+                {#if isDuplicate}
+                    <p role="status" class="text-xs text-muted-foreground">
+                        File này đã được nhập trước đó (cùng nội dung), nên hệ thống hiển thị job cũ thay vì nhập lại.
+                    </p>
+                {/if}
+
                 <div class="flex items-center justify-between text-xs">
                     <span class="text-muted-foreground font-mono">Job ID: {jobId}</span>
                     <span class="font-semibold text-primary font-mono">{processingProgress}%</span>

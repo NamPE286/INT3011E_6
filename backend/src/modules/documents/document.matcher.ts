@@ -20,6 +20,28 @@ export function normalizeDocNumber(docNumber: string): string {
         .trim();
 }
 
+/** "01/2030", "01/2030/NĐ-CP", "35/2024/QH15" as written in a query (after accents are removed). */
+const DOCUMENT_NUMBER_IN_QUERY = /\d+[a-z]?\/\d{4}(?:\/[a-z0-9-]+)*/gi;
+
+/**
+ * True when the query cites this document's number, in full or shortened to its leading part:
+ * "01/2030" cites 01/2030/NĐ-CP but not 01/2031/NĐ-CP, and a title merely quoting the query does not count.
+ */
+export function queryCitesNumber(query: string, documentNumber: string): boolean {
+    const normalizedNumber = normalizeDocNumber(documentNumber);
+    const citedNumbers = removeVietnameseAccents(query).match(DOCUMENT_NUMBER_IN_QUERY) ?? [];
+
+    for (const cited of citedNumbers) {
+        const normalizedCited = normalizeDocNumber(cited);
+
+        if (normalizedNumber === normalizedCited || normalizedNumber.startsWith(`${normalizedCited}/`)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export const LEGAL_DOC_TYPES = [
     "Bộ luật",
     "Luật",
@@ -195,8 +217,7 @@ export function matchAndScoreDocument(
         matchReasons.push(`Khớp số hiệu yêu cầu: '${input.document_number}'`);
     } else if (extracted.document_number) {
         // Query mentions document number
-        const normExtractedNum = normalizeDocNumber(extracted.document_number);
-        if (normQuery.includes(normExtractedNum) || normTitle.includes(normQuery)) {
+        if (queryCitesNumber(input.query, extracted.document_number)) {
             score += 0.40;
             matchReasons.push(`Khớp số hiệu trong truy vấn: '${extracted.document_number}'`);
         }

@@ -7,3 +7,5 @@
 !/manifests/coverage.json
 !eval/
 !/eval/**
+!fake-law/
+!/fake-law/**

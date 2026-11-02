@@ -1,0 +1,24 @@
+{
+    "id": "nd-02-2032",
+    "description": "Nghị định sửa đổi giả định: sửa một điểm, bãi bỏ một điểm, thay một khoản (tăng mức phạt) của Nghị định 01/2030/NĐ-CP.",
+    "pages": [
+        [
+            { "kind": "text", "text": "CHÍNH PHỦ" },
+            { "kind": "text", "text": "Số: 02/2032/NĐ-CP" },
+            { "kind": "text", "text": "Hà Nội, ngày 10 tháng 12 năm 2032" },
+            { "kind": "title", "text": "NGHỊ ĐỊNH" },
+            { "kind": "title", "text": "Sửa đổi, bổ sung một số điều của Nghị định số 01/2030/NĐ-CP" },
+            { "kind": "text", "text": "Căn cứ Luật Xử lý vi phạm hành chính ngày 20 tháng 6 năm 2012;" },
+            { "kind": "article", "number": "1", "title": "Sửa đổi, bổ sung một số điều của Nghị định số 01/2030/NĐ-CP ngày 15 tháng 11 năm 2030 của Chính phủ quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông đường bộ" },
+            { "kind": "clause", "number": "1", "text": "Sửa đổi, bổ sung điểm a khoản 2 Điều 2 như sau:" },
+            { "kind": "point", "number": "a", "text": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông, trừ trường hợp xe ưu tiên đang làm nhiệm vụ.”." },
+            { "kind": "clause", "number": "2", "text": "Bãi bỏ điểm b khoản 1 Điều 2." },
+            { "kind": "clause", "number": "3", "text": "Sửa đổi, bổ sung khoản 1 Điều 3 như sau:" },
+            { "kind": "text", "text": "“1. Phạt tiền từ 400.000 đồng đến 600.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "a", "text": "Không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ.”." },
+            { "kind": "article", "number": "2", "title": "Hiệu lực thi hành" },
+            { "kind": "text", "text": "Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2033." },
+            { "kind": "closing", "text": "TM. CHÍNH PHỦ THỦ TƯỚNG" }
+        ]
+    ]
+}

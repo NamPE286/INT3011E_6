@@ -2,7 +2,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { readScope } from "../history/history.service";
 import { composeAnswer, validateModelClaims } from "./ask.answer";
 import { requestAnswerClaims } from "./ask.llm";
-import { collectEvidence, retrieveViolations } from "./ask.retrieval";
+import { collectEvidence, retrieveViolations, retrieveViolationsWithModel, type RetrievedViolation } from "./ask.retrieval";
 import { ASK_PROMPT_VERSION, type AnswerClaim, type AnswerEvidence, type AnswerProvenance, type AskAnswer } from "./ask.types";
 
 export type AskInput = {
@@ -24,7 +24,7 @@ type ModelOutcome = { claims: AnswerClaim[]; dropped: number; fallbackReason: st
  * the rule-based claims are returned.
  */
 export async function answerQuestion(db: D1Database, input: AskInput, options: AskOptions): Promise<AskAnswer> {
-    const retrieved = await retrieveViolations(db, input.question);
+    const { retrieved, retrievalMethod } = await retrieve(db, input.question, options);
     const evidence = await collectEvidence(db, retrieved, input.question, input.asOf);
     const composed = composeAnswer(evidence);
     const scope = await readScope(db, []);
@@ -32,13 +32,13 @@ export async function answerQuestion(db: D1Database, input: AskInput, options: A
     const retrievedViolationIds = retrieved.map((entry) => entry.violation.id);
 
     if (!options.apiKey || composed.claims.length === 0) {
-        return { ...base, ...composed, provenance: ruleOnlyProvenance(retrievedViolationIds, 0, null) };
+        return { ...base, ...composed, provenance: ruleOnlyProvenance(retrievalMethod, retrievedViolationIds, 0, null) };
     }
 
     const outcome = await phraseWithModel(input, evidence, { ...options, apiKey: options.apiKey });
 
     if (outcome.fallbackReason) {
-        return { ...base, ...composed, provenance: ruleOnlyProvenance(retrievedViolationIds, outcome.dropped, outcome.fallbackReason) };
+        return { ...base, ...composed, provenance: ruleOnlyProvenance(retrievalMethod, retrievedViolationIds, outcome.dropped, outcome.fallbackReason) };
     }
 
     return {
@@ -49,6 +49,7 @@ export async function answerQuestion(db: D1Database, input: AskInput, options: A
             method: "LLM",
             model: options.model,
             promptVersion: ASK_PROMPT_VERSION,
+            retrievalMethod,
             retrievedViolationIds,
             droppedClaims: outcome.dropped,
             fallbackReason: null,
@@ -79,6 +80,24 @@ async function phraseWithModel(input: AskInput, evidence: AnswerEvidence[], opti
     }
 }
 
-function ruleOnlyProvenance(retrievedViolationIds: string[], droppedClaims: number, fallbackReason: string | null): AnswerProvenance {
-    return { method: "RULE_ONLY", model: null, promptVersion: null, retrievedViolationIds, droppedClaims, fallbackReason };
+/** Word matching first; only when it finds nothing, and a model is configured, the model picks from the stored behaviours. */
+async function retrieve(db: D1Database, question: string, options: AskOptions): Promise<{ retrieved: RetrievedViolation[]; retrievalMethod: AnswerProvenance["retrievalMethod"] }> {
+    const lexical = await retrieveViolations(db, question);
+
+    if (lexical.length > 0 || !options.apiKey) {
+        return { retrieved: lexical, retrievalMethod: "LEXICAL" };
+    }
+
+    const chosen = await retrieveViolationsWithModel(db, question, { apiKey: options.apiKey, model: options.model, fetcher: options.fetcher });
+
+    return chosen.length > 0 ? { retrieved: chosen, retrievalMethod: "MODEL" } : { retrieved: [], retrievalMethod: "LEXICAL" };
+}
+
+function ruleOnlyProvenance(
+    retrievalMethod: AnswerProvenance["retrievalMethod"],
+    retrievedViolationIds: string[],
+    droppedClaims: number,
+    fallbackReason: string | null,
+): AnswerProvenance {
+    return { method: "RULE_ONLY", model: null, promptVersion: null, retrievalMethod, retrievedViolationIds, droppedClaims, fallbackReason };
 }

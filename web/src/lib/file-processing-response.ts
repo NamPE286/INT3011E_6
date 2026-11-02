@@ -23,6 +23,8 @@ export type JobSummary = JobResponse & {
 
 export type UploadResponse = {
     jobId: string;
+    /** The same PDF was imported before; jobId is that earlier job. */
+    duplicate: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,7 +58,7 @@ export function parseUploadResponse(responseText: string): UploadResponse | null
         return null;
     }
 
-    return { jobId: response.jobId };
+    return { jobId: response.jobId, duplicate: response.duplicate === true };
 }
 
 export function parseErrorMessage(responseText: string): string | null {

@@ -19,6 +19,8 @@ export const RELATION_LABELS: Record<string, RelationLabel> = {
     AMENDS: { outgoing: "Sửa đổi", incoming: "Bị sửa đổi bởi" },
     SUPPLEMENTS: { outgoing: "Bổ sung", incoming: "Được bổ sung bởi" },
     AMENDS_OR_SUPPLEMENTS: { outgoing: "Sửa đổi, bổ sung", incoming: "Bị sửa đổi, bổ sung bởi" },
+    REPLACES: { outgoing: "Thay thế", incoming: "Bị thay thế bởi" },
+    REPEALS: { outgoing: "Bãi bỏ", incoming: "Bị bãi bỏ bởi" },
     PARTIALLY_REPLACES: { outgoing: "Thay thế một phần", incoming: "Bị thay thế một phần bởi" },
     FULLY_REPLACES: { outgoing: "Thay thế toàn bộ", incoming: "Bị thay thế toàn bộ bởi" },
     PARTIALLY_REPEALS: { outgoing: "Bãi bỏ một phần", incoming: "Bị bãi bỏ một phần bởi" },

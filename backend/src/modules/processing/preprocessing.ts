@@ -172,16 +172,28 @@ async function executeStage(db: D1Database, jobId: string, stage: PreprocessingS
     }
 }
 
-/** The document's own rules and those of amendments imported before it (their rewritten rules land here). */
+/**
+ * The document's own rules and those of amendments imported before it (their rewritten rules land here).
+ * A failed model run keeps the rules read without the model but fails the stage, so a rerun retries it:
+ * left done, the document would keep labels that do not match the documents read with the model.
+ */
 async function extractRulesOfDependents(db: D1Database, documentId: string, options: PreprocessingOptions): Promise<StageResult> {
     const [ownId, ...amenderIds] = await listRuleDocuments(db, documentId);
-    const own = await extractViolationRules(db, ownId, options);
+    const outcomes = [await extractViolationRules(db, ownId, options)];
 
     for (const id of amenderIds) {
-        await extractViolationRules(db, id, options);
+        outcomes.push(await extractViolationRules(db, id, options));
     }
 
-    return fromOutcome(own.outcome);
+    const modelErrors = outcomes.flatMap((outcome) =>
+        outcome.outcome === "EXTRACTED" && outcome.run.status === "FAILED" ? [`${outcome.documentId}: ${outcome.run.error ?? "model call failed"}`] : [],
+    );
+
+    if (modelErrors.length > 0) {
+        return { status: "FAILED", error: `Model step failed, rules kept without it. ${modelErrors.join("; ")}` };
+    }
+
+    return fromOutcome(outcomes[0].outcome);
 }
 
 function fromOutcome(outcome: string): StageResult {

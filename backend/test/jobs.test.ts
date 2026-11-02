@@ -12,6 +12,7 @@ async function createJob(env: ReturnType<typeof createMockEnv>, id: string, file
         originalFilename: filename,
         mimeType: "application/pdf",
         fileSize: 1024,
+        pdfSha256: `sha-${id}`,
     });
 }
 

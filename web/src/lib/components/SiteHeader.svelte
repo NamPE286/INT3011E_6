@@ -4,6 +4,7 @@
     const links = [
         { href: "/documents", label: "Văn bản pháp luật" },
         { href: "/violations", label: "Hành vi vi phạm" },
+        { href: "/graph", label: "Đồ thị quan hệ" },
         { href: "/ask", label: "Hỏi đáp AI" },
         { href: "/admin", label: "Quản trị" },
     ];

@@ -1,7 +1,7 @@
 import type { CorpusScope } from "../history/history.service";
 import type { RuleStatus } from "../history/history.types";
 
-export const ASK_PROMPT_VERSION = "grounded-answer-v1";
+export const ASK_PROMPT_VERSION = "grounded-answer-v2";
 
 export type AnswerStatus = "ANSWERED" | "AMBIGUOUS" | "UNCERTAIN" | "NO_ANSWER";
 
@@ -41,6 +41,8 @@ export type ComposedAnswer = {
 
 export type AnswerProvenance = {
     method: "RULE_ONLY" | "LLM";
+    /** LEXICAL: words matched an alias. MODEL: no word matched and the model chose from the stored behaviours. */
+    retrievalMethod: "LEXICAL" | "MODEL";
     model: string | null;
     promptVersion: string | null;
     retrievedViolationIds: string[];

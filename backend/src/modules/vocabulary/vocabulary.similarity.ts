@@ -12,58 +12,29 @@ export function normalizeText(text: string): string {
     return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function levenshteinDistance(a: string, b: string): number {
-    if (a === b) return 0;
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
+/** Length of the longest common subsequence of two token lists. */
+function commonSubsequenceLength(tokensA: string[], tokensB: string[]): number {
+    let previous: number[] = new Array(tokensB.length + 1).fill(0);
 
-    const matrix: number[][] = [];
+    for (const tokenA of tokensA) {
+        const current: number[] = [0];
 
-    for (let i = 0; i <= b.length; i++) {
-        matrix[i] = [i];
-    }
-
-    for (let j = 0; j <= a.length; j++) {
-        matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(
-                    matrix[i - 1][j - 1] + 1, // substitution
-                    matrix[i][j - 1] + 1,     // insertion
-                    matrix[i - 1][j] + 1      // deletion
-                );
-            }
+        for (let index = 0; index < tokensB.length; index++) {
+            current.push(tokenA === tokensB[index] ? previous[index] + 1 : Math.max(previous[index + 1], current[index]));
         }
+
+        previous = current;
     }
 
-    return matrix[b.length][a.length];
+    return previous[tokensB.length];
 }
 
-export function tokenDiceSimilarity(a: string, b: string): number {
-    const tokensA = normalizeText(a).split(" ").filter(Boolean);
-    const tokensB = normalizeText(b).split(" ").filter(Boolean);
-
-    if (tokensA.length === 0 || tokensB.length === 0) {
-        return 0;
-    }
-
-    const setB = new Set(tokensB);
-    let intersection = 0;
-
-    for (const token of tokensA) {
-        if (setB.has(token)) {
-            intersection++;
-        }
-    }
-
-    return (2 * intersection) / (tokensA.length + tokensB.length);
-}
-
+/**
+ * How likely two labels name the same thing. Vietnamese syllables carry meaning, so labels are compared
+ * syllable by syllable without diacritics: a label that only adds or drops syllables ("chạy xe quá tốc
+ * độ" / "chạy quá tốc độ") is a near duplicate, while replacing a syllable with another one ("xe mô tô" /
+ * "xe ô tô") names something else, however few letters change, and scores at most half.
+ */
 export function calculateSimilarity(a: string, b: string): number {
     const normA = normalizeText(a);
     const normB = normalizeText(b);
@@ -79,14 +50,18 @@ export function calculateSimilarity(a: string, b: string): number {
         return 0.95;
     }
 
-    const maxLen = Math.max(normA.length, normB.length);
-    const levDistance = levenshteinDistance(normA, normB);
-    const levSim = maxLen === 0 ? 1 : 1 - levDistance / maxLen;
+    const tokensA = unaccentA.split(" ").filter(Boolean);
+    const tokensB = unaccentB.split(" ").filter(Boolean);
 
-    const tokenSim = tokenDiceSimilarity(normA, normB);
-    const unaccentTokenSim = tokenDiceSimilarity(unaccentA, unaccentB);
+    if (tokensA.length === 0 || tokensB.length === 0) {
+        return 0;
+    }
 
-    return Math.max(levSim, tokenSim, unaccentTokenSim);
+    const common = commonSubsequenceLength(tokensA, tokensB);
+    const overlap = (2 * common) / (tokensA.length + tokensB.length);
+    const replacesSyllable = common < tokensA.length && common < tokensB.length;
+
+    return replacesSyllable ? overlap / 2 : overlap;
 }
 
 const TYPE_PREFIXES: Record<VocabType, string> = {
