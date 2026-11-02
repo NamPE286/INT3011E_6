@@ -32,6 +32,7 @@
             <p class="text-sm text-muted-foreground">
                 Lược đồ do hệ thống tự xây từ toàn văn văn bản. Chỉ các cạnh có đủ căn cứ và đã khớp một văn bản trong dữ liệu mới được liệt kê ở đây.
             </p>
+            <a href={`/graph?document=${encodeURIComponent(documentId)}`} class="text-sm underline underline-offset-4">Xem trên đồ thị quan hệ</a>
         </div>
 
         {#each groups as group (group.heading)}

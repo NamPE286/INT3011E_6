@@ -8,6 +8,7 @@ Tài liệu cho epic Truy vấn (#39): tìm văn bản (#23), tra cứu hành vi
 | --- | --- | --- |
 | `GET` | `/api/documents?q=&document_type=&agency=&limit=` | Tìm văn bản đã `ACCEPTED` theo số hiệu, tên, từ khóa; không dùng LLM. `q` rỗng liệt kê văn bản mới nhất. `limit` tối đa 50, vượt quá trả `400`. |
 | `GET` | `/api/documents/:documentId` | Metadata, provision theo thứ tự đọc và `amendments`: ProvisionRelation tác động vào văn bản (kèm `verificationStatus` `ACCEPTED`/`CANDIDATE`). `404` nếu không có hoặc còn `REVIEW_REQUIRED`. |
+| `GET` | `/api/graph` | Đồ thị quan hệ toàn corpus (#61): `documents` (xếp theo ngày ban hành), `documentRelations` (chỉ `ACCEPTED`), `provisionRelations` (giữ `verificationStatus`, `evidenceText`, `effectiveFrom`), `provisions` ở hai đầu cạnh điều khoản, `truncated` khi vượt giới hạn (500 văn bản, 2.000 cạnh điều khoản), `disclaimer`. |
 | `POST` | `/api/ask` | Body `{ question, as_of? }`. Trả `status` (`ANSWERED`/`AMBIGUOUS`/`UNCERTAIN`/`NO_ANSWER`), `claims` mỗi claim dẫn `evidenceIds`, `evidence` (rule, mức phạt, hiệu lực, provision nguồn), `clarification`, `scope`, `provenance`. |
 
 `GET /api/violations/:id/rules` có thêm `reasonCodes` cho từng rule để client tự dịch lý do `UNCERTAIN`.
@@ -32,6 +33,7 @@ Giới hạn: retrieval chỉ khớp theo từ trong tên/alias đã lưu, nên 
 | `/documents/[id]` | Tab **Nội dung** (cây Điều/Khoản/Điểm, nhãn phần bị sửa đổi/bãi bỏ kèm căn cứ) và **Quan hệ** (cạnh `ACCEPTED` tách riêng khỏi dẫn chiếu chưa xác minh, frontier, phạm vi dữ liệu). |
 | `/violations` | Tìm hành vi theo alias. |
 | `/violations/[id]?as_of=` | Quy định áp dụng tại ngày chọn (mỗi lineage/ngữ cảnh hiển thị riêng, rule `UNCERTAIN` có lý do) và lịch sử thay đổi theo lineage. |
+| `/graph?document=` | Đồ thị quan hệ (#61): cột văn bản theo thời gian, điều khoản dưới văn bản chứa nó, cung giữa văn bản và đường cong giữa điều khoản tô màu theo loại; cạnh ứng viên nét đứt. Lọc theo loại quan hệ, trạng thái xác minh, cấp hiển thị, văn bản trọng tâm (`?document=` từ tab Quan hệ) và tìm số hiệu/tên. Chọn ô để xem cạnh vào/ra kèm căn cứ và link mở điều khoản. Logic lọc/bố cục thuần ở `web/src/lib/graph-view.ts`. |
 | `/ask` | Hỏi đáp AI; mỗi claim có chip nguồn dẫn tới provision. |
 | `/admin` | Trang nhập PDF trước đây ở `/` (vẫn chưa có xác thực, TODO #4). Job `needs_review` có nút **Xem xét**. |
 | `/admin/review/[jobId]` | Xem lỗi/cảnh báo validation và danh sách Điều đã đọc của văn bản `REVIEW_REQUIRED`; nút **Duyệt và công bố** gọi `POST /api/jobs/:jobId/review`. |

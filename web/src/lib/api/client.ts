@@ -1,6 +1,7 @@
 import { PUBLIC_BACKEND_URL } from "$env/static/public";
 import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
+import { parseRelationGraph, type RelationGraph } from "./graph";
 import { invalidResponse, requestJson } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
 import {
@@ -60,6 +61,10 @@ export function getDocument(fetcher: Fetcher, documentId: string): Promise<Docum
 
 export function getDocumentRelations(fetcher: Fetcher, documentId: string): Promise<DocumentRelations> {
     return getParsed(fetcher, `/api/documents/${encodeURIComponent(documentId)}/relations`, parseDocumentRelations);
+}
+
+export function getRelationGraph(fetcher: Fetcher): Promise<RelationGraph> {
+    return getParsed(fetcher, "/api/graph", parseRelationGraph);
 }
 
 export function searchViolations(fetcher: Fetcher, query: string): Promise<ViolationSummary[]> {
