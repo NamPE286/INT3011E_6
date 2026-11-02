@@ -69,7 +69,8 @@ export async function uploadFakeDecree(env: MockEnvironment, decree: FakeDecree)
 
 /**
  * Delivers queued messages like the Workers runtime, with the OpenAI boundary faked: PDF reads return the
- * decree's transcription, any other model call (semantic IR, identity) is refused so the deterministic path is kept.
+ * decree's transcription. Preprocessing stages run without a key, so they take the deterministic path;
+ * any other model call is refused.
  */
 export async function drainQueueReading(env: MockEnvironment, decree: FakeDecree): Promise<void> {
     const realFetch = globalThis.fetch;
@@ -93,7 +94,9 @@ export async function drainQueueReading(env: MockEnvironment, decree: FakeDecree
             const body = env.queueMessages.shift()!;
             const message = { body, ack() {}, retry() {} } as unknown as Message<ProcessingQueueMessage>;
 
-            await handleProcessingBatch({ messages: [message] } as unknown as MessageBatch<ProcessingQueueMessage>, env);
+            const target = body.stage === undefined ? env : { ...env, OPENAI_API_KEY: undefined };
+
+            await handleProcessingBatch({ messages: [message] } as unknown as MessageBatch<ProcessingQueueMessage>, target);
         }
     } finally {
         globalThis.fetch = realFetch;
