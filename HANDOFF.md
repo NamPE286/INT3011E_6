@@ -43,3 +43,11 @@ Còn thiếu so với tiêu chí nghiệm thu:
 - Frontend chưa có test component/e2e (chỉ test phần logic thuần); đã kiểm tra thủ công bằng trình duyệt trên dữ liệu fixture.
 - `/api/ask` và các endpoint admin chưa có xác thực/rate limit.
 - Nhãn tên văn bản ở tab Quan hệ chỉ tra được trong 50 văn bản mới nhất; ngoài đó hiển thị id.
+
+## Kiểm thử end-to-end và đồ thị quan hệ (#61)
+
+Nhánh `claude/feat/relation-graph` (chưa push):
+
+- Đối chiếu SRS: [docs/srs-coverage.md](docs/srs-coverage.md), kèm 4 lỗi phát hiện (D1–D4); lỗi nặng nhất là upload trùng PDF làm mất toàn bộ quan hệ (D3).
+- Luật giả `data/fake-law` (2 nghị định, có PDF) và `backend/test/fake-law-e2e.test.ts`: chạy upload → queue → preprocessing → truy vấn không cần OpenAI. Lỗi đã biết là các test `it.failing`.
+- `GET /api/graph` và trang `/graph` có bộ lọc; xem [docs/query-frontend.md](docs/query-frontend.md).
