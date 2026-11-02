@@ -1,8 +1,8 @@
 # Đối chiếu SRS với mã nguồn
 
-Kiểm tra ngày 02/11/2026 trên nhánh `claude/feat/relation-graph` (SRS v0.12). Căn cứ: đọc mã, `bun test` (backend 312 test, web 80 test), `bun run eval` (dev set), bộ end-to-end trên luật giả `data/fake-law` (`backend/test/fake-law-e2e.test.ts`, LLM giả) và một lần chạy pipeline với OpenAI thật (mục cuối).
+Kiểm tra ngày 02/11/2026 trên nhánh `claude/feat/relation-graph` (SRS v0.12). Căn cứ: đọc mã, `bun test` (backend 314 test, web 80 test), `bun run eval` (dev set), bộ end-to-end trên luật giả `data/fake-law` (`backend/test/fake-law-e2e.test.ts`, LLM giả) và một lần chạy pipeline với OpenAI thật (mục cuối).
 
-**Kết luận:** SRS **chưa được triển khai đầy đủ**. Lõi xử lý (đọc PDF → provision → graph văn bản → ChangeInstruction/ProvisionRelation → ViolationRule/Sanction → identity → lineage/as-of → change events) và các trang tra cứu chạy được end-to-end, cả với LLM thật; 7 lỗi tìm thấy đã sửa (bên dưới). Còn thiếu: xác thực Admin, acquisition/discovery tự động (FR-02), search index (FR-19), import nhiều phần/phụ lục và đánh giá held-out/QA (#29).
+**Kết luận:** SRS **chưa được triển khai đầy đủ**. Lõi xử lý (đọc PDF → provision → graph văn bản → ChangeInstruction/ProvisionRelation → ViolationRule/Sanction → identity → lineage/as-of → change events) và các trang tra cứu chạy được end-to-end, cả với LLM thật; 8 lỗi tìm thấy đã sửa (bên dưới). Còn thiếu: xác thực Admin, acquisition/discovery tự động (FR-02), search index (FR-19), import nhiều phần/phụ lục và đánh giá held-out/QA (#29).
 
 Ký hiệu: ✅ đạt · 🟡 một phần · ❌ chưa có.
 
@@ -49,7 +49,7 @@ Ký hiệu: ✅ đạt · 🟡 một phần · ❌ chưa có.
 
 ## Lỗi phát hiện khi kiểm thử — đã sửa
 
-D1–D4 tìm thấy bằng bộ e2e trên luật giả; L1–L3 tìm thấy khi chạy pipeline với OpenAI thật (`gpt-5-mini`). Mỗi lỗi có test hồi quy.
+D1–D4 tìm thấy bằng bộ e2e trên luật giả; L1–L4 tìm thấy khi chạy pipeline với OpenAI thật (`gpt-5-mini`). Mỗi lỗi có test hồi quy.
 
 | # | Lỗi | Sửa | Test |
 | --- | --- | --- | --- |
@@ -59,6 +59,20 @@ D1–D4 tìm thấy bằng bộ e2e trên luật giả; L1–L3 tìm thấy khi 
 | D4 | Tìm hành vi chỉ khớp chuỗi liền ("đỗ xe ngoài đô thị" không ra). | Khớp từng từ nguyên vẹn trong cùng alias, cụm liền xếp trước (FR-16.1). Vẫn chưa có index FTS (FR-19). | `fake-law-e2e.test.ts` |
 | L1 | Hỏi "trước đây thế nào" → AI nói không có thông tin: evidence chỉ có rule đang áp dụng. | Evidence thêm rule đã hết hiệu lực của cùng lineage (`earlier`); trạng thái chỉ tính theo rule tại ngày hỏi; rule bị bãi bỏ không có thay thế → `UNCERTAIN`. Prompt `grounded-answer-v2`. | `ask.test.ts`, `fake-law-e2e.test.ts` |
 | L2 | "Vượt đèn đỏ phạt bao nhiêu?" → `NO_ANSWER` (ví dụ demo SRS 12.4). | Khi khớp từ không ra và có model: model chỉ *chọn* trong danh mục hành vi đã lưu, id ngoài danh mục bị bỏ; `provenance.retrievalMethod`. | `ask.test.ts` |
+| L4 | Lỗi model tạm thời (ECONNRESET) ở bước rule vẫn báo DONE: văn bản giữ nhãn deterministic khác nhãn LLM của văn bản khác, lineage bị tách (F1 thay đổi giảm còn 0,71 ở một lần eval). | Bước VIOLATION_RULES báo FAILED kèm lỗi, giữ rule đọc không cần model; "chạy lại bước còn thiếu" sẽ thử lại. | `preprocessing-checklist.test.ts` |
 | L3 | `add_vocab` coi "xe mô tô" ≈ "xe ô tô" → AMBIGUOUS, rule mô tô UNCERTAIN. | So theo âm tiết không dấu: thay âm tiết = khái niệm khác; thêm/bớt âm tiết vẫn là gần trùng. | `vocabulary-similarity.test.ts` |
 
 Còn mở: PDF *khác* nhau cùng số hiệu (bản scan + bản số) vẫn làm resolver AMBIGUOUS thay vì gộp về một legal identity (phần còn lại của AC 25).
+
+## Chạy với OpenAI thật (`gpt-5-mini`)
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| LLM đọc 2 PDF luật giả (3 trang) | Không có validation issue; cấu trúc, quan hệ và mức phạt as-of trùng với bản phiên âm. ~45–55 s mỗi văn bản. |
+| Hỏi "Không đội mũ bảo hiểm… trước đây thế nào?" | `ANSWERED`: 400.000–600.000 đồng từ 01/01/2033, trước đó 200.000–400.000 đồng; mỗi ý dẫn evidence. |
+| Hỏi "Vượt đèn đỏ phạt bao nhiêu?" | `ANSWERED` qua `retrievalMethod: MODEL`: 3–5 triệu đồng + tước GPLX 1–3 tháng. |
+| Hỏi hành vi đã bị bãi bỏ | `UNCERTAIN`, kể lại lịch sử và nói rõ đã bị bãi bỏ từ 01/01/2033. |
+| Hỏi "Thời tiết hôm nay thế nào?" | `NO_ANSWER`, không có claim. |
+| `bun run eval -- --llm` (dev set) | Tất cả F1 = 1,0 (`data/eval/reports/preprocessing-dev-v1.llm-gpt-5-mini.json`); lần chạy trước có lỗi mạng cho 0,71 → dẫn tới L4. |
+
+Kết quả LLM dao động giữa các lần chạy; dev set chỉ là bộ hồi quy, không phải held-out (#29).
