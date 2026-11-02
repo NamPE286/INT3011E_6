@@ -171,6 +171,32 @@ export function buildProvisionTree(provisions: Provision[]): ProvisionNode[] {
     return roots;
 }
 
+export type OutlineEntry = {
+    id: string;
+    label: string;
+};
+
+/** The articles of a document in reading order, for a table of contents; articles inside chapters included. */
+export function articleOutline(nodes: ProvisionNode[]): OutlineEntry[] {
+    const entries: OutlineEntry[] = [];
+
+    for (const node of nodes) {
+        const { provision } = node;
+
+        if (provision.level === "ARTICLE") {
+            const title = provision.title ? `. ${provision.title}` : "";
+
+            entries.push({ id: provision.id, label: `Điều ${provision.number}${title}` });
+
+            continue;
+        }
+
+        entries.push(...articleOutline(node.children));
+    }
+
+    return entries;
+}
+
 export function amendmentsByProvision(amendments: Amendment[]): Map<string, Amendment[]> {
     const grouped = new Map<string, Amendment[]>();
 

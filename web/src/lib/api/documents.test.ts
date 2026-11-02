@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
     amendmentsByProvision,
+    articleOutline,
     buildProvisionTree,
     parseDocumentRelations,
     parseDocumentSearch,
@@ -192,5 +193,27 @@ describe("parseDocumentRelations", () => {
 
     test("rejects a response without edge lists", () => {
         expect(parseDocumentRelations({ documentId: "d1" })).toBeNull();
+    });
+});
+
+describe("articleOutline", () => {
+    test("lists every article in reading order, also those inside chapters, without their clauses", () => {
+        const view = parseDocumentView({
+            document: { id: "d", title: null },
+            metadata: null,
+            provisions: [
+                provision("ch1", 1, null, { level: "CHAPTER", number: "I" }),
+                provision("d1", 2, "ch1", { level: "ARTICLE", number: "1", title: "Phạm vi" }),
+                provision("d1k1", 3, "d1", { level: "CLAUSE", number: "1" }),
+                provision("d2", 4, null, { level: "ARTICLE", number: "2", title: null }),
+            ],
+            amendments: [],
+        });
+        const tree = buildProvisionTree(view?.provisions ?? []);
+
+        expect(articleOutline(tree)).toEqual([
+            { id: "d1", label: "Điều 1. Phạm vi" },
+            { id: "d2", label: "Điều 2" },
+        ]);
     });
 });
