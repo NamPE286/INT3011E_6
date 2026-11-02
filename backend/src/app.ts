@@ -16,6 +16,7 @@ import { identityModule } from "./modules/identity/identity.route";
 import { askModule } from "./modules/ask/ask.route";
 import { modelsModule } from "./modules/llm/models.route";
 import { historyModule } from "./modules/history/history.route";
+import { graphModule } from "./modules/graph/graph.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -37,6 +38,7 @@ export const app = new Elysia({ aot: false })
     .use(violationModule)
     .use(identityModule)
     .use(historyModule)
+    .use(graphModule)
     .use(askModule)
     .use(modelsModule)
     .use(dummyModule)
