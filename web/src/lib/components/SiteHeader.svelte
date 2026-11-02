@@ -1,12 +1,12 @@
 <script lang="ts">
     import { page } from "$app/state";
+    import { Scale } from "@lucide/svelte";
 
     const links = [
-        { href: "/documents", label: "Văn bản pháp luật" },
         { href: "/violations", label: "Hành vi vi phạm" },
+        { href: "/documents", label: "Văn bản" },
         { href: "/graph", label: "Đồ thị quan hệ" },
         { href: "/ask", label: "Hỏi đáp AI" },
-        { href: "/admin", label: "Quản trị" },
     ];
 
     function isCurrent(href: string): boolean {
@@ -14,20 +14,24 @@
     }
 </script>
 
-<header class="border-b bg-background">
-    <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3">
-        <a href="/" class="text-base font-semibold tracking-tight">
-            Tra cứu xử phạt giao thông
+<header class="sticky top-0 z-30 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+    <div class="mx-auto flex w-full max-w-6xl items-center gap-4 px-4 sm:px-6">
+        <a href="/" class="flex shrink-0 items-center gap-2 py-3 font-semibold tracking-tight">
+            <span class="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Scale class="size-4" aria-hidden="true" />
+            </span>
+            <span class="hidden sm:inline">Tra cứu xử phạt giao thông</span>
+            <span class="sm:hidden">Tra cứu xử phạt</span>
         </a>
 
-        <nav aria-label="Điều hướng chính">
-            <ul class="flex flex-wrap gap-4 text-sm">
+        <nav aria-label="Điều hướng chính" class="-mx-1 min-w-0 flex-1 overflow-x-auto">
+            <ul class="flex w-max gap-1 px-1 text-sm">
                 {#each links as link (link.href)}
                     <li>
                         <a
                             href={link.href}
                             aria-current={isCurrent(link.href) ? "page" : undefined}
-                            class="text-muted-foreground hover:text-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground"
+                            class="block rounded-md px-3 py-2 whitespace-nowrap text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-accent-foreground"
                         >
                             {link.label}
                         </a>
@@ -35,5 +39,13 @@
                 {/each}
             </ul>
         </nav>
+
+        <a
+            href="/admin"
+            aria-current={isCurrent("/admin") ? "page" : undefined}
+            class="hidden shrink-0 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground md:block"
+        >
+            Quản trị
+        </a>
     </div>
 </header>
