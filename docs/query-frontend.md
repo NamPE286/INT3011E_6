@@ -28,13 +28,13 @@ Giới hạn: retrieval chỉ khớp theo từ trong tên/alias đã lưu, nên 
 
 | Route | Nội dung |
 | --- | --- |
-| `/` | Điểm vào. |
+| `/` | Ô tìm hành vi ngay đầu trang, chip tìm nhanh, lối vào văn bản/đồ thị/hỏi đáp (kèm câu hỏi mẫu). |
 | `/documents` | Tìm văn bản (form `GET`, trạng thái nằm trên URL). |
-| `/documents/[id]` | Tab **Nội dung** (cây Điều/Khoản/Điểm, nhãn phần bị sửa đổi/bãi bỏ kèm căn cứ) và **Quan hệ** (cạnh `ACCEPTED` tách riêng khỏi dẫn chiếu chưa xác minh, frontier, phạm vi dữ liệu). |
-| `/violations` | Tìm hành vi theo alias. |
-| `/violations/[id]?as_of=` | Quy định áp dụng tại ngày chọn (mỗi lineage/ngữ cảnh hiển thị riêng, rule `UNCERTAIN` có lý do) và lịch sử thay đổi theo lineage. |
+| `/documents/[id]` | Đúng hai tab: **Nội dung** (mục lục Điều, cây Điều/Khoản/Điểm, phần bị tác động có vạch đỏ, phần bị bãi bỏ gạch ngang, mục thu gọn "Hành vi vi phạm") và **Quan hệ** (cạnh `ACCEPTED` tách riêng khỏi dẫn chiếu chưa xác minh, frontier, phạm vi dữ liệu). |
+| `/violations` | Tìm hành vi theo từng từ trong alias; không có kết quả thì gợi ý hỏi AI với cùng từ khóa. |
+| `/violations/[id]?as_of=` | Mức phạt tại ngày chọn hiển thị lớn nhất; chip chọn nhanh Hôm nay và mỗi mốc phiên bản; ngày không có quy định gợi ý mốc gần nhất; lịch sử dạng timeline, trạng thái tính theo ngày đang xem (`web/src/lib/version-view.ts`). Mỗi lineage/ngữ cảnh hiển thị riêng, rule `UNCERTAIN` có lý do. |
 | `/graph?document=` | Đồ thị quan hệ (#61): cột văn bản theo thời gian, điều khoản dưới văn bản chứa nó, cung giữa văn bản và đường cong giữa điều khoản tô màu theo loại; cạnh ứng viên nét đứt. Lọc theo loại quan hệ, trạng thái xác minh, cấp hiển thị, văn bản trọng tâm (`?document=` từ tab Quan hệ) và tìm số hiệu/tên. Chọn ô để xem cạnh vào/ra kèm căn cứ và link mở điều khoản. Logic lọc/bố cục thuần ở `web/src/lib/graph-view.ts`. |
-| `/ask` | Hỏi đáp AI; mỗi claim có chip nguồn dẫn tới provision. |
+| `/ask?q=` | Hỏi đáp AI; câu hỏi mẫu, Ctrl+Enter để gửi, chọn model trong mục "Tùy chọn"; mỗi claim có chip nguồn dẫn tới provision. |
 | `/admin` | Trang nhập PDF trước đây ở `/` (vẫn chưa có xác thực, TODO #4). Job `needs_review` có nút **Xem xét**. |
 | `/admin/review/[jobId]` | Xem lỗi/cảnh báo validation và danh sách Điều đã đọc của văn bản `REVIEW_REQUIRED`; nút **Duyệt và công bố** gọi `POST /api/jobs/:jobId/review`. |
 
