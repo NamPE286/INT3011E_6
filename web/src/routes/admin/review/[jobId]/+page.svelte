@@ -56,7 +56,7 @@
 </svelte:head>
 
 <!-- TODO(#4): restrict this admin page once authentication is implemented. -->
-<main class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
+<main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6">
     <nav aria-label="Đường dẫn">
         <a href="/admin" class="text-sm text-muted-foreground underline underline-offset-4">← Nhập văn bản</a>
     </nav>
