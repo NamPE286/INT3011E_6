@@ -17,7 +17,7 @@
     <title>Văn bản pháp luật</title>
 </svelte:head>
 
-<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
     <header>
         <h1 class="text-2xl font-semibold tracking-tight">Văn bản pháp luật</h1>
         <p class="text-sm text-muted-foreground">Tìm theo số hiệu, tên văn bản hoặc từ khóa. Tìm kiếm không dùng AI.</p>

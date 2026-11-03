@@ -17,9 +17,13 @@ export function parseModelOptions(value: unknown): ModelOptions | null {
 
     const models = readRows(value, "models", parseModelOption);
     const configuredDefault = readString(value, "default");
-    const defaultModel = models.find((model) => model.id === configuredDefault)?.id ?? models[0]?.id ?? "";
 
-    return { defaultModel, models };
+    if (configuredDefault && !models.some((model) => model.id === configuredDefault)) {
+        // The deployment's model is not one a client may request: an empty id sends no model, so the server uses it.
+        return { defaultModel: "", models: [{ id: "", label: `Mặc định (${configuredDefault})` }, ...models] };
+    }
+
+    return { defaultModel: configuredDefault ?? models[0]?.id ?? "", models };
 }
 
 function parseModelOption(row: Record<string, unknown>): ModelOption | null {

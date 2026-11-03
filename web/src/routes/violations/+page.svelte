@@ -1,13 +1,13 @@
 <script lang="ts">
     import SearchForm from "$lib/components/SearchForm.svelte";
-    import { Card, CardDescription, CardHeader, CardTitle } from "$lib/components/ui/card";
+    import { ChevronRight, Sparkles } from "@lucide/svelte";
 
     let { data } = $props();
 
     const searched = $derived(data.query.trim().length > 0);
 
     function otherAliases(violation: { canonicalName: string; aliases: string[] }): string[] {
-        return violation.aliases.filter((alias) => alias !== violation.canonicalName).slice(0, 3);
+        return violation.aliases.filter((alias) => alias !== violation.canonicalName).slice(0, 2);
     }
 </script>
 
@@ -15,38 +15,49 @@
     <title>Hành vi vi phạm</title>
 </svelte:head>
 
-<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-    <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Hành vi vi phạm</h1>
-        <p class="text-sm text-muted-foreground">
-            Tìm theo cách diễn đạt trong văn bản hoặc tên gọi khác của hành vi. Tìm kiếm không dùng AI.
-        </p>
+<main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <header class="flex flex-col gap-1">
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Hành vi vi phạm</h1>
+        <p class="text-muted-foreground">Tìm theo từ khóa trong cách diễn đạt của văn bản. Tìm kiếm không dùng AI.</p>
     </header>
 
-    <SearchForm action="/violations" label="Hành vi vi phạm" placeholder="Ví dụ: không chấp hành hiệu lệnh của đèn tín hiệu" value={data.query} />
+    <SearchForm action="/violations" label="Mô tả hành vi" placeholder="Ví dụ: đỗ xe ngoài đô thị" value={data.query} />
 
     <section aria-labelledby="results-heading" class="flex flex-col gap-3">
-        <h2 id="results-heading" class="text-lg font-semibold">
-            {searched ? `Kết quả cho “${data.query}”` : "Các hành vi đã nhận diện"}
+        <h2 id="results-heading" class="text-sm font-medium text-muted-foreground">
+            {searched ? `${data.violations.length} kết quả cho “${data.query}”` : `${data.violations.length} hành vi đã nhận diện`}
         </h2>
 
         {#if data.violations.length === 0}
-            <p class="text-sm text-muted-foreground" role="status">
-                Không tìm thấy hành vi phù hợp trong dữ liệu đã xử lý. Hãy thử cách diễn đạt khác hoặc hỏi đáp bằng AI.
-            </p>
+            <div class="flex flex-col gap-3 rounded-2xl border border-dashed p-5" role="status">
+                <p class="font-medium">Không tìm thấy hành vi khớp với các từ này trong dữ liệu đã xử lý.</p>
+                <p class="text-sm text-muted-foreground">Văn bản có thể dùng cách diễn đạt khác. Hỏi AI để hệ thống tìm hành vi tương ứng và trả lời kèm điều khoản nguồn.</p>
+                {#if searched}
+                    <a
+                        href={`/ask?q=${encodeURIComponent(data.query)}`}
+                        class="inline-flex items-center gap-2 self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    >
+                        <Sparkles class="size-4" aria-hidden="true" />
+                        Hỏi AI: “{data.query}”
+                    </a>
+                {/if}
+            </div>
         {:else}
-            <ul class="flex flex-col gap-3">
+            <ul class="flex flex-col divide-y rounded-2xl border bg-card">
                 {#each data.violations as violation (violation.id)}
                     <li>
-                        <a href={`/violations/${encodeURIComponent(violation.id)}`} class="block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2">
-                            <Card class="transition-colors hover:bg-muted/50">
-                                <CardHeader>
-                                    <CardTitle>{violation.canonicalName}</CardTitle>
-                                    {#if otherAliases(violation).length > 0}
-                                        <CardDescription>Còn được diễn đạt: {otherAliases(violation).join("; ")}</CardDescription>
-                                    {/if}
-                                </CardHeader>
-                            </Card>
+                        <a
+                            href={`/violations/${encodeURIComponent(violation.id)}`}
+                            class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-muted/60 focus-visible:outline-2 focus-visible:-outline-offset-2"
+                        >
+                            <span class="flex min-w-0 flex-1 flex-col gap-1">
+                                <span class="font-medium">{violation.canonicalName}</span>
+                                {#if otherAliases(violation).length > 0}
+                                    <span class="text-sm text-muted-foreground">Còn được diễn đạt: {otherAliases(violation).join("; ")}</span>
+                                {/if}
+                            </span>
+                            <span class="hidden shrink-0 text-sm text-muted-foreground group-hover:text-foreground sm:inline">Xem mức phạt</span>
+                            <ChevronRight class="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                         </a>
                     </li>
                 {/each}

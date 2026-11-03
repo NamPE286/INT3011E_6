@@ -11,7 +11,8 @@
     import { formatDate, formatFineRange, formatPeriod, todayIso } from "$lib/format";
     import { provisionHref } from "$lib/labels";
     import { NativeSelect, NativeSelectOption } from "$lib/components/ui/native-select";
-    import { Loader } from "@lucide/svelte";
+    import { page } from "$app/state";
+    import { Loader, Sparkles } from "@lucide/svelte";
     import type { PageProps } from "./$types";
 
     const MAX_QUESTION_LENGTH = 500;
@@ -24,7 +25,14 @@
 
     let { data }: PageProps = $props();
 
-    let question = $state("");
+    const SAMPLE_QUESTIONS = [
+        "Vượt đèn đỏ bị phạt bao nhiêu?",
+        "Không đội mũ bảo hiểm khi đi xe máy bị phạt thế nào, trước đây ra sao?",
+        "Đỗ xe trên phần đường xe chạy ngoài đô thị bị phạt bao nhiêu?",
+    ];
+
+    // A question passed from another page (?q=) only seeds the box.
+    let question = $state((page.url.searchParams.get("q") ?? "").slice(0, MAX_QUESTION_LENGTH));
     // The default only seeds the select; later changes are the user's.
     // svelte-ignore state_referenced_locally
     let model = $state(data.modelOptions.defaultModel);
@@ -32,6 +40,13 @@
     let loading = $state(false);
     let errorMessage = $state<string | null>(null);
     let answer = $state<AskAnswer | null>(null);
+
+    function submitOnShortcut(event: KeyboardEvent): void {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && event.currentTarget instanceof HTMLTextAreaElement) {
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+        }
+    }
 
     async function submit(event: SubmitEvent): Promise<void> {
         event.preventDefault();
@@ -58,53 +73,74 @@
     <title>Hỏi đáp AI</title>
 </svelte:head>
 
-<main class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-    <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Hỏi đáp về xử phạt giao thông</h1>
-        <p class="text-sm text-muted-foreground">
-            Hệ thống tìm điều khoản liên quan trước, rồi mới soạn câu trả lời. Mức phạt và hiệu lực chỉ được nêu khi có điều khoản nguồn đi kèm.
+<main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <header class="flex flex-col gap-2">
+        <p class="flex items-center gap-1.5 text-sm font-medium tracking-wide text-accent-foreground uppercase">
+            <Sparkles class="size-4" aria-hidden="true" />
+            Hỏi đáp AI
+        </p>
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Hỏi về mức phạt bằng lời thường</h1>
+        <p class="text-muted-foreground">
+            Hệ thống tìm điều khoản liên quan trước rồi mới soạn câu trả lời. Mức phạt và hiệu lực chỉ được nêu khi có điều khoản nguồn đi kèm.
         </p>
     </header>
 
-    <form onsubmit={submit} class="flex flex-col gap-4">
+    <form onsubmit={submit} class="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
         <div class="flex flex-col gap-1.5">
-            <label for="question" class="text-sm font-medium">Câu hỏi</label>
+            <label for="question" class="sr-only">Câu hỏi</label>
             <Textarea
                 id="question"
                 bind:value={question}
                 maxlength={MAX_QUESTION_LENGTH}
                 rows={3}
-                placeholder="Ví dụ: Không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị phạt bao nhiêu?"
+                placeholder="Ví dụ: Vượt đèn đỏ bị phạt bao nhiêu?"
                 required
+                onkeydown={submitOnShortcut}
+                class="resize-none border-0 bg-transparent px-1 text-base shadow-none focus-visible:ring-0"
             />
-            <p class="text-xs text-muted-foreground">{question.length}/{MAX_QUESTION_LENGTH} ký tự</p>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div class="flex flex-col gap-1.5">
-                <label for="as-of" class="text-sm font-medium">Áp dụng tại ngày</label>
-                <Input id="as-of" type="date" bind:value={asOf} required />
+        <div class="flex flex-wrap gap-2 text-sm">
+            {#each SAMPLE_QUESTIONS as sample (sample)}
+                <button type="button" class="rounded-full border px-3 py-1 text-left hover:bg-muted" onclick={() => (question = sample)}>
+                    {sample}
+                </button>
+            {/each}
+        </div>
+
+        <div class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-end sm:justify-between">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div class="flex flex-col gap-1.5">
+                    <label for="as-of" class="text-sm font-medium">Áp dụng tại ngày</label>
+                    <Input id="as-of" type="date" bind:value={asOf} required />
+                </div>
+
+                {#if data.modelOptions.models.length > 0}
+                    <details class="text-sm">
+                        <summary class="cursor-pointer py-2 text-muted-foreground">Tùy chọn mô hình</summary>
+                        <div class="flex flex-col gap-1.5 pt-1">
+                            <label for="model" class="font-medium">Mô hình</label>
+                            <NativeSelect id="model" bind:value={model}>
+                                {#each data.modelOptions.models as option (option.id)}
+                                    <NativeSelectOption value={option.id}>{option.label}</NativeSelectOption>
+                                {/each}
+                            </NativeSelect>
+                        </div>
+                    </details>
+                {/if}
             </div>
 
-            {#if data.modelOptions.models.length > 0}
-                <div class="flex flex-col gap-1.5">
-                    <label for="model" class="text-sm font-medium">Mô hình</label>
-                    <NativeSelect id="model" bind:value={model}>
-                        {#each data.modelOptions.models as option (option.id)}
-                            <NativeSelectOption value={option.id}>{option.label}</NativeSelectOption>
-                        {/each}
-                    </NativeSelect>
-                </div>
-            {/if}
-
-            <Button type="submit" disabled={loading || question.trim().length === 0}>
-                {#if loading}
-                    <Loader class="animate-spin" aria-hidden="true" />
-                    Đang tìm căn cứ…
-                {:else}
-                    Hỏi
-                {/if}
-            </Button>
+            <div class="flex items-center gap-3">
+                <span class="hidden text-xs text-muted-foreground sm:inline">{question.length}/{MAX_QUESTION_LENGTH} · Ctrl + Enter để gửi</span>
+                <Button type="submit" size="lg" disabled={loading || question.trim().length === 0}>
+                    {#if loading}
+                        <Loader class="animate-spin" aria-hidden="true" />
+                        Đang tìm căn cứ…
+                    {:else}
+                        Hỏi
+                    {/if}
+                </Button>
+            </div>
         </div>
     </form>
 
@@ -139,8 +175,8 @@
                 {#if answer.claims.length > 0}
                     <ul class="flex flex-col gap-3">
                         {#each answer.claims as claim (claim.text)}
-                            <li class="rounded-lg border p-3 text-sm">
-                                <p>{claim.text}</p>
+                            <li class="rounded-xl border border-l-4 border-l-primary bg-card p-4 text-sm leading-relaxed">
+                                <p class="text-base">{claim.text}</p>
                                 <p class="mt-1 text-xs text-muted-foreground">
                                     Nguồn:
                                     {#each claim.evidenceIds as evidenceId, index (evidenceId)}
@@ -158,7 +194,7 @@
 
                         <ul class="flex flex-col gap-2">
                             {#each answer.evidence as evidence (evidence.id)}
-                                <li id={`evidence-${evidence.id}`} class="scroll-mt-20 rounded-lg border p-3 text-sm target:bg-muted/60">
+                                <li id={`evidence-${evidence.id}`} class="scroll-mt-24 rounded-lg border bg-card p-3 text-sm target:bg-accent/50">
                                     <p class="font-medium">[{evidence.id}] {evidence.violationName}</p>
                                     <p class="text-muted-foreground">
                                         {formatFineRange(evidence.fine)} · {formatPeriod(evidence.validFrom, evidence.validTo)}

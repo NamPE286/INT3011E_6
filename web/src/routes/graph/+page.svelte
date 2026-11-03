@@ -57,7 +57,7 @@
     <title>Đồ thị quan hệ</title>
 </svelte:head>
 
-<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+<main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
     <header class="flex flex-col gap-1">
         <h1 class="text-2xl font-semibold tracking-tight">Đồ thị quan hệ</h1>
         <p class="text-sm text-muted-foreground">
