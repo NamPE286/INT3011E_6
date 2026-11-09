@@ -1,10 +1,10 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { PUBLIC_BACKEND_URL } from "$env/static/public";
+import { getBackendUrl } from "$lib/api/client";
 
 export const GET: RequestHandler = async () => {
 	try {
-		const res = await fetch(`${PUBLIC_BACKEND_URL}/health`);
+		const res = await fetch(`${getBackendUrl()}/health`);
 		const data = await res.json();
 		return json(data, { status: res.status });
 	} catch (err: unknown) {

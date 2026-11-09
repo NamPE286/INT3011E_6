@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy } from "svelte";
-    import { PUBLIC_BACKEND_URL } from "$env/static/public";
+    import { getBackendUrl } from "$lib/api/client";
     import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "$lib/components/ui/card";
     import { Button } from "$lib/components/ui/button";
     import { Badge } from "$lib/components/ui/badge";
@@ -26,7 +26,7 @@
     let { onjobchange }: { onjobchange?: () => void } = $props();
     type StepState = "done" | "active" | "pending" | "failed";
 
-    const DEFAULT_BACKEND_URL = PUBLIC_BACKEND_URL;
+    const DEFAULT_BACKEND_URL = getBackendUrl();
     const POLL_INTERVAL_MS = 1000;
     const MAX_POLL_FAILURES = 10;
     const PROCESSING_STEP_ORDER = ["preparing", "extracting", "analyzing", "finalizing", "completed"] as const;

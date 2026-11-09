@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
-    import { PUBLIC_BACKEND_URL } from "$env/static/public";
+    import { getBackendUrl } from "$lib/api/client";
     import { Badge } from "$lib/components/ui/badge";
     import { Button } from "$lib/components/ui/button";
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "$lib/components/ui/card";
@@ -10,7 +10,7 @@
     import { ClipboardCheck, FileJson, RefreshCw } from "@lucide/svelte";
 
     const ACTIVE_POLL_INTERVAL_MS = 3000;
-    const backendUrl = PUBLIC_BACKEND_URL.replace(/\/$/, "");
+    const backendUrl = getBackendUrl();
 
     let jobs = $state<JobSummary[]>([]);
     let loading = $state(true);
