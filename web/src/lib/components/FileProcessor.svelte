@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onDestroy } from "svelte";
+    import { dev } from "$app/environment";
     import { getBackendUrl } from "$lib/api/client";
     import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "$lib/components/ui/card";
     import { Button } from "$lib/components/ui/button";
@@ -51,12 +52,12 @@
     let consecutivePollFailures = 0;
 
     const PIPELINE_STEPS = [
-        { key: "upload", label: "Upload completed" },
-        { key: "preparing", label: "Preparing document" },
-        { key: "extracting", label: "Extracting content" },
-        { key: "analyzing", label: "Analyzing provisions" },
-        { key: "finalizing", label: "Finalizing" },
-        { key: "completed", label: "Processing completed" }
+        { key: "upload", label: "Tải tệp lên" },
+        { key: "preparing", label: "Chuẩn bị văn bản" },
+        { key: "extracting", label: "AI đọc nội dung PDF" },
+        { key: "analyzing", label: "Kiểm tra cấu trúc điều khoản" },
+        { key: "finalizing", label: "Lưu văn bản" },
+        { key: "completed", label: "Đọc xong" }
     ] as const;
 
     function formatBytes(bytes: number): string {
@@ -121,8 +122,8 @@
         xhr.onload = () => {
             if (xhr.status < 200 || xhr.status >= 300) {
                 const responseMessage = parseErrorMessage(xhr.responseText);
-                const fallbackMessage = xhr.statusText || "Request error";
-                fail(responseMessage || `Upload failed with HTTP ${xhr.status}: ${fallbackMessage}`);
+                const fallbackMessage = xhr.statusText || "Lỗi yêu cầu";
+                fail(responseMessage || `Tải lên thất bại (HTTP ${xhr.status}): ${fallbackMessage}`);
 
                 return;
             }
@@ -130,7 +131,7 @@
             const uploadResponse = parseUploadResponse(xhr.responseText);
 
             if (!uploadResponse) {
-                fail("Upload response is missing a valid job ID");
+                fail("Máy chủ không trả về mã job hợp lệ");
 
                 return;
             }
@@ -145,7 +146,7 @@
         };
 
         xhr.onerror = () => {
-            fail(`Could not connect to ${backendBaseUrl}. Make sure the Cloudflare Worker is running.`);
+            fail(`Không kết nối được máy chủ ${backendBaseUrl}. Kiểm tra backend đang chạy.`);
         };
 
         const formData = new FormData();
@@ -174,14 +175,14 @@
             const res = await fetch(`${backendBaseUrl}/api/jobs/${id}`);
 
             if (res.status === 404) {
-                fail("Job not found on server (404)");
+                fail("Không tìm thấy job trên máy chủ (404)");
                 return;
             }
 
             if (!res.ok) {
                 consecutivePollFailures++;
                 if (consecutivePollFailures >= MAX_POLL_FAILURES) {
-                    fail(`Polling failed repeatedly (HTTP ${res.status})`);
+                    fail(`Không lấy được tiến độ sau nhiều lần thử (HTTP ${res.status})`);
                 }
                 return;
             }
@@ -190,7 +191,7 @@
             const jobResponse: unknown = await res.json();
 
             if (!isJobResponse(jobResponse)) {
-                fail("Server returned an invalid job response");
+                fail("Máy chủ trả về trạng thái job không hợp lệ");
 
                 return;
             }
@@ -212,14 +213,14 @@
                 uiState = "needs_review";
                 currentStep = "needs_review";
                 errorMessage = jobResponse.error?.trim()
-                    || "This PDF requires manual review. Check the source document before trying again.";
+                    || "PDF này cần kiểm tra thủ công. Kiểm tra lại tệp gốc trước khi thử lại.";
             } else if (jobResponse.status === "failed") {
-                fail(jobResponse.error || "Processing failed in queue consumer");
+                fail(jobResponse.error || "Xử lý văn bản thất bại");
             }
         } catch (err: unknown) {
             consecutivePollFailures++;
             if (consecutivePollFailures >= MAX_POLL_FAILURES) {
-                fail(err instanceof Error ? err.message : "Lost connection while polling job status");
+                fail(err instanceof Error ? err.message : "Mất kết nối khi theo dõi tiến độ");
             }
         } finally {
             pollInFlight = false;
@@ -307,61 +308,64 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <Upload class="size-5 text-primary" />
-                <CardTitle class="text-xl font-bold">Import legal PDF</CardTitle>
+                <CardTitle class="text-xl font-bold">Tải lên văn bản PDF</CardTitle>
             </div>
 
             {#if uiState === "idle"}
-                <Badge variant="outline">Idle</Badge>
+                <Badge variant="outline">Chờ chọn tệp</Badge>
             {:else if uiState === "uploading"}
                 <Badge variant="secondary" class="gap-1 bg-amber-500/10 text-amber-600 border-amber-200">
                     <Loader2 class="size-3 animate-spin" />
-                    Uploading
+                    Đang tải lên
                 </Badge>
             {:else if uiState === "processing"}
                 <Badge variant="secondary" class="gap-1 bg-blue-500/10 text-blue-600 border-blue-200">
                     <Loader2 class="size-3 animate-spin" />
-                    Processing
+                    Đang xử lý
                 </Badge>
             {:else if uiState === "completed"}
                 <Badge class="gap-1 bg-emerald-600 hover:bg-emerald-600 text-white">
                     <CheckCircle2 class="size-3" />
-                    Completed
+                    Đã đọc xong
                 </Badge>
             {:else if uiState === "needs_review"}
                 <Badge variant="outline" class="gap-1">
                     <AlertCircle class="size-3" />
-                    Needs review
+                    Cần kiểm tra
                 </Badge>
             {:else if uiState === "failed"}
                 <Badge variant="destructive" class="gap-1">
                     <AlertCircle class="size-3" />
-                    Failed
+                    Lỗi
                 </Badge>
             {/if}
         </div>
         <CardDescription>
-            Uploads to Cloudflare R2, writes job to D1, triggers Queue consumer, and polls status.
+            Tệp được lưu lại, đưa vào hàng đợi để AI đọc, và tiến độ cập nhật mỗi giây.
         </CardDescription>
     </CardHeader>
 
     <CardContent class="space-y-5">
-        <!-- Configuration: Backend Target -->
-        <div class="rounded-md border p-2.5 bg-muted/40 flex items-center justify-between gap-3 text-xs">
-            <span class="font-medium text-muted-foreground whitespace-nowrap">Worker URL:</span>
-            <input
-                type="text"
-                bind:value={backendBaseUrl}
-                disabled={uiState === "uploading" || uiState === "processing"}
-                class="font-mono text-xs px-2 py-1 rounded border bg-background flex-1 max-w-xs focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-        </div>
+        <!-- Development only: point the upload at another backend. -->
+        {#if dev}
+            <div class="rounded-md border p-2.5 bg-muted/40 flex items-center justify-between gap-3 text-xs">
+                <label for="backend-url" class="font-medium text-muted-foreground whitespace-nowrap">Máy chủ (dev):</label>
+                <input
+                    id="backend-url"
+                    type="text"
+                    bind:value={backendBaseUrl}
+                    disabled={uiState === "uploading" || uiState === "processing"}
+                    class="font-mono text-xs px-2 py-1 rounded border bg-background flex-1 max-w-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+            </div>
+        {/if}
 
         <!-- File Selector -->
         {#if uiState === "idle"}
             <div class="space-y-3">
                 <label
                     for="file-upload"
-                    class="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 transition-colors bg-muted/10 hover:bg-muted/20"
+                    class="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 transition-colors bg-muted/10 hover:bg-muted/20 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring"
                 >
                     <FileText class="size-8 text-muted-foreground" />
                     <div class="text-sm font-medium">
@@ -369,16 +373,17 @@
                             <span class="text-primary font-semibold">{selectedFile.name}</span>
                             <span class="text-muted-foreground ml-1 text-xs">({formatBytes(selectedFile.size)})</span>
                         {:else}
-                            <span>Click to select document or file</span>
+                            <span>Bấm để chọn tệp PDF</span>
                         {/if}
                     </div>
-                    <p class="text-xs text-muted-foreground">Supported files up to 50MB</p>
+                    <p class="text-xs text-muted-foreground">PDF tối đa 50 MB và 300 trang, kể cả bản scan</p>
                     <input
                         id="file-upload"
                         type="file"
+                        accept="application/pdf,.pdf"
                         bind:this={fileInputRef}
                         onchange={handleFileSelect}
-                        class="hidden"
+                        class="sr-only"
                     />
                 </label>
             </div>
@@ -404,7 +409,7 @@
                 </div>
 
                 <div class="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Uploading bytes...</span>
+                    <span>Đang tải lên...</span>
                     <span class="font-mono">
                         {formatBytes(uploadLoadedBytes)} / {formatBytes(uploadTotalBytes)}
                     </span>
@@ -448,7 +453,7 @@
                                     <span class="text-blue-600 font-semibold">{step.label}</span>
                                 {:else if state === "failed"}
                                     <AlertCircle class="size-4 text-destructive" />
-                                    <span class="text-destructive font-semibold">{step.label} (failed)</span>
+                                    <span class="text-destructive font-semibold">{step.label} (lỗi)</span>
                                 {:else}
                                     <Circle class="size-4 text-muted-foreground/40" />
                                     <span class="text-muted-foreground">{step.label}</span>
@@ -457,13 +462,13 @@
 
                             <div>
                                 {#if state === "done"}
-                                    <span class="text-[11px] text-emerald-600 font-medium">Done</span>
+                                    <span class="text-[11px] text-emerald-600 font-medium">Xong</span>
                                 {:else if state === "active"}
-                                    <span class="text-[11px] text-blue-600 font-medium animate-pulse">Running</span>
+                                    <span class="text-[11px] text-blue-600 font-medium animate-pulse">Đang chạy</span>
                                 {:else if state === "failed"}
-                                    <span class="text-[11px] text-destructive font-medium">Failed</span>
+                                    <span class="text-[11px] text-destructive font-medium">Lỗi</span>
                                 {:else}
-                                    <span class="text-[11px] text-muted-foreground/50">Pending</span>
+                                    <span class="text-[11px] text-muted-foreground/50">Chờ</span>
                                 {/if}
                             </div>
                         </div>
@@ -477,9 +482,9 @@
             <div role="status" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-1">
                 <div class="font-semibold flex items-center gap-1.5">
                     <AlertCircle class="size-4" />
-                    Manual review required
+                    Cần kiểm tra thủ công
                 </div>
-                <p>{errorMessage || "The document could not be processed automatically."}</p>
+                <p>{errorMessage || "Không xử lý tự động được văn bản này."}</p>
                 <p class="font-mono text-muted-foreground">Job ID: {jobId}</p>
             </div>
         {/if}
@@ -489,7 +494,7 @@
             <div class="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive text-xs space-y-1">
                 <div class="font-semibold flex items-center gap-1.5">
                     <AlertCircle class="size-4" />
-                    Operation Failed
+                    Xử lý thất bại
                 </div>
                 <p>{errorMessage}</p>
             </div>
@@ -500,8 +505,8 @@
             <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-700 text-xs flex items-center gap-2">
                 <CheckCircle2 class="size-4 shrink-0 text-emerald-600" />
                 <div>
-                    <span class="font-semibold">Processing pipeline finished successfully!</span>
-                    All stages persisted in Cloudflare D1.
+                    <span class="font-semibold">Đã đọc xong văn bản.</span>
+                    Các bước tiền xử lý (điều khoản, quan hệ, hành vi vi phạm) tiếp tục chạy nền; xem tiến độ ở nút "Xem lại" trong danh sách.
                 </div>
             </div>
         {/if}
@@ -510,7 +515,7 @@
     <CardFooter class="flex items-center justify-between border-t pt-4">
         {#if uiState === "idle"}
             <Button variant="outline" size="sm" href="/health">
-                Backend Health
+                Kiểm tra máy chủ
             </Button>
 
             <Button
@@ -520,17 +525,17 @@
                 class="gap-1.5"
             >
                 <Upload class="size-4" />
-                Upload & Process
+                Tải lên và xử lý
             </Button>
         {:else if uiState === "uploading" || uiState === "processing"}
             <div class="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Loader2 class="size-3.5 animate-spin text-primary" />
-                <span>Do not close this tab during processing...</span>
+                <span>Đừng đóng thẻ này trong khi đang xử lý...</span>
             </div>
         {:else}
             <Button variant="outline" size="sm" onclick={reset} class="gap-1.5 ml-auto">
                 <RefreshCw class="size-3.5" />
-                Upload Another File
+                Tải tệp khác
             </Button>
         {/if}
     </CardFooter>
