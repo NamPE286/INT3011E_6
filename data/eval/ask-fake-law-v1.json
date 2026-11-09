@@ -1,0 +1,116 @@
+{
+    "dataset": "ask-fake-law-v1",
+    "version": 1,
+    "description": "Câu hỏi đáp AI trên luật giả data/fake-law (01/2030 hiệu lực 01/01/2031, 02/2032 hiệu lực 01/01/2033). Nhãn viết tay từ câu chữ hai nghị định, không lấy từ output hệ thống.",
+    "documents": ["data/fake-law/nd-01-2030.pdf", "data/fake-law/nd-02-2032.pdf"],
+    "questions": [
+        {
+            "id": "helmet-2032",
+            "question": "Không đội mũ bảo hiểm khi đi mô tô bị phạt bao nhiêu?",
+            "as_of": "2032-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "mũ bảo hiểm",
+            "expect_amounts": [200000, 400000],
+            "expect_terms": []
+        },
+        {
+            "id": "helmet-2033-colloquial",
+            "question": "Đi xe máy không đội mũ bảo hiểm bị phạt bao nhiêu tiền?",
+            "as_of": "2033-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "mũ bảo hiểm",
+            "expect_amounts": [400000, 600000],
+            "expect_terms": []
+        },
+        {
+            "id": "helmet-history",
+            "question": "Không đội mũ bảo hiểm khi đi mô tô hiện bị phạt bao nhiêu, trước đây thế nào?",
+            "as_of": "2033-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "mũ bảo hiểm",
+            "expect_amounts": [200000, 400000, 600000],
+            "expect_terms": []
+        },
+        {
+            "id": "red-light",
+            "question": "Vượt đèn đỏ phạt bao nhiêu?",
+            "as_of": "2033-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "đèn tín hiệu",
+            "expect_amounts": [3000000, 5000000],
+            "expect_terms": ["tước"]
+        },
+        {
+            "id": "parking-2031",
+            "question": "Ô tô đỗ trên phần đường xe chạy ở đoạn ngoài đô thị bị phạt thế nào?",
+            "as_of": "2031-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "đỗ xe",
+            "expect_amounts": [800000, 1000000],
+            "expect_terms": []
+        },
+        {
+            "id": "lights-2031",
+            "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+            "as_of": "2031-06-01",
+            "accept_status": ["ANSWERED"],
+            "expect_violation": "đèn chiếu sáng",
+            "expect_amounts": [800000, 1000000],
+            "expect_terms": []
+        },
+        {
+            "id": "lights-repealed-2033",
+            "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+            "as_of": "2033-06-01",
+            "accept_status": ["UNCERTAIN"],
+            "expect_violation": "đèn chiếu sáng",
+            "expect_amounts": [],
+            "expect_terms": ["bãi bỏ"]
+        },
+        {
+            "id": "priority-vehicle-exception",
+            "question": "Xe ưu tiên đang làm nhiệm vụ đi qua đèn đỏ có bị phạt không?",
+            "as_of": "2033-06-01",
+            "accept_status": ["ANSWERED", "UNCERTAIN"],
+            "expect_violation": "đèn tín hiệu",
+            "expect_amounts": [],
+            "expect_terms": ["ưu tiên"]
+        },
+        {
+            "id": "before-effective",
+            "question": "Không đội mũ bảo hiểm khi đi mô tô bị phạt bao nhiêu?",
+            "as_of": "2030-12-01",
+            "accept_status": ["NO_ANSWER", "UNCERTAIN"],
+            "expect_violation": null,
+            "expect_amounts": [],
+            "expect_terms": []
+        },
+        {
+            "id": "alcohol-not-in-corpus",
+            "question": "Lái xe khi trong máu có nồng độ cồn bị phạt bao nhiêu?",
+            "as_of": "2033-06-01",
+            "accept_status": ["NO_ANSWER"],
+            "expect_violation": null,
+            "expect_amounts": [],
+            "expect_terms": []
+        },
+        {
+            "id": "speeding-not-in-corpus",
+            "question": "Chạy quá tốc độ quy định 25 km/h bị phạt bao nhiêu?",
+            "as_of": "2033-06-01",
+            "accept_status": ["NO_ANSWER"],
+            "expect_violation": null,
+            "expect_amounts": [],
+            "expect_terms": []
+        },
+        {
+            "id": "off-topic",
+            "question": "Thời tiết hôm nay thế nào?",
+            "as_of": "2033-06-01",
+            "accept_status": ["NO_ANSWER"],
+            "expect_violation": null,
+            "expect_amounts": [],
+            "expect_terms": []
+        }
+    ]
+}

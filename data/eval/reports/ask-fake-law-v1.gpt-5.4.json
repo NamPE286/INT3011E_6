@@ -1,0 +1,745 @@
+{
+  "dataset": "ask-fake-law-v1@1",
+  "backendUrl": "http://localhost:8787",
+  "model": "server default",
+  "repeat": 3,
+  "runtimeMs": 100482,
+  "metrics": {
+    "questions": 12,
+    "attempts": 36,
+    "statusAccuracy": 1,
+    "retrievalHitRate": 1,
+    "fineCorrectRate": 1,
+    "expectedTermRate": 0.667,
+    "claimCitationValidity": 1,
+    "groundedAmountRate": 1,
+    "stableStatusRate": 1,
+    "latencyMs": {
+      "p50": 2473,
+      "p90": 5427,
+      "max": 6368,
+      "mean": 2791
+    },
+    "errors": 0
+  },
+  "failures": [
+    {
+      "id": "lights-repealed-2033",
+      "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "status": "UNCERTAIN",
+      "statusCorrect": true,
+      "retrievalHit": true,
+      "amountsFound": null,
+      "termsFound": false,
+      "claims": 1,
+      "claimsWithValidCitation": 1,
+      "amountsMentioned": 2,
+      "amountsGrounded": 2,
+      "retrievalMethod": "MODEL",
+      "latencyMs": 3639,
+      "claimText": "Đây là quy định trước đây: người lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+      "error": null
+    },
+    {
+      "id": "lights-repealed-2033",
+      "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "status": "UNCERTAIN",
+      "statusCorrect": true,
+      "retrievalHit": true,
+      "amountsFound": null,
+      "termsFound": false,
+      "claims": 2,
+      "claimsWithValidCitation": 2,
+      "amountsMentioned": 2,
+      "amountsGrounded": 2,
+      "retrievalMethod": "MODEL",
+      "latencyMs": 4024,
+      "claimText": "Trước ngày 2033-01-01, có quy định lịch sử: lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng. Đến ngày 2033-06-01, quy định này đã hết hiệu lực theo dữ liệu cung cấp, nên không thể khẳng định đây là mức phạt đang áp dụng tại thời điểm đó.",
+      "error": null
+    },
+    {
+      "id": "lights-repealed-2033",
+      "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "status": "UNCERTAIN",
+      "statusCorrect": true,
+      "retrievalHit": true,
+      "amountsFound": null,
+      "termsFound": false,
+      "claims": 2,
+      "claimsWithValidCitation": 2,
+      "amountsMentioned": 2,
+      "amountsGrounded": 2,
+      "retrievalMethod": "MODEL",
+      "latencyMs": 4473,
+      "claimText": "Đây là quy định trước đây: từ 2031-01-01 đến 2033-01-01, người lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng. Tại thời điểm hỏi 2033-06-01, không thể khẳng định đây còn là mức phạt đang áp dụng vì chứng cứ này đã hết hiệu lực từ 2033-01-01.",
+      "error": null
+    }
+  ],
+  "results": [
+    {
+      "id": "helmet-2032",
+      "question": "Không đội mũ bảo hiểm khi đi mô tô bị phạt bao nhiêu?",
+      "asOf": "2032-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 6117,
+          "claimText": "Người điều khiển xe mô tô không đội mũ bảo hiểm khi xe chạy trên đường bộ bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 2465,
+          "claimText": "Người điều khiển xe mô tô không đội mũ bảo hiểm khi xe chạy trên đường bộ bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1588,
+          "claimText": "Người điều khiển xe mô tô chạy trên đường bộ mà không đội mũ bảo hiểm cho người đi mô tô bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "helmet-2033-colloquial",
+      "question": "Đi xe máy không đội mũ bảo hiểm bị phạt bao nhiêu tiền?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3371,
+          "claimText": "Từ 2033-01-01, người điều khiển xe mô tô không đội mũ bảo hiểm khi chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước đó, từ 2031-01-01 đến hết 2033-01-01, cùng hành vi này đối với xe mô tô từng bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3961,
+          "claimText": "Từ 2033-01-01, người điều khiển xe mô tô không đội mũ bảo hiểm khi chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước 2033-01-01, đã từng có quy định phạt người điều khiển xe mô tô không đội mũ bảo hiểm khi chạy trên đường bộ từ 200.000 đồng đến 400.000 đồng; đây là quy định cũ đã hết hiệu lực từ 2033-01-01.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3551,
+          "claimText": "Từ 2033-01-01, hành vi không đội mũ bảo hiểm cho người đi xe mô tô khi điều khiển xe chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước đó, từ 2031-01-01 đến 2033-01-01, cùng hành vi này từng bị phạt tiền từ 200.000 đồng đến 400.000 đồng; đây là quy định cũ đã hết hiệu lực vào thời điểm hỏi.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "helmet-history",
+      "question": "Không đội mũ bảo hiểm khi đi mô tô hiện bị phạt bao nhiêu, trước đây thế nào?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 2399,
+          "claimText": "Hiện tại, hành vi không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước đây, từ 2031-01-01 đến trước 2033-01-01, cùng hành vi này bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 2473,
+          "claimText": "Hiện tại, hành vi không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước đây, từ 2031-01-01 đến trước 2033-01-01, hành vi không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 2451,
+          "claimText": "Hiện tại, hành vi không đội mũ bảo hiểm cho người đi mô tô khi điều khiển xe chạy trên đường bộ bị phạt tiền từ 400.000 đồng đến 600.000 đồng. Trước đây, từ 2031-01-01 đến trước 2033-01-01, hành vi này từng bị phạt tiền từ 200.000 đồng đến 400.000 đồng.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "red-light",
+      "question": "Vượt đèn đỏ phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": true,
+          "claims": 4,
+          "claimsWithValidCitation": 4,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 5376,
+          "claimText": "Từ 2033-01-01, người điều khiển xe ô tô không chấp hành hiệu lệnh của đèn tín hiệu giao thông, trừ trường hợp xe ưu tiên đang làm nhiệm vụ, bị phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng. Với cùng hành vi này, người điều khiển xe ô tô còn bị tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng. Trước 2033-01-01, đã từng có quy định xử phạt người điều khiển xe ô tô không chấp hành hiệu lệnh của đèn tín hiệu giao thông với mức phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng. Theo quy định trước 2033-01-01 đó, còn có hình thức tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": true,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 6070,
+          "claimText": "Đối với xe ô tô, hành vi \"Không chấp hành hiệu lệnh của đèn tín hiệu giao thông, trừ trường hợp xe ưu tiên đang làm nhiệm vụ\": phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng; hình thức bổ sung: tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng; hiệu lực từ 2033-01-01. Trước đây, đối với xe ô tô, hành vi \"Không chấp hành hiệu lệnh của đèn tín hiệu giao thông\": phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng; áp dụng từ 2031-01-01 đến 2033-01-01, sau đó bị sửa đổi.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": true,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 5427,
+          "claimText": "Đối với xe ô tô, hành vi \"Không chấp hành hiệu lệnh của đèn tín hiệu giao thông, trừ trường hợp xe ưu tiên đang làm nhiệm vụ\": phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng; hình thức bổ sung: tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng; hiệu lực từ 2033-01-01. Trước đây, đối với xe ô tô, hành vi \"Không chấp hành hiệu lệnh của đèn tín hiệu giao thông\": phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng; áp dụng từ 2031-01-01 đến 2033-01-01, sau đó bị sửa đổi.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "parking-2031",
+      "question": "Ô tô đỗ trên phần đường xe chạy ở đoạn ngoài đô thị bị phạt thế nào?",
+      "asOf": "2031-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1898,
+          "claimText": "Xe ô tô đỗ trên phần đường xe chạy ở đoạn đường ngoài đô thị nơi có lề đường rộng bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1897,
+          "claimText": "Xe ô tô đỗ trên phần đường xe chạy ở đoạn đường ngoài đô thị nơi có lề đường rộng bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1802,
+          "claimText": "Xe ô tô đỗ trên phần đường xe chạy ở đoạn đường ngoài đô thị nơi có lề đường rộng bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "lights-2031",
+      "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+      "asOf": "2031-06-01",
+      "acceptStatus": [
+        "ANSWERED"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3416,
+          "claimText": "Người lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 2893,
+          "claimText": "Với xe ô tô, hành vi không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": true,
+          "termsFound": null,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3664,
+          "claimText": "Đối với xe ô tô, hành vi không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "lights-repealed-2033",
+      "question": "Lái ô tô ban đêm không bật đèn chiếu sáng bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "UNCERTAIN"
+      ],
+      "attempts": [
+        {
+          "status": "UNCERTAIN",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": false,
+          "claims": 1,
+          "claimsWithValidCitation": 1,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 3639,
+          "claimText": "Đây là quy định trước đây: người lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng.",
+          "error": null
+        },
+        {
+          "status": "UNCERTAIN",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": false,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 4024,
+          "claimText": "Trước ngày 2033-01-01, có quy định lịch sử: lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng. Đến ngày 2033-06-01, quy định này đã hết hiệu lực theo dữ liệu cung cấp, nên không thể khẳng định đây là mức phạt đang áp dụng tại thời điểm đó.",
+          "error": null
+        },
+        {
+          "status": "UNCERTAIN",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": false,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 4473,
+          "claimText": "Đây là quy định trước đây: từ 2031-01-01 đến 2033-01-01, người lái xe ô tô không sử dụng đèn chiếu sáng từ 18 giờ ngày hôm trước đến 06 giờ ngày hôm sau bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng. Tại thời điểm hỏi 2033-06-01, không thể khẳng định đây còn là mức phạt đang áp dụng vì chứng cứ này đã hết hiệu lực từ 2033-01-01.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "priority-vehicle-exception",
+      "question": "Xe ưu tiên đang làm nhiệm vụ đi qua đèn đỏ có bị phạt không?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "ANSWERED",
+        "UNCERTAIN"
+      ],
+      "attempts": [
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": true,
+          "claims": 2,
+          "claimsWithValidCitation": 2,
+          "amountsMentioned": 2,
+          "amountsGrounded": 2,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 4480,
+          "claimText": "Đối với xe ô tô, hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt, trừ trường hợp xe ưu tiên đang làm nhiệm vụ; vì vậy xe ưu tiên đang làm nhiệm vụ đi qua đèn đỏ không thuộc trường hợp bị phạt theo quy định này. Quy định trước đây đối với xe ô tô từng xử phạt hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông với mức 3.000.000 đến 5.000.000 đồng và tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng; nhưng quy định này đã hết hiệu lực từ 2033-01-01.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": true,
+          "claims": 3,
+          "claimsWithValidCitation": 3,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 5352,
+          "claimText": "Đối với xe ô tô, hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt, trừ trường hợp xe ưu tiên đang làm nhiệm vụ. Vì có ngoại lệ nêu rõ cho xe ưu tiên đang làm nhiệm vụ, nên trường hợp xe ưu tiên đang làm nhiệm vụ đi qua đèn đỏ không thuộc hành vi bị phạt theo quy định này đối với xe ô tô. Quy định trước đây đối với xe ô tô từng xử phạt hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông mà không nêu ngoại lệ xe ưu tiên đang làm nhiệm vụ; quy định này chỉ có giá trị lịch sử vì đã hết hiệu lực từ 2033-01-01.",
+          "error": null
+        },
+        {
+          "status": "ANSWERED",
+          "statusCorrect": true,
+          "retrievalHit": true,
+          "amountsFound": null,
+          "termsFound": true,
+          "claims": 5,
+          "claimsWithValidCitation": 5,
+          "amountsMentioned": 4,
+          "amountsGrounded": 4,
+          "retrievalMethod": "MODEL",
+          "latencyMs": 6368,
+          "claimText": "Đối với xe ô tô, hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng, trừ trường hợp xe ưu tiên đang làm nhiệm vụ. Đối với xe ô tô, hành vi này còn bị tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng, trừ trường hợp xe ưu tiên đang làm nhiệm vụ. Vì quy định hiện hành nêu rõ ngoại lệ đối với xe ưu tiên đang làm nhiệm vụ, không thể nói trường hợp này bị phạt theo hành vi không chấp hành hiệu lệnh đèn tín hiệu giao thông. Trước ngày 01-01-2033, quy định cũ đối với xe ô tô từng xử phạt hành vi không chấp hành hiệu lệnh của đèn tín hiệu giao thông với mức tiền từ 3.000.000 đồng đến 5.000.000 đồng. Theo quy định cũ nêu trên, còn từng có hình thức tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng đối với hành vi này.",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "before-effective",
+      "question": "Không đội mũ bảo hiểm khi đi mô tô bị phạt bao nhiêu?",
+      "asOf": "2030-12-01",
+      "acceptStatus": [
+        "NO_ANSWER",
+        "UNCERTAIN"
+      ],
+      "attempts": [
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 21,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 24,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 19,
+          "claimText": "",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "alcohol-not-in-corpus",
+      "question": "Lái xe khi trong máu có nồng độ cồn bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "NO_ANSWER"
+      ],
+      "attempts": [
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1055,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 986,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1162,
+          "claimText": "",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "speeding-not-in-corpus",
+      "question": "Chạy quá tốc độ quy định 25 km/h bị phạt bao nhiêu?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "NO_ANSWER"
+      ],
+      "attempts": [
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1090,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1104,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1083,
+          "claimText": "",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "off-topic",
+      "question": "Thời tiết hôm nay thế nào?",
+      "asOf": "2033-06-01",
+      "acceptStatus": [
+        "NO_ANSWER"
+      ],
+      "attempts": [
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 2556,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1205,
+          "claimText": "",
+          "error": null
+        },
+        {
+          "status": "NO_ANSWER",
+          "statusCorrect": true,
+          "retrievalHit": null,
+          "amountsFound": null,
+          "termsFound": null,
+          "claims": 0,
+          "claimsWithValidCitation": 0,
+          "amountsMentioned": 0,
+          "amountsGrounded": 0,
+          "retrievalMethod": "LEXICAL",
+          "latencyMs": 1016,
+          "claimText": "",
+          "error": null
+        }
+      ]
+    }
+  ]
+}
