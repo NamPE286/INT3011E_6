@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
-    import { PUBLIC_BACKEND_URL } from "$env/static/public";
+    import { getBackendUrl } from "$lib/api/client";
     import { Badge } from "$lib/components/ui/badge";
     import { Button } from "$lib/components/ui/button";
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "$lib/components/ui/card";
@@ -10,7 +10,7 @@
     import { ClipboardCheck, FileJson, RefreshCw } from "@lucide/svelte";
 
     const ACTIVE_POLL_INTERVAL_MS = 3000;
-    const backendUrl = PUBLIC_BACKEND_URL.replace(/\/$/, "");
+    const backendUrl = getBackendUrl();
 
     let jobs = $state<JobSummary[]>([]);
     let loading = $state(true);
@@ -23,7 +23,7 @@
         processing: "Đang xử lý",
         completed: "Hoàn tất",
         needs_review: "Cần kiểm tra",
-        failed: "Lỗi, đang thử lại",
+        failed: "Lỗi",
     };
 
     /** Reloads the list; keeps polling only while some job is still queued or processing. */
@@ -149,7 +149,7 @@
                             </Table.Cell>
                             <Table.Cell class="whitespace-nowrap">{formatDate(job.createdAt)}</Table.Cell>
                             <Table.Cell class="whitespace-nowrap">{formatSize(job.fileSize)}</Table.Cell>
-                            <Table.Cell class="w-72 max-w-72 whitespace-normal">
+                            <Table.Cell class="max-w-72 whitespace-normal">
                                 <Badge variant={job.status === "failed" ? "destructive" : job.status === "completed" ? "default" : "secondary"}>
                                     {STATUS_LABELS[job.status]}
                                 </Badge>
@@ -163,23 +163,25 @@
                                     <p class="mt-1 line-clamp-2 text-xs text-muted-foreground" title={job.error}>{job.error}</p>
                                 {/if}
                             </Table.Cell>
-                            <Table.Cell class="text-right">
+                            <Table.Cell class="text-right whitespace-nowrap">
                                 {#if hasDocument(job)}
-                                    <Button variant={job.status === "needs_review" ? "outline" : "ghost"} size="sm" href={`/admin/review/${job.id}`}>
-                                        <ClipboardCheck class="size-4" />
-                                        {job.status === "needs_review" ? "Xem xét" : "Xem lại"}
-                                    </Button>
+                                    <div class="flex flex-col items-end gap-1">
+                                        <Button variant={job.status === "needs_review" ? "outline" : "ghost"} size="sm" href={`/admin/review/${job.id}`}>
+                                            <ClipboardCheck class="size-4" />
+                                            {job.status === "needs_review" ? "Xem xét" : "Xem lại"}
+                                        </Button>
 
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        href={`${backendUrl}/api/jobs/${job.id}/document`}
-                                        target="_blank"
-                                        rel="noopener"
-                                    >
-                                        <FileJson class="size-4" />
-                                        JSON
-                                    </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            href={`${backendUrl}/api/jobs/${job.id}/document`}
+                                            target="_blank"
+                                            rel="noopener"
+                                        >
+                                            <FileJson class="size-4" />
+                                            JSON
+                                        </Button>
+                                    </div>
                                 {/if}
                             </Table.Cell>
                         </Table.Row>

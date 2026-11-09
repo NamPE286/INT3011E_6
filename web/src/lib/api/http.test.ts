@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ApiError, requestJson } from "./http";
+import { ApiError, requestJson, resolveBackendUrl } from "./http";
 
 function respond(body: BodyInit | null, status = 200): typeof fetch {
     return (async () => new Response(body, { status })) as unknown as typeof fetch;
@@ -41,5 +41,16 @@ describe("requestJson", () => {
 
     test("rejects a success response that is not JSON", async () => {
         await expect(requestJson("http://api.test", "/x", {}, respond("oops"))).rejects.toMatchObject({ message: "Máy chủ trả về dữ liệu không hợp lệ" });
+    });
+});
+
+describe("resolveBackendUrl", () => {
+    test("uses the configured backend without a trailing slash", () => {
+        expect(resolveBackendUrl(" https://api.example.workers.dev/ ")).toBe("https://api.example.workers.dev");
+    });
+
+    test("falls back to the local Wrangler port when the variable is missing or blank", () => {
+        expect(resolveBackendUrl(undefined)).toBe("http://localhost:8787");
+        expect(resolveBackendUrl("  ")).toBe("http://localhost:8787");
     });
 });

@@ -155,14 +155,18 @@ bun run build
 
 ### Deploy frontend
 
-Workflow [`.github/workflows/web.yml`](.github/workflows/web.yml) chạy test, `svelte-check` và build cho mỗi PR đổi `web/`; khi merge vào `main` nó deploy lên [Cloudflare Pages](https://developers.cloudflare.com/pages/) (adapter `@sveltejs/adapter-cloudflare`). Cần cấu hình một lần trong GitHub (environment `production`):
+Frontend deploy lên [Cloudflare Workers](https://developers.cloudflare.com/workers/static-assets/) theo [`web/wrangler.jsonc`](web/wrangler.jsonc) (adapter `@sveltejs/adapter-cloudflare`). `npx wrangler deploy` tự chạy `bun run build` trước khi upload, nên dùng được cả khi chạy tay lẫn với Workers Builds (Git integration):
 
-| Loại | Tên | Giá trị |
-| --- | --- | --- |
-| Secret | `CLOUDFLARE_API_TOKEN` | Token có quyền Cloudflare Pages: Edit. |
-| Secret | `CLOUDFLARE_ACCOUNT_ID` | Account ID của Cloudflare. |
-| Variable | `CLOUDFLARE_PAGES_PROJECT` | Tên project Pages đã tạo sẵn. |
-| Variable | `PUBLIC_BACKEND_URL` | URL backend được nhúng vào bản build. |
+| Thiết lập | Giá trị |
+| --- | --- |
+| Root directory | `web` (chạy ở thư mục gốc repository sẽ báo "Missing entry-point") |
+| Build command | để trống hoặc `bun run build` |
+| Deploy command | `npx wrangler deploy` |
+| Biến runtime | `PUBLIC_BACKEND_URL` = URL Worker backend, đặt trong Worker > Settings > Variables |
+
+`PUBLIC_BACKEND_URL` được đọc lúc chạy (`$env/dynamic/public`), không cần có lúc build; `keep_vars` giữ giá trị đã đặt qua các lần deploy. Khi chưa đặt, frontend gọi `http://localhost:8787`.
+
+Backend deploy riêng: `cd backend && bun run d1:migrate:remote && npx wrangler deploy`.
 
 ### Các lệnh thường dùng
 
@@ -178,6 +182,7 @@ Workflow [`.github/workflows/web.yml`](.github/workflows/web.yml) chạy test, `
 | `web` | `bun run check` | Kiểm tra Svelte và TypeScript. |
 | `web` | `bun run build` | Build frontend cho production. |
 | `web` | `bun run preview` | Xem thử production build. |
+| `web` | `npx wrangler deploy` | Build và deploy frontend lên Cloudflare Workers. |
 
 ## Architecture
 

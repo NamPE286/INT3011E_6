@@ -16,6 +16,19 @@ const STATUS_MESSAGES: Record<number, string> = {
     503: "Máy chủ chưa sẵn sàng, vui lòng thử lại sau",
 };
 
+const LOCAL_BACKEND_URL = "http://localhost:8787";
+
+/** Turns the configured PUBLIC_BACKEND_URL into a base url; an unset value means local development against `wrangler dev`. */
+export function resolveBackendUrl(configuredUrl: string | undefined): string {
+    const trimmedUrl = configuredUrl?.trim() ?? "";
+
+    if (!trimmedUrl) {
+        return LOCAL_BACKEND_URL;
+    }
+
+    return trimmedUrl.replace(/\/+$/, "");
+}
+
 /** Fetches JSON from the backend and turns every failure into an ApiError with a message safe to show. */
 export async function requestJson(baseUrl: string, path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<unknown> {
     let response: Response;

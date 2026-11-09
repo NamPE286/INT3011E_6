@@ -30,9 +30,9 @@
 
         {#if data.violations.length === 0}
             <div class="flex flex-col gap-3 rounded-2xl border border-dashed p-5" role="status">
-                <p class="font-medium">Không tìm thấy hành vi khớp với các từ này trong dữ liệu đã xử lý.</p>
-                <p class="text-sm text-muted-foreground">Văn bản có thể dùng cách diễn đạt khác. Hỏi AI để hệ thống tìm hành vi tương ứng và trả lời kèm điều khoản nguồn.</p>
                 {#if searched}
+                    <p class="font-medium">Không tìm thấy hành vi khớp với các từ này trong dữ liệu đã xử lý.</p>
+                    <p class="text-sm text-muted-foreground">Văn bản có thể dùng cách diễn đạt khác. Hỏi AI để hệ thống tìm hành vi tương ứng và trả lời kèm điều khoản nguồn.</p>
                     <a
                         href={`/ask?q=${encodeURIComponent(data.query)}`}
                         class="inline-flex items-center gap-2 self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -40,6 +40,9 @@
                         <Sparkles class="size-4" aria-hidden="true" />
                         Hỏi AI: “{data.query}”
                     </a>
+                {:else}
+                    <p class="font-medium">Chưa có hành vi vi phạm nào trong dữ liệu.</p>
+                    <p class="text-sm text-muted-foreground">Hành vi được nhận diện tự động sau khi nhập văn bản pháp luật ở trang Quản trị.</p>
                 {/if}
             </div>
         {:else}

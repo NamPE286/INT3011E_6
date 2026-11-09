@@ -1,0 +1,17 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "int3011e-web",
+    "main": ".svelte-kit/cloudflare/_worker.js",
+    "compatibility_date": "2026-10-23",
+    "assets": {
+        "binding": "ASSETS",
+        "directory": ".svelte-kit/cloudflare"
+    },
+    // `npx wrangler deploy` builds first, so it also works when Workers Builds has no build command.
+    "build": {
+        "command": "bun run build"
+    },
+    // PUBLIC_BACKEND_URL is read at runtime; set it once under Worker > Settings > Variables and
+    // keep it across deploys instead of committing an account-specific URL here.
+    "keep_vars": true
+}

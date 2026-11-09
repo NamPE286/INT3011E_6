@@ -51,3 +51,13 @@ Nhánh `claude/feat/relation-graph` (chưa push):
 - Đối chiếu SRS: [docs/srs-coverage.md](docs/srs-coverage.md), kèm 4 lỗi phát hiện (D1–D4); lỗi nặng nhất là upload trùng PDF làm mất toàn bộ quan hệ (D3).
 - Luật giả `data/fake-law` (2 nghị định, có PDF) và `backend/test/fake-law-e2e.test.ts`: chạy upload → queue → preprocessing → truy vấn không cần OpenAI. Lỗi đã biết là các test `it.failing`.
 - `GET /api/graph` và trang `/graph` có bộ lọc; xem [docs/query-frontend.md](docs/query-frontend.md).
+
+## Deploy web, đo đạc và failed case Legal AI (09/11/2026)
+
+Nhánh `claude/gifted-gauss-9l0xfj`:
+
+- `npx wrangler deploy` trong `web/` báo "Missing entry-point" vì đã xóa workflow Pages. Đã thêm `web/wrangler.jsonc` (Worker + assets, tự build) và đọc `PUBLIC_BACKEND_URL` lúc chạy. Trên Cloudflare: Root directory `web`, đặt biến `PUBLIC_BACKEND_URL` trong Worker › Settings › Variables. Chỉ kiểm chứng bằng `--dry-run` và `wrangler dev`, chưa deploy lên tài khoản thật.
+- `bun run eval:ask` + `data/eval/ask-fake-law-v1.json`: chấm `/api/ask` (12 câu × 3 lần). Report gpt-5.4 và dev-set tiền xử lý gpt-5.4 trong `data/eval/reports`.
+- Failed case (Legal AI): hỏi về quy định đã bị bãi bỏ (đèn chiếu sáng, 01/06/2033) → `UNCERTAIN` đúng nhưng 0/3 lần nói "bãi bỏ", có lần lộ "REPEALED", ngày ISO. Evidence thiếu văn bản bãi bỏ; prompt `grounded-answer-v2` không yêu cầu nói rõ.
+- Lỗi vận hành (không phải failed case Legal AI): Worker không gọi được OpenAI → queue thử 3 lần rồi vào DLQ, nhưng job vẫn `failed` với lỗi thô và trước đây hiện "Lỗi, đang thử lại". Đã đổi nhãn thành "Lỗi"; còn thiếu trạng thái retrying/ghi lỗi cuối và nút thử lại.
+- Sửa 7 lỗi UI/UX ở trang quản trị, header mobile và trạng thái rỗng trang hành vi.

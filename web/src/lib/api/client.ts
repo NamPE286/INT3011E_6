@@ -1,8 +1,8 @@
-import { PUBLIC_BACKEND_URL } from "$env/static/public";
+import { env } from "$env/dynamic/public";
 import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { parseRelationGraph, type RelationGraph } from "./graph";
-import { invalidResponse, requestJson } from "./http";
+import { invalidResponse, requestJson, resolveBackendUrl } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
 import {
     parseDocumentActions,
@@ -24,8 +24,13 @@ import {
 
 type Fetcher = typeof fetch;
 
+/** Read at request time so one build can be deployed against any backend set as a Worker variable. */
+export function getBackendUrl(): string {
+    return resolveBackendUrl(env.PUBLIC_BACKEND_URL);
+}
+
 async function getParsed<T>(fetcher: Fetcher, path: string, parse: (value: unknown) => T | null): Promise<T> {
-    const body = await requestJson(PUBLIC_BACKEND_URL, path, {}, fetcher);
+    const body = await requestJson(getBackendUrl(), path, {}, fetcher);
     const parsed = parse(body);
 
     if (parsed === null) {
@@ -89,7 +94,7 @@ export function getModelOptions(fetcher: Fetcher): Promise<ModelOptions> {
 
 export async function askQuestion(question: string, asOf: string, model: string | null, fetcher: Fetcher = fetch): Promise<AskAnswer> {
     const body = await requestJson(
-        PUBLIC_BACKEND_URL,
+        getBackendUrl(),
         "/api/ask",
         {
             method: "POST",
@@ -121,12 +126,12 @@ export function getPreprocessingChecklist(fetcher: Fetcher, jobId: string): Prom
 
 /** Queues the checklist again from its first stage that is not done. */
 export async function rerunMissingPreprocessing(fetcher: Fetcher, jobId: string): Promise<void> {
-    await requestJson(PUBLIC_BACKEND_URL, `/api/jobs/${encodeURIComponent(jobId)}/preprocessing`, { method: "POST" }, fetcher);
+    await requestJson(getBackendUrl(), `/api/jobs/${encodeURIComponent(jobId)}/preprocessing`, { method: "POST" }, fetcher);
 }
 
 /** Publishes a document that was held for review; the backend then queues the preprocessing stages. */
 export async function acceptJobDocument(fetcher: Fetcher, jobId: string): Promise<void> {
     const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "accept" }) };
 
-    await requestJson(PUBLIC_BACKEND_URL, `/api/jobs/${encodeURIComponent(jobId)}/review`, init, fetcher);
+    await requestJson(getBackendUrl(), `/api/jobs/${encodeURIComponent(jobId)}/review`, init, fetcher);
 }

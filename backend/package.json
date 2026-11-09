@@ -8,7 +8,8 @@
     "db:generate": "drizzle-kit generate",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local",
     "d1:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "eval": "bun run scripts/eval-preprocessing.ts"
+    "eval": "bun run scripts/eval-preprocessing.ts",
+    "eval:ask": "bun run scripts/eval-ask.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
