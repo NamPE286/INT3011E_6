@@ -2,9 +2,10 @@
 
     python3 data/fake-law/generate_pdfs.py
 
-Needs reportlab and the DejaVu Sans font (Vietnamese diacritics).
+Needs reportlab and the DejaVu Sans font (Vietnamese diacritics); set FAKE_LAW_FONT to use another TTF.
 """
 import json
+import os
 from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
@@ -14,7 +15,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import simpleSplit
 
 FOLDER = Path(__file__).parent
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+FONT_PATH = os.environ.get("FAKE_LAW_FONT", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 MARGIN = 56
 FONT_SIZE = 11
 LINE_HEIGHT = 16
