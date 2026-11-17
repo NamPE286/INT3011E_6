@@ -3,6 +3,7 @@ import {
     amendmentsByProvision,
     articleOutline,
     buildProvisionTree,
+    parseDocumentDependents,
     parseDocumentRelations,
     parseDocumentSearch,
     parseDocumentView,
@@ -215,5 +216,19 @@ describe("articleOutline", () => {
             { id: "d1", label: "Điều 1. Phạm vi" },
             { id: "d2", label: "Điều 2" },
         ]);
+    });
+});
+
+describe("parseDocumentDependents", () => {
+    test("allows deletion only when no document acts on this one", () => {
+        expect(parseDocumentDependents({ deletable: true, dependents: [] })).toEqual({ deletable: true, dependents: [] });
+        expect(
+            parseDocumentDependents({ deletable: false, dependents: [{ documentId: "d2", documentNumber: "123/2021/NĐ-CP", title: null }, { documentNumber: "no id" }] }),
+        ).toEqual({ deletable: false, dependents: [{ documentId: "d2", documentNumber: "123/2021/NĐ-CP", title: null }] });
+    });
+
+    test("does not trust a deletable flag that contradicts the listed dependents", () => {
+        expect(parseDocumentDependents({ deletable: true, dependents: [{ documentId: "d2" }] })?.deletable).toBe(false);
+        expect(parseDocumentDependents({})).toBeNull();
     });
 });

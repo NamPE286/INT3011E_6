@@ -200,3 +200,58 @@ describe("fake decrees end to end", () => {
         expect(await countRows(again, "provision_relations")).toBe(relationsBefore);
     });
 });
+
+describe("deleting a leaf document", () => {
+    const env = createEnv();
+    let baseId = "";
+    let amendmentId = "";
+    let amendmentJobId = "";
+
+    beforeAll(async () => {
+        await importFakeDecree(env, "nd-01-2030");
+        amendmentJobId = await importFakeDecree(env, "nd-02-2032");
+        baseId = await findDocumentId(env, "01/2030/NĐ-CP");
+        amendmentId = await findDocumentId(env, "02/2032/NĐ-CP");
+    });
+
+    it("refuses to delete a document another document acts on and names that document", async () => {
+        const dependents = await getJson<{ deletable: boolean; dependents: { documentNumber: string }[] }>(env, `/api/documents/${baseId}/dependents`);
+        const response = await request(env, `/api/documents/${baseId}`, { method: "DELETE" });
+
+        expect(dependents.deletable).toBe(false);
+        expect(dependents.dependents.map((dependent) => dependent.documentNumber)).toEqual(["02/2032/NĐ-CP"]);
+        expect(response.status).toBe(409);
+        expect(await countRows(env, "legal_documents")).toBe(2);
+    });
+
+    it("deletes the amendment with its relations, rules, job and files, and undoes its effect", async () => {
+        expect(await applicableFines(env, "mũ bảo hiểm", "2033-06-01")).toEqual([{ min: 400000, max: 600000, subject: null }]);
+
+        const response = await request(env, `/api/documents/${amendmentId}`, { method: "DELETE" });
+
+        expect(response.status).toBe(200);
+        expect((await request(env, `/api/documents/${amendmentId}`)).status).toBe(404);
+        expect(await countRows(env, "document_relations")).toBe(0);
+        expect(await countRows(env, "provision_relations")).toBe(0);
+        expect(await countRows(env, "change_instructions")).toBe(0);
+        expect((await request(env, `/api/jobs/${amendmentJobId}`)).status).toBe(404);
+        expect([...env.r2Store.keys()].some((key) => key.includes(amendmentJobId))).toBe(false);
+        expect(await applicableFines(env, "mũ bảo hiểm", "2033-06-01")).toEqual([{ min: 200000, max: 400000, subject: null }]);
+    });
+
+    it("lets the base decree go once nothing acts on it, leaving no violation behind", async () => {
+        const response = await request(env, `/api/documents/${baseId}`, { method: "DELETE" });
+
+        expect(response.status).toBe(200);
+        expect(await countRows(env, "legal_documents")).toBe(0);
+        expect(await countRows(env, "provisions")).toBe(0);
+        expect(await countRows(env, "violation_rules")).toBe(0);
+        expect(await countRows(env, "traffic_violations")).toBe(0);
+        expect(await countRows(env, "rule_lineages")).toBe(0);
+        expect(env.r2Store.size).toBe(0);
+    });
+
+    it("returns 404 for a document that does not exist", async () => {
+        expect((await request(env, "/api/documents/missing", { method: "DELETE" })).status).toBe(404);
+    });
+});

@@ -1,18 +1,19 @@
-import { getDocument, getDocumentActions, getDocumentRelations, searchDocuments } from "$lib/api/client";
+import { getDocument, getDocumentActions, getDocumentDependents, getDocumentRelations, searchDocuments } from "$lib/api/client";
 import { loadOrFail } from "$lib/api/load";
 import type { PageLoad } from "./$types";
 
 const LABEL_LOOKUP_LIMIT = 50;
 
 export const load: PageLoad = async ({ params, fetch }) => {
-    const [document, relations, corpus, actions] = await loadOrFail(
+    const [document, relations, corpus, actions, dependents] = await loadOrFail(
         Promise.all([
             getDocument(fetch, params.id),
             getDocumentRelations(fetch, params.id),
             searchDocuments(fetch, "", null, LABEL_LOOKUP_LIMIT),
             getDocumentActions(fetch, params.id),
+            getDocumentDependents(fetch, params.id),
         ]),
     );
 
-    return { document, relations, corpus: corpus.documents, actions };
+    return { document, relations, corpus: corpus.documents, actions, dependents };
 };

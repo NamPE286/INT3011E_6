@@ -8,6 +8,8 @@ Tài liệu cho epic Truy vấn (#39): tìm văn bản (#23), tra cứu hành vi
 | --- | --- | --- |
 | `GET` | `/api/documents?q=&document_type=&agency=&limit=` | Tìm văn bản đã `ACCEPTED` theo số hiệu, tên, từ khóa; không dùng LLM. `q` rỗng liệt kê văn bản mới nhất. `limit` tối đa 50, vượt quá trả `400`. |
 | `GET` | `/api/documents/:documentId` | Metadata, provision theo thứ tự đọc và `amendments`: ProvisionRelation tác động vào văn bản (kèm `verificationStatus` `ACCEPTED`/`CANDIDATE`). `404` nếu không có hoặc còn `REVIEW_REQUIRED`. |
+| `GET` | `/api/documents/:documentId/dependents` | Văn bản đang tác động vào văn bản này (cạnh văn bản hoặc ProvisionRelation, kể cả `CANDIDATE`); `deletable` là `true` khi không có văn bản nào (node lá). |
+| `DELETE` | `/api/documents/:documentId` | Xoá văn bản là node lá cùng provision, metadata, quan hệ đi ra, change instruction, rule, identity, job và tệp trên R2, rồi resolve lại change graph, document graph và lịch sử toàn corpus. `409` kèm `dependents` nếu còn văn bản tác động vào nó, `404` nếu không có. Trang `/documents/:id` có nút xoá (khoá kèm lý do khi không phải node lá). |
 | `GET` | `/api/graph` | Đồ thị quan hệ toàn corpus (#61): `documents` (xếp theo ngày ban hành), `documentRelations` (chỉ `ACCEPTED`), `provisionRelations` (giữ `verificationStatus`, `evidenceText`, `effectiveFrom`), `provisions` ở hai đầu cạnh điều khoản, `truncated` khi vượt giới hạn (500 văn bản, 2.000 cạnh điều khoản), `disclaimer`. |
 | `POST` | `/api/ask` | Body `{ question, as_of? }`. Trả `status` (`ANSWERED`/`AMBIGUOUS`/`UNCERTAIN`/`NO_ANSWER`), `claims` mỗi claim dẫn `evidenceIds`, `evidence` (rule, mức phạt, hiệu lực, provision nguồn), `clarification`, `scope`, `provenance`. |
 
