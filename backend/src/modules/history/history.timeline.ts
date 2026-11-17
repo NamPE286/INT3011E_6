@@ -1,4 +1,4 @@
-import type { ChangeInstruction, ProvisionRelation } from "../changes/change.types";
+import { DOCUMENT_EXPANSION_METHOD, type ChangeInstruction, type ProvisionRelation } from "../changes/change.types";
 import { locatorToProvisionId } from "../changes/change.locator";
 import type { StoredDocumentRelation, StoredRelationCandidate } from "../documents/document-graph.repository";
 import type { StoredViolationRule } from "../violations/violation.repository";
@@ -240,6 +240,11 @@ function provisionEndings(rule: StoredViolationRule, input: HistoryInput, warnin
 
     for (const relation of input.provisionRelations) {
         if (relation.toDocumentId !== rule.governedDocumentId || relation.fromDocumentId === rule.sourceDocumentId || relation.insertionLocator || !relation.toProvisionId) {
+            continue;
+        }
+
+        // Clause edges of a whole-document replacement or repeal: documentEndings reads the document relation instead.
+        if (relation.method === DOCUMENT_EXPANSION_METHOD) {
             continue;
         }
 

@@ -1,6 +1,13 @@
 import type { ProvisionLocator } from "./change.locator";
 
 export const CHANGE_METHOD = "RULE_INSTRUCTION";
+/** Clause edges of an instruction that acts on a whole article ("Bãi bỏ Điều 6", "Sửa đổi Điều 6 như sau"). */
+export const ARTICLE_EXPANSION_METHOD = "RULE_INSTRUCTION_ARTICLE";
+/**
+ * Clause edges of an instruction that replaces or repeals a whole document. The document relation stays the
+ * evidence for history and for the document graph; these edges only show which clauses it ends.
+ */
+export const DOCUMENT_EXPANSION_METHOD = "RULE_INSTRUCTION_DOCUMENT";
 export const CHANGE_EXTRACTOR_VERSION = "change-instructions-v1";
 
 /** FR-06 operations. SUBSTITUTE_TEXT is "thay/bỏ cụm từ …": wording is swapped inside the target. */
@@ -45,6 +52,14 @@ export type ChangeInstruction = ChangeInstructionDraft & {
     effectiveFrom: string | null;
     resolutionStatus: InstructionStatus;
     resolutionReason: string;
+};
+
+/** One article or clause of a target document, as the change graph needs it to expand whole-unit instructions. */
+export type ProvisionUnit = {
+    id: string;
+    level: string;
+    parentId: string | null;
+    locator: ProvisionLocator | null;
 };
 
 export type ProvisionRelation = {

@@ -9,13 +9,13 @@ import {
     listAllChangeInstructions,
     listChangeInstructionsByIds,
     listChangeInstructionsFrom,
-    listProvisionIdsOf,
+    listProvisionUnitsOf,
     listProvisionRelationsFrom,
     listProvisionRelationsTouching,
     replaceChangeInstructions,
     saveResolvedChanges,
 } from "./change.repository";
-import { resolveInstruction, resolveTargetDocument } from "./change.resolver";
+import { indexTargetProvisions, resolveInstruction, resolveTargetDocument } from "./change.resolver";
 import type { ChangeInstruction, InstructionStatus, ProvisionRelation } from "./change.types";
 
 type LegalDocumentRow = {
@@ -91,13 +91,15 @@ export async function refreshChanges(db: D1Database): Promise<{ instructions: Ch
     const effectiveByDocument = new Map(metadata.map((entry) => [entry.documentId, entry.effectiveFrom]));
     const documentResolutions = stored.map((instruction) => resolveTargetDocument(instruction, corpus));
     const targetIds = documentResolutions.flatMap((resolution) => (resolution.targetDocumentId ? [resolution.targetDocumentId] : []));
-    const provisionIds = await listProvisionIdsOf(db, [...new Set(targetIds)]);
+    const unitsByDocument = await listProvisionUnitsOf(db, [...new Set(targetIds)]);
+    const targetsByDocument = new Map([...unitsByDocument].map(([documentId, units]) => [documentId, indexTargetProvisions(units)]));
+    const noTargets = indexTargetProvisions([]);
     const instructions: ChangeInstruction[] = [];
     const relations: ProvisionRelation[] = [];
 
     stored.forEach((instruction, index) => {
         const resolution = documentResolutions[index];
-        const targets = provisionIds.get(resolution.targetDocumentId ?? "") ?? new Set<string>();
+        const targets = targetsByDocument.get(resolution.targetDocumentId ?? "") ?? noTargets;
         const resolved = resolveInstruction(instruction, resolution, targets, effectiveByDocument.get(instruction.sourceDocumentId) ?? null);
 
         instructions.push(resolved.instruction);
