@@ -3,7 +3,7 @@
 | File | Nội dung |
 | --- | --- |
 | `preprocessing-dev-v1.json` | Dev set cho epic Preprocessing (#38): 4 văn bản (trích, rút gọn theo câu chữ Nghị định 100/2019, 123/2021, 168/2024, Thông tư 65/2020) và nhãn gold cho từng bước. |
-| `ask-fake-law-v1.json` | 12 câu hỏi đáp AI trên luật giả `data/fake-law` (đúng hành vi, mức phạt theo ngày, quy định bị bãi bỏ, ngoại lệ, ngoài corpus, ngoài chủ đề). |
+| `ask-fake-law-v1.json` | 12 câu hỏi đáp AI trên hai nghị định bịa `backend/test/fixtures/synthetic-law` (đúng hành vi, mức phạt theo ngày, quy định bị bãi bỏ, ngoại lệ, ngoài corpus, ngoài chủ đề). |
 | `reports/*.json` | Kết quả chạy `bun run eval` (deterministic), `bun run eval -- --llm` (thêm bước LLM) và `bun run eval:ask`. |
 
 **Giới hạn.** Đây là dev/regression set: văn bản được rút gọn và một số câu được điều chỉnh để mỗi bước có ít nhất một case; nhãn gold viết tay từ câu chữ pháp lý, không lấy từ output hệ thống. Không phải held-out benchmark và không dùng để kết luận độ chính xác trên corpus thật — held-out annotation trên PDF đầy đủ theo dõi tại #29. Thứ tự nhập cố ý đặt văn bản sửa đổi trước văn bản gốc để kiểm tra cập nhật tăng dần.
@@ -31,7 +31,7 @@ Mỗi metric đi kèm baseline đơn giản: graph chỉ từ phần căn cứ (
 
 ## Hỏi đáp AI (`eval:ask`)
 
-Chấm `/api/ask` của một backend đang chạy, sau khi đã nhập hai PDF trong `data/fake-law` qua `/admin`:
+Chấm `/api/ask` của một backend đang chạy, sau khi đã nhập hai PDF trong `backend/test/fixtures/synthetic-law` qua `/admin`:
 
 ```bash
 cd backend

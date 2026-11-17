@@ -1,8 +1,8 @@
 {
     "dataset": "ask-fake-law-v1",
     "version": 1,
-    "description": "Câu hỏi đáp AI trên luật giả data/fake-law (01/2030 hiệu lực 01/01/2031, 02/2032 hiệu lực 01/01/2033). Nhãn viết tay từ câu chữ hai nghị định, không lấy từ output hệ thống.",
-    "documents": ["data/fake-law/nd-01-2030.pdf", "data/fake-law/nd-02-2032.pdf"],
+    "description": "Câu hỏi đáp AI trên luật giả backend/test/fixtures/synthetic-law (01/2030 hiệu lực 01/01/2031, 02/2032 hiệu lực 01/01/2033). Nhãn viết tay từ câu chữ hai nghị định, không lấy từ output hệ thống.",
+    "documents": ["backend/test/fixtures/synthetic-law/nd-01-2030.pdf", "backend/test/fixtures/synthetic-law/nd-02-2032.pdf"],
     "questions": [
         {
             "id": "helmet-2032",

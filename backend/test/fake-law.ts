@@ -8,7 +8,7 @@ import type { ProcessingQueueMessage } from "../src/types/env";
 import { block, goodPages, type FakeChunk } from "./openai-fake";
 import { withEnv, type MockEnvironment } from "./mocks";
 
-/** The fake decrees in data/fake-law: each JSON is both the PDF wording and what the fake reader returns. */
+/** The invented decrees in test/fixtures/synthetic-law: each JSON is both the PDF wording and what the fake reader returns. */
 export const FAKE_DECREES = ["nd-01-2030", "nd-02-2032"] as const;
 
 export type FakeDecree = (typeof FAKE_DECREES)[number];
@@ -25,7 +25,7 @@ type DecreeSource = {
     pages: DecreeBlock[][];
 };
 
-const FAKE_LAW_DIR = join(import.meta.dir, "../../data/fake-law");
+const FAKE_LAW_DIR = join(import.meta.dir, "fixtures/synthetic-law");
 
 export function readFakeDecreePdf(decree: FakeDecree): Uint8Array<ArrayBuffer> {
     return new Uint8Array(readFileSync(join(FAKE_LAW_DIR, `${decree}.pdf`)));

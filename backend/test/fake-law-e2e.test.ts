@@ -3,7 +3,7 @@ import { createMockEnv, type MockEnvironment } from "./mocks";
 import { importFakeDecree, request } from "./fake-law";
 
 /**
- * End to end on the fake decrees in data/fake-law: upload the PDFs, read them through the queue with the
+ * End to end on the invented decrees in test/fixtures/synthetic-law: upload the PDFs, read them through the queue with the
  * OpenAI boundary faked, preprocess, then query documents, relations, rules as of a date and history.
  * Nghị định 02/2032 amends point a clause 2 Article 2, repeals point b clause 1 Article 2 and replaces
  * clause 1 Article 3 (fine 200.000–400.000 → 400.000–600.000) of Nghị định 01/2030, from 01/01/2033.
