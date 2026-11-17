@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RELATION_LABELS, documentTitleOf, provisionHref, provisionLabel, relationLabel } from "./labels";
+import { RELATION_LABELS, documentTitleOf, provisionHref, provisionLabel, relationLabel, shortVehicle, subjectLabel } from "./labels";
 
 const BACKEND_RELATION_TYPES = [
     "AMENDS",
@@ -62,5 +62,19 @@ describe("documentTitleOf", () => {
         expect(documentTitleOf({ id: "d", documentNumber: "100/2019/NĐ-CP", title: "T" })).toBe("100/2019/NĐ-CP");
         expect(documentTitleOf({ id: "d", documentNumber: null, title: "T" })).toBe("T");
         expect(documentTitleOf({ id: "d", documentNumber: null, title: null })).toBe("d");
+    });
+});
+
+describe("violation subject labels", () => {
+    test("shortens the statutory vehicle wording to what people say", () => {
+        expect(shortVehicle("xe mô tô, xe gắn máy (kể cả xe máy điện), các loại xe tương tự xe mô tô và các loại xe tương tự xe gắn máy")).toBe("Xe mô tô, xe gắn máy");
+        expect(shortVehicle("xe ô tô và các loại xe tương tự xe ô tô")).toBe("Xe ô tô");
+        expect(shortVehicle("máy kéo")).toBe("Máy kéo");
+    });
+
+    test("capitalizes the subject and keeps a missing subject missing", () => {
+        expect(subjectLabel("người điều khiển xe ô tô")).toBe("Người điều khiển xe ô tô");
+        expect(subjectLabel("  ")).toBeNull();
+        expect(subjectLabel(null)).toBeNull();
     });
 });

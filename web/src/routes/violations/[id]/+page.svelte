@@ -1,8 +1,9 @@
 <script lang="ts">
-    import type { ChangeEventView, LineageContext } from "$lib/api/violations";
+    import type { ChangeEventView } from "$lib/api/violations";
     import { CHANGE_TYPE_LABELS } from "$lib/api/violations";
     import RuleCard from "$lib/components/RuleCard.svelte";
     import ScopeNotice from "$lib/components/ScopeNotice.svelte";
+    import ViolationSubject from "$lib/components/ViolationSubject.svelte";
     import { Badge } from "$lib/components/ui/badge";
     import { Input } from "$lib/components/ui/input";
     import { describeChangeValue, formatDate, formatFineRange, formatPeriod, todayIso } from "$lib/format";
@@ -12,7 +13,6 @@
 
     let { data } = $props();
 
-    const SUBJECT_LABELS: Record<string, string> = { INDIVIDUAL: "cá nhân", ORGANIZATION: "tổ chức" };
     const FIELD_LABELS: Record<string, string> = { behavior_text: "Nội dung hành vi", fine: "Mức phạt", vehicles: "Phương tiện", subject: "Đối tượng", conditions: "Điều kiện", exceptions: "Ngoại lệ" };
     const END_LABELS: Record<string, string> = { AMENDED: "Đã bị sửa đổi", REPEALED: "Đã bị bãi bỏ", SUPERSEDED: "Đã bị thay thế" };
 
@@ -27,12 +27,6 @@
         const known = data.corpus.find((entry) => entry.id === documentId);
 
         return known ? documentTitleOf(known) : documentId;
-    }
-
-    function describeContext(context: LineageContext): string {
-        const parts = [...context.vehicles, context.subject ? (SUBJECT_LABELS[context.subject] ?? context.subject) : ""].filter((part) => part.length > 0);
-
-        return parts.length > 0 ? parts.join(", ") : "Mọi phương tiện và đối tượng";
     }
 
     function asOfHref(date: string): string {
@@ -83,6 +77,17 @@
 
         {#if otherAliases.length > 0}
             <p class="text-sm text-muted-foreground">Còn được diễn đạt: {otherAliases.join("; ")}</p>
+        {/if}
+
+        {#if data.violation.contexts.length > 0}
+            <div class="mt-2 flex flex-col gap-2 rounded-xl bg-muted/60 p-3">
+                <p class="text-sm font-medium text-muted-foreground">Chủ thể vi phạm</p>
+                <ul class="flex flex-col gap-1.5">
+                    {#each data.violation.contexts as context, index (index)}
+                        <li><ViolationSubject {context} /></li>
+                    {/each}
+                </ul>
+            </div>
         {/if}
     </header>
 
@@ -135,14 +140,17 @@
 
         {#if data.rules.lineages.length > 1}
             <p class="rounded-lg bg-accent/60 p-3 text-sm text-accent-foreground" role="note">
-                Hành vi này có nhiều trường hợp theo phương tiện hoặc đối tượng; mỗi trường hợp được hiển thị riêng, không gộp lại.
+                Hành vi này có nhiều chủ thể hoặc phương tiện; mức phạt của từng chủ thể được hiển thị riêng, không gộp lại.
             </p>
         {/if}
 
         {#each data.rules.lineages as lineage (lineage.lineageId)}
             {#if lineage.applicable.length > 0 || lineage.uncertain.length > 0}
                 <div class="flex flex-col gap-3">
-                    <h3 class="text-sm font-medium text-muted-foreground">Trường hợp: {describeContext(lineage)}</h3>
+                    <h3 class="flex flex-wrap items-center gap-2 text-sm">
+                        <span class="text-muted-foreground">Chủ thể:</span>
+                        <ViolationSubject context={lineage} />
+                    </h3>
 
                     {#each [...lineage.applicable, ...lineage.uncertain] as rule (rule.ruleId)}
                         <RuleCard {rule} documentName={documentName(rule.sourceDocumentId)} />
@@ -162,7 +170,10 @@
         {#each data.history.lineages as lineage (lineage.lineageId)}
             <div class="flex flex-col gap-3">
                 {#if data.history.lineages.length > 1}
-                    <h3 class="text-sm font-medium text-muted-foreground">Trường hợp: {describeContext(lineage)}</h3>
+                    <h3 class="flex flex-wrap items-center gap-2 text-sm">
+                        <span class="text-muted-foreground">Chủ thể:</span>
+                        <ViolationSubject context={lineage} />
+                    </h3>
                 {/if}
 
                 <ol class="relative flex flex-col gap-4 border-l-2 border-border pl-6">

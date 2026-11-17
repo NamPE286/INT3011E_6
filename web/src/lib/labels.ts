@@ -92,3 +92,26 @@ export function provisionHref(documentId: string, provisionId: string): string {
 export function documentTitleOf(document: { documentNumber: string | null; title: string | null; id: string }): string {
     return document.documentNumber ?? document.title ?? document.id;
 }
+
+const VEHICLE_TAIL = /\s*\(|,?\s+(?:và\s+)?các loại xe tương tự/u;
+
+/**
+ * The vehicle as people say it: "xe mô tô, xe gắn máy (kể cả xe máy điện), các loại xe tương tự …" reads
+ * "Xe mô tô, xe gắn máy". The full wording stays available to show on demand.
+ */
+export function shortVehicle(vehicle: string): string {
+    const head = vehicle.split(VEHICLE_TAIL, 1)[0].trim();
+
+    return capitalize(head.length > 0 ? head : vehicle.trim());
+}
+
+/** The violating subject as written in the rule ("người điều khiển xe ô tô"), or null when the rule names none. */
+export function subjectLabel(subject: string | null): string | null {
+    const trimmed = subject?.trim() ?? "";
+
+    return trimmed.length > 0 ? capitalize(trimmed) : null;
+}
+
+function capitalize(text: string): string {
+    return text.charAt(0).toLocaleUpperCase("vi") + text.slice(1);
+}

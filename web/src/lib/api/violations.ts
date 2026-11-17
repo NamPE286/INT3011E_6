@@ -43,6 +43,8 @@ export type ViolationSummary = {
     id: string;
     canonicalName: string;
     aliases: string[];
+    /** Who commits the behaviour, one entry per distinct subject and vehicles among its lineages. */
+    contexts: LineageContext[];
 };
 
 export type RuleCard = {
@@ -171,7 +173,9 @@ function parseSummary(row: Record<string, unknown>): ViolationSummary | null {
         return null;
     }
 
-    return { id, canonicalName, aliases: readStringList(row, "aliases") };
+    const contexts = Array.isArray(row.contexts) ? row.contexts.map(parseContext) : [];
+
+    return { id, canonicalName, aliases: readStringList(row, "aliases"), contexts };
 }
 
 function parseContext(value: unknown): LineageContext {

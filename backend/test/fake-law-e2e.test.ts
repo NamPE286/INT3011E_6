@@ -176,6 +176,14 @@ describe("fake decrees end to end", () => {
         expect(await findViolationId(env, "đỗ xe ngoài đô thị")).not.toBeNull();
     });
 
+    it("lists who commits each found behaviour, read from its lineages", async () => {
+        const body = await getJson<{ violations: { contexts: { subject: string | null; vehicles: string[] }[] }[] }>(env, `/api/violations?q=${encodeURIComponent("mũ bảo hiểm")}`);
+        const contexts = body.violations.flatMap((violation) => violation.contexts);
+
+        expect(contexts.length).toBeGreaterThan(0);
+        expect(contexts.some((context) => context.vehicles.some((vehicle) => vehicle.includes("mô tô")))).toBe(true);
+    });
+
     it("matches whole words only, so a word that merely starts like another finds nothing", async () => {
         expect(await findViolationId(env, "xem")).toBeNull();
     });

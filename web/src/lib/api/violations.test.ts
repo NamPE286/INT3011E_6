@@ -38,7 +38,25 @@ describe("parseViolationSearch", () => {
             violations: [{ id: "tv:1", canonicalName: "Không chấp hành hiệu lệnh của đèn tín hiệu", signatureKey: null, aliases: ["vượt đèn đỏ"] }, { canonicalName: "no id" }],
         });
 
-        expect(parsed).toEqual([{ id: "tv:1", canonicalName: "Không chấp hành hiệu lệnh của đèn tín hiệu", aliases: ["vượt đèn đỏ"] }]);
+        expect(parsed).toEqual([{ id: "tv:1", canonicalName: "Không chấp hành hiệu lệnh của đèn tín hiệu", aliases: ["vượt đèn đỏ"], contexts: [] }]);
+    });
+
+    test("reads who commits each violation", () => {
+        const parsed = parseViolationSearch({
+            violations: [
+                {
+                    id: "tv:1",
+                    canonicalName: "không đội mũ bảo hiểm",
+                    aliases: [],
+                    contexts: [{ subject: "người điều khiển xe mô tô", vehicles: ["xe mô tô"] }, { subject: null }],
+                },
+            ],
+        });
+
+        expect(parsed?.[0].contexts).toEqual([
+            { subject: "người điều khiển xe mô tô", vehicles: ["xe mô tô"] },
+            { subject: null, vehicles: [] },
+        ]);
     });
 
     test("rejects a response without a violations list", () => {
