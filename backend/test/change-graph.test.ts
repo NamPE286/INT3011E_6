@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 import type { D1Database } from "@cloudflare/workers-types";
 import { app } from "../src/app";
 import { extractChangeInstructions, readOperation } from "../src/modules/changes/change.extractor";
-import { resolveInstruction } from "../src/modules/changes/change.resolver";
+import { indexTargetProvisions, resolveInstruction, type TargetProvisions } from "../src/modules/changes/change.resolver";
 import { buildChangeGraph, getDocumentChanges, getProvisionRelations } from "../src/modules/changes/change.service";
-import type { ChangeInstructionDraft } from "../src/modules/changes/change.types";
+import { ARTICLE_EXPANSION_METHOD, DOCUMENT_EXPANSION_METHOD, type ChangeInstructionDraft } from "../src/modules/changes/change.types";
 import { buildDocumentGraph, getDocumentRelations } from "../src/modules/documents/document-graph.service";
 import { analyzeLegalDocument } from "../src/modules/provisions/provision.analyzer";
 import type { StoredProvision } from "../src/modules/provisions/provision.repository";
@@ -27,6 +27,20 @@ function provisionsOf(documentId: string, articles: object[]): StoredProvision[]
         roleMethod: "RULE",
         roleVersion: "test",
     }));
+}
+
+/** Target text from provision ids such as "base:dieu_5" and "base:dieu_5_khoan_5" (articles and clauses only). */
+function targetsOf(ids: string[]): TargetProvisions {
+    return indexTargetProvisions(
+        ids.map((id) => {
+            const [, articleNumber, clauseNumber] = /:dieu_(\w+?)(?:_khoan_(\w+))?$/.exec(id) ?? [];
+            const articleId = id.replace(/_khoan_\w+$/, "");
+
+            return clauseNumber
+                ? { id, level: "CLAUSE", parentId: articleId, locator: { article: articleNumber, clause: clauseNumber, point: null } }
+                : { id, level: "ARTICLE", parentId: null, locator: { article: articleNumber, clause: null, point: null } };
+        }),
+    );
 }
 
 function article(number: string, title: string | null, clauses: object[]): object {
@@ -97,6 +111,37 @@ describe("buildChangeGraph", () => {
         expect(view.incoming.find((edge) => edge.relationType === "AMENDS")?.provisionEvidence).toHaveLength(1);
     });
 
+    it("shows a full replacement on the replaced decree's clauses without adding a partial document relation", async () => {
+        const db = createTestD1Database({ seedSampleDocument: false });
+        const replacing: FixtureDocument = {
+            ...AMENDING_DECREE,
+            id: "nd-168-2024",
+            title: "NGHỊ ĐỊNH Quy định xử phạt vi phạm hành chính về trật tự, an toàn giao thông",
+            content: ["CHÍNH PHỦ", "Số: 168/2024/NĐ-CP", "Hà Nội, ngày 26 tháng 12 năm 2024"].join("\n"),
+            articles: [
+                {
+                    number: "53",
+                    title: "Hiệu lực thi hành",
+                    clauses: [
+                        { number: "1", content: "Nghị định này có hiệu lực thi hành từ ngày 01 tháng 01 năm 2025." },
+                        { number: "2", content: "Nghị định này thay thế Nghị định số 100/2019/NĐ-CP ngày 30 tháng 12 năm 2019 của Chính phủ." },
+                    ],
+                },
+            ],
+        };
+
+        await importDocument(db, BASE_DECREE);
+        await importDocument(db, replacing);
+
+        const [instruction] = (await getDocumentChanges(db, replacing.id)).instructions.filter((entry) => entry.operation === "REPLACE");
+        const view = await getDocumentRelations(db, BASE_DECREE.id);
+
+        expect(instruction.relations.map((relation) => relation.toProvisionId).sort()).toEqual(
+            [`${BASE_DECREE.id}:dieu_5_khoan_11`, `${BASE_DECREE.id}:dieu_5_khoan_5`, `${BASE_DECREE.id}:dieu_86_khoan_1`, `${BASE_DECREE.id}:dieu_86_khoan_2`],
+        );
+        expect(view.incoming.map((edge) => [edge.relationType, edge.scope])).toEqual([["FULLY_REPLACES", "FULL"]]);
+    });
+
     it("keeps an address missing from the stored target unresolved", async () => {
         const db = createTestD1Database({ seedSampleDocument: false });
         const amending: FixtureDocument = {
@@ -159,7 +204,7 @@ describe("extractChangeInstructions", () => {
         const document = { status: "RESOLVED" as const, targetDocumentId: "base", verification: "ACCEPTED" as const, reason: "" };
 
         expect(introducing.targetScope).toBe("SUB_INSTRUCTIONS");
-        expect(resolveInstruction(introducing, document, new Set(["base:dieu_6"]), "2022-01-01").relations).toEqual([]);
+        expect(resolveInstruction(introducing, document, targetsOf(["base:dieu_6"]), "2022-01-01").relations).toEqual([]);
         expect(nested).toMatchObject({ targetScope: "PROVISIONS", targetLocators: [{ article: "6", clause: "5", point: null }] });
     });
 
@@ -205,7 +250,7 @@ describe("resolveInstruction", () => {
     const document = { status: "RESOLVED" as const, targetDocumentId: "base", verification: "ACCEPTED" as const, reason: "ok" };
 
     it("links a new point to the clause it is inserted into", () => {
-        const { relations } = resolveInstruction(insertion, document, new Set(["base:dieu_5_khoan_5"]), "2022-01-01");
+        const { relations } = resolveInstruction(insertion, document, targetsOf(["base:dieu_5", "base:dieu_5_khoan_5"]), "2022-01-01");
 
         expect(relations[0]).toMatchObject({
             relationType: "SUPPLEMENTS",
@@ -214,9 +259,40 @@ describe("resolveInstruction", () => {
         });
     });
 
+    it("shows a whole-document replacement on every clause of the replaced document", () => {
+        const replacement: ChangeInstructionDraft = {
+            ...insertion,
+            id: "new:dieu_9_khoan_2#change",
+            sourceDocumentId: "new",
+            sourceProvisionId: "new:dieu_9_khoan_2",
+            operation: "REPLACE",
+            rawText: "Nghị định này thay thế Nghị định số 100/2019/NĐ-CP.",
+            targetScope: "DOCUMENT",
+            targetLocators: [],
+        };
+        const targets = targetsOf(["base:dieu_5", "base:dieu_5_khoan_5", "base:dieu_5_khoan_11", "base:dieu_86"]);
+        const { relations, instruction } = resolveInstruction(replacement, document, targets, "2025-01-01");
+
+        expect(relations.map((relation) => relation.toProvisionId)).toEqual(["base:dieu_5_khoan_5", "base:dieu_5_khoan_11", "base:dieu_86"]);
+        expect(relations.every((relation) => relation.relationType === "REPLACES" && relation.method === DOCUMENT_EXPANSION_METHOD)).toBe(true);
+        expect(new Set(relations.map((relation) => relation.id)).size).toBe(3);
+        expect(instruction.resolutionStatus).toBe("RESOLVED");
+        expect(resolveInstruction({ ...replacement, operation: "AMEND" }, document, targets, "2025-01-01").relations).toEqual([]);
+    });
+
+    it("shows a whole-article repeal on every clause of that article", () => {
+        const repeal: ChangeInstructionDraft = { ...insertion, operation: "REPEAL", rawText: "Bãi bỏ Điều 5.", targetLocators: [{ article: "5", clause: null, point: null }] };
+        const { relations } = resolveInstruction(repeal, document, targetsOf(["base:dieu_5", "base:dieu_5_khoan_5", "base:dieu_5_khoan_11"]), "2025-01-01");
+
+        expect(relations.map((relation) => [relation.toProvisionId, relation.targetLocator.clause, relation.method])).toEqual([
+            ["base:dieu_5_khoan_5", "5", ARTICLE_EXPANSION_METHOD],
+            ["base:dieu_5_khoan_11", "11", ARTICLE_EXPANSION_METHOD],
+        ]);
+    });
+
     it("does not link an instruction whose target document is unresolved", () => {
         const unresolved = { status: "UNRESOLVED" as const, targetDocumentId: null, verification: null, reason: "outside corpus" };
-        const result = resolveInstruction(insertion, unresolved, new Set(), null);
+        const result = resolveInstruction(insertion, unresolved, targetsOf([]), null);
 
         expect(result.relations).toHaveLength(0);
         expect(result.instruction.resolutionStatus).toBe("UNRESOLVED");
