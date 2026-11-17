@@ -49,7 +49,7 @@ Trang `/admin/review/[jobId]` hiển thị checklist và nút chạy lại các 
 3. **Resolve** (`resolveCandidate`): khớp số hiệu chuẩn hóa với corpus.
    - không có số hiệu hoặc không có trong corpus → `UNRESOLVED` (frontier cần thu thập);
    - nhiều văn bản cùng số → `AMBIGUOUS`; trỏ về chính nó → `REJECTED`;
-   - loại văn bản hoặc ngày ban hành trong citation mâu thuẫn → `CONFLICT`;
+   - loại văn bản hoặc ngày ban hành trong citation mâu thuẫn → `CONFLICT`; ngày trích dẫn lệch ngày ban hành không quá 7 ngày (văn bản gốc ghi nhầm, ví dụ 123/2021 dẫn 100/2019 là "ngày 31 tháng 12 năm 2019" trong khi ban hành ngày 30) được coi là nhầm khi trích dẫn, không chặn cạnh, và lý do resolve ghi lại độ lệch;
    - type `UNKNOWN` hoặc không so được loại văn bản → `CANDIDATE`;
    - số hiệu + loại văn bản khớp đúng một văn bản và action đọc từ câu chữ pháp lý → `ACCEPTED`.
 4. **Cạnh** (`document_relations`): mỗi `(from, to, type, scope)` là một cạnh, evidence là toàn bộ candidate `ACCEPTED` cùng khóa (`EXPLICIT_LEGAL_TEXT`). Quan hệ ngược (incoming) suy từ cùng cạnh, không lưu cạnh trùng.

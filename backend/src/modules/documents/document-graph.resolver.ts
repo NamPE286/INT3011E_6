@@ -75,24 +75,40 @@ export function resolveCandidate(candidate: ResolvableCandidate, corpus: CorpusI
     }
 
     const citedDate = parseVietnameseDate(candidate.rawTargetCitation);
+    const dateGap = citedDate && target.issuedAt ? daysBetween(citedDate, target.issuedAt) : 0;
 
-    if (citedDate && target.issuedAt && citedDate !== target.issuedAt) {
+    if (dateGap > CITED_DATE_SLIP_DAYS) {
         return conflict(target, `Citation dates the document ${citedDate} but it was issued ${target.issuedAt}.`);
     }
 
+    const dateNote = dateGap > 0 ? ` The cited issue date ${citedDate} is ${dateGap} day(s) off the stored ${target.issuedAt}; read as a citation slip.` : "";
+
     if (candidate.proposedRelationType === "UNKNOWN") {
-        return candidateOnly(target, "Target identified, but the wording does not state the scope of the action.");
+        return candidateOnly(target, `Target identified, but the wording does not state the scope of the action.${dateNote}`);
     }
 
     if (!citedType || !target.documentType) {
-        return candidateOnly(target, "Number matches, but the document type could not be compared.");
+        return candidateOnly(target, `Number matches, but the document type could not be compared.${dateNote}`);
     }
 
     return {
         status: "ACCEPTED",
         resolvedTargetDocumentId: target.documentId,
-        reason: "Number and document type match one stored document; action read from explicit legal text.",
+        reason: `Number and document type match one stored document; action read from explicit legal text.${dateNote}`,
     };
+}
+
+/**
+ * Official texts sometimes misdate a citation by a day or two (123/2021 cites 100/2019 as "ngày 31 tháng 12
+ * năm 2019"; it was issued on the 30th). With number and type agreeing, such a gap is a slip, not another
+ * document; a larger gap still contradicts the identity.
+ */
+const CITED_DATE_SLIP_DAYS = 7;
+
+function daysBetween(left: string, right: string): number {
+    const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+    return Math.round(Math.abs(Date.parse(left) - Date.parse(right)) / millisecondsPerDay);
 }
 
 function readCitedType(citation: string): string | null {
