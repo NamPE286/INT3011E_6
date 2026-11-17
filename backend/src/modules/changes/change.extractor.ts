@@ -66,7 +66,27 @@ export function extractChangeInstructions(
         });
     }
 
-    return [...drafts.values()];
+    return markIntroducingInstructions([...drafts.values()], byId);
+}
+
+/**
+ * "Sửa đổi, bổ sung một số điểm, khoản của Điều 6 như sau:" followed by points that are instructions
+ * themselves only introduces them. Its address stays as context for the nested instructions, but it
+ * must not amend the whole article: that would end every rule of Điều 6 on the effective date.
+ */
+function markIntroducingInstructions(drafts: ChangeInstructionDraft[], byId: Map<string, StoredProvision>): ChangeInstructionDraft[] {
+    const enclosingIds = new Set<string>();
+
+    for (const draft of drafts) {
+        let parentId = byId.get(draft.sourceProvisionId)?.parentId ?? null;
+
+        while (parentId) {
+            enclosingIds.add(parentId);
+            parentId = byId.get(parentId)?.parentId ?? null;
+        }
+    }
+
+    return drafts.map((draft) => (enclosingIds.has(draft.sourceProvisionId) ? { ...draft, targetScope: "SUB_INSTRUCTIONS" } : draft));
 }
 
 export function readOperation(instructionText: string): ChangeOperation | null {

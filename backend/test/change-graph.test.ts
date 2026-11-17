@@ -144,6 +144,25 @@ describe("extractChangeInstructions", () => {
         expect(nested).toMatchObject({ targetLocators: [{ article: "5", clause: "2", point: null }], targetDocumentNumber: "100/2019/NĐ-CP" });
     });
 
+    it("does not let an instruction that introduces nested instructions amend the whole article", () => {
+        const provisions = provisionsOf("amend", [
+            article("2", "Sửa đổi, bổ sung, bãi bỏ một số điều của Nghị định số 100/2019/NĐ-CP", [
+                clause("4", "Sửa đổi, bổ sung một số điểm, khoản của Điều 6 như sau:", [
+                    { number: "c", title: null, content: "Sửa đổi khoản 5 Điều 6 như sau:" },
+                ]),
+            ]),
+        ]);
+
+        const drafts = extractChangeInstructions("amend", null, provisions);
+        const introducing = drafts.find((draft) => draft.sourceProvisionId === "amend:dieu_2_khoan_4")!;
+        const nested = drafts.find((draft) => draft.sourceProvisionId === "amend:dieu_2_khoan_4_diem_c")!;
+        const document = { status: "RESOLVED" as const, targetDocumentId: "base", verification: "ACCEPTED" as const, reason: "" };
+
+        expect(introducing.targetScope).toBe("SUB_INSTRUCTIONS");
+        expect(resolveInstruction(introducing, document, new Set(["base:dieu_6"]), "2022-01-01").relations).toEqual([]);
+        expect(nested).toMatchObject({ targetScope: "PROVISIONS", targetLocators: [{ article: "6", clause: "5", point: null }] });
+    });
+
     it("reads insertions and exceptions", () => {
         const provisions = provisionsOf("amend", [
             article("1", "Sửa đổi, bổ sung một số điều của Nghị định số 100/2019/NĐ-CP", [

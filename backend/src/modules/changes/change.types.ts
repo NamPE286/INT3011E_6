@@ -9,8 +9,11 @@ export type ChangeOperation = "AMEND" | "SUPPLEMENT" | "REPLACE" | "REPEAL" | "C
 /** SRS §4.4 provision relation types used by resolved instructions. */
 export type ProvisionRelationType = "AMENDS" | "SUPPLEMENTS" | "REPLACES" | "REPEALS" | "CORRECTS";
 
-/** PROVISIONS: the instruction names Điều/Khoản/Điểm. DOCUMENT: it acts on a whole document. NONE: no target read. */
-export type TargetScope = "PROVISIONS" | "DOCUMENT" | "NONE";
+/**
+ * PROVISIONS: the instruction names Điều/Khoản/Điểm. DOCUMENT: it acts on a whole document. NONE: no target read.
+ * SUB_INSTRUCTIONS: it only introduces the instructions nested under it, which carry the changes.
+ */
+export type TargetScope = "PROVISIONS" | "DOCUMENT" | "NONE" | "SUB_INSTRUCTIONS";
 
 export type InstructionStatus = "RESOLVED" | "PARTIALLY_RESOLVED" | "CANDIDATE" | "UNRESOLVED" | "AMBIGUOUS" | "CONFLICT";
 

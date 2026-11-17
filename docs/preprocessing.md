@@ -74,7 +74,7 @@ Giới hạn hiện tại: chưa tự thu thập văn bản ở frontier (FR-02 
 3. **ProvisionRelation** (`provision_relations`): cạnh first-class từ provision chứa lệnh → provision bị tác động (`AMENDS / SUPPLEMENTS / REPLACES / REPEALS / CORRECTS`), giữ locator, insertion locator, nội dung mới, evidence, ngày hiệu lực, method/version. `verification_status` = `ACCEPTED` khi văn bản đích đã xác minh, `CANDIDATE` khi mới khớp số hiệu.
 4. **Bổ sung document graph**: ProvisionRelation `ACCEPTED` giữa hai văn bản được tổng hợp thành cạnh `document_relations` scope `PARTIAL` (`STRUCTURED_DERIVATION`, method `PROVISION_RELATION`) với `evidence_provision_relation_ids`; cạnh từ câu chữ và cạnh suy ra được giữ riêng.
 
-Instruction tác động toàn văn bản (ví dụ "Nghị định số 46/2016/NĐ-CP hết hiệu lực") có `target_scope = DOCUMENT` và không lan truyền xuống từng provision.
+Instruction tác động toàn văn bản (ví dụ "Nghị định số 46/2016/NĐ-CP hết hiệu lực") có `target_scope = DOCUMENT` và không lan truyền xuống từng provision. Instruction chỉ dẫn nhập cho các instruction con (ví dụ "Sửa đổi, bổ sung một số điểm, khoản của Điều 6 như sau:" rồi tới các điểm a, b, c đều là instruction) có `target_scope = SUB_INSTRUCTIONS`: địa chỉ của nó chỉ làm ngữ cảnh cho instruction con và không tạo cạnh lên cả Điều, nếu không mọi rule của Điều 6 sẽ bị coi là bị sửa đổi.
 
 | Method | Path | Mô tả |
 | --- | --- | --- |

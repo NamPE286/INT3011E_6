@@ -85,6 +85,12 @@ export function resolveInstruction(
         return { instruction: { ...base, resolutionStatus: document.status, resolutionReason: document.reason }, relations: [] };
     }
 
+    if (draft.targetScope === "SUB_INSTRUCTIONS") {
+        const reason = "Introduces the instructions nested under it; they carry the provision-level edges.";
+
+        return { instruction: { ...base, resolutionStatus: document.status, resolutionReason: reason }, relations: [] };
+    }
+
     if (draft.targetScope !== "PROVISIONS") {
         const reason = draft.targetScope === "DOCUMENT"
             ? "Instruction acts on the whole document; no provision-level edges are propagated."
