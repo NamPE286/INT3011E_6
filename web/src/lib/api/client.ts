@@ -1,4 +1,12 @@
 import { env } from "$env/dynamic/public";
+import {
+    parseImpactScopeReport,
+    parseLogicAuditReport,
+    parseWorkspaceAuditOverview,
+    type ImpactScopeReport,
+    type LogicAuditReport,
+    type WorkspaceAuditOverview,
+} from "./analysis";
 import { parseAskAnswer, type AskAnswer } from "./ask";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { parseRelationGraph, type RelationGraph } from "./graph";
@@ -134,4 +142,20 @@ export async function acceptJobDocument(fetcher: Fetcher, jobId: string): Promis
     const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "accept" }) };
 
     await requestJson(getBackendUrl(), `/api/jobs/${encodeURIComponent(jobId)}/review`, init, fetcher);
+}
+
+export function getDocumentAudit(documentId: string, fetcher: Fetcher = fetch): Promise<LogicAuditReport> {
+    return getParsed(fetcher, `/api/documents/${encodeURIComponent(documentId)}/audit`, parseLogicAuditReport);
+}
+
+export function getDocumentImpact(documentId: string, maxDepth = 3, fetcher: Fetcher = fetch): Promise<ImpactScopeReport> {
+    return getParsed(
+        fetcher,
+        `/api/documents/${encodeURIComponent(documentId)}/impact${encodeQuery({ max_depth: String(maxDepth) })}`,
+        parseImpactScopeReport,
+    );
+}
+
+export function getWorkspaceAuditOverviewApi(fetcher: Fetcher = fetch): Promise<WorkspaceAuditOverview> {
+    return getParsed(fetcher, "/api/workspace/audit-summary", parseWorkspaceAuditOverview);
 }

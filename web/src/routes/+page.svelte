@@ -7,10 +7,10 @@
         FilePenLine,
         FolderKanban,
         GitCompareArrows,
-        MessageCircleQuestion,
+        Layers,
         Network,
         Scale,
-        TrendingUp,
+        ShieldCheck,
         Upload,
     } from "@lucide/svelte";
 
@@ -18,10 +18,26 @@
         {
             href: "/drafting",
             icon: FilePenLine,
-            badge: "Chế độ Manual",
-            title: "Soạn thảo văn bản quy phạm",
+            badge: "Soạn thảo cấu trúc",
+            title: "Soạn thảo văn bản quy phạm pháp luật",
             description:
-                "Tự khởi tạo dự thảo, chèn cây Chương → Mục → Điều → Khoản → Điểm chuẩn thể thức, chỉnh sửa trực tiếp và xem trước văn bản.",
+                "Khởi tạo dự thảo, chèn cây Chương → Mục → Điều → Khoản → Điểm chuẩn thể thức, chỉnh sửa trực tiếp, soát logic ngay khi soạn và xem trước văn bản.",
+        },
+        {
+            href: "/audit",
+            icon: ShieldCheck,
+            badge: "16 quy tắc tất định",
+            title: "Soát logic luật tự động",
+            description:
+                "Phát hiện lỗi kết cấu/đánh số, sai thứ tự hiệu lực, sửa văn bản đã bị bãi bỏ, chu trình mâu thuẫn, dẫn chiếu treo và xung đột khung chế tài ngầm.",
+        },
+        {
+            href: "/audit?tab=impact",
+            icon: Layers,
+            badge: "Trực tiếp & dây chuyền",
+            title: "Phân tích phạm vi tác động",
+            description:
+                "Xác định văn bản và Điều/Khoản/Điểm bị tác động trực tiếp, lan truyền dây chuyền sang thông tư hướng dẫn, biến động mức phạt và danh mục cần sửa đồng bộ.",
         },
         {
             href: "/graph",
@@ -29,7 +45,7 @@
             badge: "2 chế độ cạnh",
             title: "Lược đồ tác động & Biến động xử phạt",
             description:
-                "Chuyển đổi giữa Chế độ 1 (Tăng nặng / Giảm nhẹ mức xử lý hành vi) và Chế độ 2 (Luật nào ảnh hưởng luật nào), hỗ trợ nối cạnh AI và thủ công.",
+                "Chuyển đổi giữa Chế độ 1 (Tăng nặng / Giảm nhẹ mức xử lý hành vi) và Chế độ 2 (Luật nào sửa đổi/thay thế/bãi bỏ luật nào), hỗ trợ nối cạnh AI và thủ công.",
         },
         {
             href: "/workspaces",
@@ -37,31 +53,15 @@
             badge: "Đa Workspace",
             title: "Không gian làm việc độc lập",
             description:
-                "Mỗi tài khoản quản lý nhiều Workspace tách biệt hoàn toàn về bộ văn bản, khung xử phạt và đồ thị quan hệ cho từng dự án luật.",
+                "Mỗi tài khoản quản lý nhiều Workspace tách biệt hoàn toàn về dự thảo, văn bản hiện hành, kết quả soát logic và đồ thị quan hệ cho từng chuyên đề luật.",
         },
         {
             href: "/admin",
             icon: Upload,
             badge: "Tự động AI",
-            title: "Nhập PDF & Trích xuất tự động",
+            title: "Nhập PDF hiện hành & Trợ lý rà soát AI",
             description:
-                "Tải lên văn bản hiện hành để AI tự bóc tách Điều/Khoản/Điểm, trích xuất khung phạt và tự động nối quan hệ vào Workspace.",
-        },
-        {
-            href: "/violations",
-            icon: TrendingUp,
-            badge: "Đối chiếu lịch sử",
-            title: "Khung xử phạt & Lịch sử hiệu lực",
-            description:
-                "Theo dõi tiến hóa mức phạt của từng hành vi qua các nghị định theo mốc thời gian (as-of) để cân đối chính sách hình phạt.",
-        },
-        {
-            href: "/ask",
-            icon: MessageCircleQuestion,
-            badge: "Rà soát AI",
-            title: "Trợ lý rà soát chồng chéo & căn cứ",
-            description:
-                "Hỏi đáp trực tiếp trên tập văn bản của Workspace để kiểm tra quy định mâu thuẫn, căn cứ pháp lý và tác động sửa đổi kèm trích dẫn.",
+                "Tải lên PDF văn bản hiện hành để AI bóc tách Điều/Khoản/Điểm, tự nối quan hệ vào Workspace và hỗ trợ hỏi đáp kiểm chứng căn cứ có trích dẫn.",
         },
     ];
 
@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-    <title>Soạn Luật Studio — Hệ thống hỗ trợ Nhà soạn luật</title>
+    <title>Soạn Luật Studio — Soạn thảo Luật, Soát Logic & Phân tích Phạm vi Tác động</title>
 </svelte:head>
 
 <main class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-14">
@@ -77,7 +77,7 @@
         <div class="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" class="gap-1.5 px-3 py-1">
                 <Scale class="size-3.5" aria-hidden="true" />
-                Nền tảng dành cho Nhà soạn luật
+                Nền tảng Soạn thảo · Soát Logic · Đánh giá Tác động
             </Badge>
             {#if activeWorkspace}
                 <Badge variant="outline" class="gap-1.5 px-3 py-1">
@@ -89,10 +89,10 @@
 
         <div class="flex max-w-3xl flex-col gap-3">
             <h1 id="hero-heading" class="text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
-                Soạn thảo văn bản pháp luật, nối lược đồ và đánh giá tác động xử phạt trên một nền tảng
+                Soạn thảo văn bản pháp luật kèm soát logic luật và phân tích phạm vi tác động
             </h1>
             <p class="text-base text-pretty text-muted-foreground sm:text-lg">
-                Kết hợp sức mạnh tự động hóa của AI (trích xuất điều khoản, phát hiện tăng nặng/giảm nhẹ khung phạt) với chế độ soạn thảo thủ công chính xác đến từng Điều, Khoản, Điểm.
+                Soạn thảo cấu trúc Điều/Khoản/Điểm chính xác, tự động phát hiện mâu thuẫn hiệu lực, dẫn chiếu treo và xung đột quy phạm, đồng thời mô phỏng phạm vi tác động trực tiếp lẫn dây chuyền trước khi ban hành.
             </p>
         </div>
 
@@ -100,21 +100,25 @@
             {#if sessionStore.user}
                 <Button href="/drafting" size="lg" class="gap-2">
                     <FilePenLine class="size-4" aria-hidden="true" />
-                    Mở bàn soạn thảo (Manual)
+                    Mở bàn soạn thảo
                 </Button>
-                <Button href="/graph" size="lg" variant="outline" class="gap-2">
+                <Button href="/audit" size="lg" variant="outline" class="gap-2">
+                    <ShieldCheck class="size-4" aria-hidden="true" />
+                    Soát logic & Phạm vi tác động
+                </Button>
+                <Button href="/graph" size="lg" variant="ghost" class="gap-2">
                     <GitCompareArrows class="size-4" aria-hidden="true" />
                     Xem lược đồ 2 chế độ
-                </Button>
-                <Button href="/workspaces" size="lg" variant="ghost" class="gap-2">
-                    <FolderKanban class="size-4" aria-hidden="true" />
-                    Quản lý Workspaces
                 </Button>
             {:else}
                 <Button href="/login" size="lg" class="gap-2">
                     Đăng nhập / Tạo tài khoản
                 </Button>
-                <Button href="/graph" size="lg" variant="outline" class="gap-2">
+                <Button href="/audit" size="lg" variant="outline" class="gap-2">
+                    <ShieldCheck class="size-4" aria-hidden="true" />
+                    Xem Soát logic & Tác động
+                </Button>
+                <Button href="/graph" size="lg" variant="ghost" class="gap-2">
                     <Network class="size-4" aria-hidden="true" />
                     Xem lược đồ tác động
                 </Button>

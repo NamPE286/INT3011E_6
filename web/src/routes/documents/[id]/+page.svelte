@@ -50,20 +50,37 @@
             <p class="text-muted-foreground">{document.title}</p>
         {/if}
 
-        <dl class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-            <div>
-                <dt class="text-muted-foreground">Ban hành</dt>
-                <dd class="font-medium">{document.metadata?.issuedAt ? formatDate(document.metadata.issuedAt) : "Chưa đọc được"}</dd>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <dl class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                <div>
+                    <dt class="text-muted-foreground">Ban hành</dt>
+                    <dd class="font-medium">{document.metadata?.issuedAt ? formatDate(document.metadata.issuedAt) : "Chưa đọc được"}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted-foreground">Hiệu lực từ</dt>
+                    <dd class="font-medium">{document.metadata?.effectiveFrom ? formatDate(document.metadata.effectiveFrom) : "Chưa đọc được"}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted-foreground">Phần bị văn bản khác tác động</dt>
+                    <dd class="font-medium">{amendedCount}</dd>
+                </div>
+            </dl>
+
+            <div class="flex flex-wrap gap-2 text-xs">
+                <a
+                    href={`/audit?document=${encodeURIComponent(document.id)}`}
+                    class="rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-muted"
+                >
+                    Soát logic & Phạm vi tác động
+                </a>
+                <a
+                    href={`/drafting?document=${encodeURIComponent(document.id)}`}
+                    class="rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-muted"
+                >
+                    Mở trong bàn soạn thảo
+                </a>
             </div>
-            <div>
-                <dt class="text-muted-foreground">Hiệu lực từ</dt>
-                <dd class="font-medium">{document.metadata?.effectiveFrom ? formatDate(document.metadata.effectiveFrom) : "Chưa đọc được"}</dd>
-            </div>
-            <div>
-                <dt class="text-muted-foreground">Phần bị văn bản khác tác động</dt>
-                <dd class="font-medium">{amendedCount}</dd>
-            </div>
-        </dl>
+        </div>
     </header>
 
     <Tabs value="content">

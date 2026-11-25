@@ -1,30 +1,61 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { getDocument, searchDocuments } from "$lib/api/client";
+    import { page } from "$app/state";
+    import type { ImpactScopeReport, LogicAuditReport } from "$lib/api/analysis";
+    import { getDocument, getDocumentAudit, getDocumentImpact, searchDocuments } from "$lib/api/client";
     import type { DocumentListItem, DocumentView, Provision } from "$lib/api/documents";
     import {
         createManualDocumentApi,
         deleteManualDocumentApi,
         deleteManualProvisionApi,
         insertManualProvisionApi,
+        updateManualDocumentApi,
         updateManualProvisionApi,
         type ManualProvisionLevel,
     } from "$lib/api/workspaces";
+    import ImpactScopePanel from "$lib/components/ImpactScopePanel.svelte";
+    import LogicAuditPanel from "$lib/components/LogicAuditPanel.svelte";
     import { Badge } from "$lib/components/ui/badge";
     import { Button } from "$lib/components/ui/button";
     import { Input } from "$lib/components/ui/input";
     import { provisionLabel } from "$lib/labels";
     import { sessionStore } from "$lib/stores/session.svelte";
-    import { Eye, FilePenLine, FilePlus2, Network, Pencil, Plus, Save, Trash2, X } from "@lucide/svelte";
+    import {
+        Eye,
+        FilePenLine,
+        FilePlus2,
+        Layers,
+        Network,
+        Pencil,
+        Plus,
+        Save,
+        ShieldAlert,
+        ShieldCheck,
+        Trash2,
+        X,
+    } from "@lucide/svelte";
 
     let documents = $state<DocumentListItem[]>([]);
     let selectedDocId = $state<string | null>(null);
     let docView = $state<DocumentView | null>(null);
+    let auditReport = $state<LogicAuditReport | null>(null);
+    let impactReport = $state<ImpactScopeReport | null>(null);
+    let impactDepth = $state(3);
     let loadingList = $state(false);
     let loadingDoc = $state(false);
-    let viewMode = $state<"editor" | "preview">("editor");
+    let loadingAnalysis = $state(false);
+    let viewMode = $state<"editor" | "audit" | "impact" | "preview">("editor");
     let feedback = $state<string | null>(null);
     let errorMessage = $state<string | null>(null);
+
+    // Edit document metadata form
+    let showEditMetaForm = $state(false);
+    let metaTitle = $state("");
+    let metaNumber = $state("");
+    let metaType = $state("Dự thảo");
+    let metaAgency = $state("");
+    let metaIssuedAt = $state("");
+    let metaEffectiveFrom = $state("");
 
     // New document form
     let showNewDocForm = $state(false);
@@ -57,6 +88,23 @@
         POINT: "Điểm",
     };
 
+    async function loadAnalysis(documentId: string, depth: number = impactDepth): Promise<void> {
+        loadingAnalysis = true;
+
+        try {
+            const [audit, impact] = await Promise.all([
+                getDocumentAudit(documentId, fetch),
+                getDocumentImpact(documentId, depth, fetch),
+            ]);
+            auditReport = audit;
+            impactReport = impact;
+        } catch {
+            // Keep drafting responsive even if analysis temporarily fails.
+        } finally {
+            loadingAnalysis = false;
+        }
+    }
+
     async function loadDocuments(selectId?: string): Promise<void> {
         loadingList = true;
         errorMessage = null;
@@ -65,13 +113,22 @@
             const result = await searchDocuments(fetch, "", null, 50);
             documents = result.documents;
 
-            const nextId = selectId ?? (selectedDocId && documents.some((d) => d.id === selectedDocId) ? selectedDocId : documents[0]?.id ?? null);
-            selectedDocId = nextId;
+            const queryDocId = selectId ?? page.url.searchParams.get("document");
+            const preferredId =
+                queryDocId && documents.some((d) => d.id === queryDocId)
+                    ? queryDocId
+                    : selectedDocId && documents.some((d) => d.id === selectedDocId)
+                      ? selectedDocId
+                      : documents.find((d) => d.documentType === "Dự thảo")?.id ?? documents[0]?.id ?? null;
 
-            if (nextId) {
-                await loadDocumentDetail(nextId);
+            selectedDocId = preferredId;
+
+            if (preferredId) {
+                await loadDocumentDetail(preferredId);
             } else {
                 docView = null;
+                auditReport = null;
+                impactReport = null;
             }
         } catch (err: unknown) {
             errorMessage = err instanceof Error ? err.message : "Không thể tải danh sách văn bản";
@@ -83,10 +140,12 @@
     async function loadDocumentDetail(documentId: string): Promise<void> {
         loadingDoc = true;
         errorMessage = null;
+        showEditMetaForm = false;
 
         try {
             docView = await getDocument(fetch, documentId);
             selectedDocId = documentId;
+            await loadAnalysis(documentId, impactDepth);
         } catch (err: unknown) {
             errorMessage = err instanceof Error ? err.message : "Không thể tải nội dung văn bản";
         } finally {
@@ -97,6 +156,66 @@
     onMount(() => {
         void loadDocuments();
     });
+
+    function openEditMetadata(): void {
+        if (!docView) {
+            return;
+        }
+
+        metaTitle = docView.title ?? "";
+        metaNumber = docView.metadata?.documentNumber ?? "";
+        metaType = docView.metadata?.documentType ?? "Dự thảo";
+        metaAgency = docView.metadata?.agency ?? "";
+        metaIssuedAt = docView.metadata?.issuedAt ?? "";
+        metaEffectiveFrom = docView.metadata?.effectiveFrom ?? "";
+        showEditMetaForm = true;
+    }
+
+    async function handleSaveMetadata(event: SubmitEvent): Promise<void> {
+        event.preventDefault();
+
+        if (!selectedDocId) {
+            return;
+        }
+
+        errorMessage = null;
+        feedback = null;
+
+        try {
+            await updateManualDocumentApi(selectedDocId, {
+                title: metaTitle,
+                documentNumber: metaNumber || null,
+                documentType: metaType || null,
+                agency: metaAgency || null,
+                issuedAt: metaIssuedAt || null,
+                effectiveFrom: metaEffectiveFrom || null,
+            });
+            showEditMetaForm = false;
+            feedback = "Đã cập nhật thông tin văn bản và chạy lại soát logic.";
+            await loadDocuments(selectedDocId);
+        } catch (err: unknown) {
+            errorMessage = err instanceof Error ? err.message : "Không thể cập nhật thông tin văn bản";
+        }
+    }
+
+    function jumpToProvision(provisionId: string): void {
+        const target = docView?.provisions.find((prov) => prov.id === provisionId);
+
+        if (!target) {
+            return;
+        }
+
+        viewMode = "editor";
+        startEdit(target);
+    }
+
+    async function handleImpactDepthChange(nextDepth: number): Promise<void> {
+        impactDepth = nextDepth;
+
+        if (selectedDocId) {
+            await loadAnalysis(selectedDocId, nextDepth);
+        }
+    }
 
     async function handleCreateDocument(event: SubmitEvent): Promise<void> {
         event.preventDefault();
@@ -411,6 +530,19 @@
                             {#if docView.metadata?.documentType}
                                 <Badge variant="secondary">{docView.metadata.documentType}</Badge>
                             {/if}
+                            {#if auditReport}
+                                <Badge
+                                    variant={auditReport.summary.status === "FAIL" ? "destructive" : auditReport.summary.status === "WARNING" ? "secondary" : "outline"}
+                                    class="gap-1 text-[11px]"
+                                >
+                                    {#if auditReport.summary.status === "PASS"}
+                                        <ShieldCheck class="size-3" aria-hidden="true" />
+                                    {:else}
+                                        <ShieldAlert class="size-3" aria-hidden="true" />
+                                    {/if}
+                                    Logic {auditReport.summary.score}/100
+                                </Badge>
+                            {/if}
                         </div>
                         <p class="text-sm text-muted-foreground">{docView.title}</p>
                         <p class="text-xs text-muted-foreground">
@@ -419,21 +551,47 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
-                        <div class="inline-flex rounded-lg border bg-muted p-0.5 text-xs">
+                        <div class="inline-flex flex-wrap rounded-lg border bg-muted p-0.5 text-xs">
                             <button
                                 type="button"
                                 onclick={() => (viewMode = "editor")}
                                 class={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 ${viewMode === "editor" ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
                             >
-                                <FilePenLine class="size-3.5" />
+                                <FilePenLine class="size-3.5" aria-hidden="true" />
                                 Soạn thảo
+                            </button>
+                            <button
+                                type="button"
+                                onclick={() => (viewMode = "audit")}
+                                class={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 ${viewMode === "audit" ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
+                            >
+                                <ShieldAlert class="size-3.5" aria-hidden="true" />
+                                Soát logic
+                                {#if auditReport && auditReport.summary.total > 0}
+                                    <span class="rounded-full bg-destructive/15 px-1.5 text-[10px] font-semibold text-destructive">
+                                        {auditReport.summary.total}
+                                    </span>
+                                {/if}
+                            </button>
+                            <button
+                                type="button"
+                                onclick={() => (viewMode = "impact")}
+                                class={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 ${viewMode === "impact" ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
+                            >
+                                <Layers class="size-3.5" aria-hidden="true" />
+                                Phạm vi tác động
+                                {#if impactReport}
+                                    <span class="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                                        {impactReport.summary.directDocumentCount + impactReport.summary.indirectDocumentCount}
+                                    </span>
+                                {/if}
                             </button>
                             <button
                                 type="button"
                                 onclick={() => (viewMode = "preview")}
                                 class={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 ${viewMode === "preview" ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
                             >
-                                <Eye class="size-3.5" />
+                                <Eye class="size-3.5" aria-hidden="true" />
                                 Xem trước
                             </button>
                         </div>
@@ -441,15 +599,65 @@
                         {#if sessionStore.user}
                             <button
                                 type="button"
+                                onclick={openEditMetadata}
+                                class="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted"
+                            >
+                                <Pencil class="size-3.5" aria-hidden="true" />
+                                Sửa thông tin
+                            </button>
+                            <button
+                                type="button"
                                 onclick={() => handleDeleteDocument(docView!.id)}
                                 class="inline-flex items-center gap-1 rounded-md border border-destructive/30 px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/10"
                             >
-                                <Trash2 class="size-3.5" />
-                                Xóa văn bản
+                                <Trash2 class="size-3.5" aria-hidden="true" />
+                                Xóa
                             </button>
                         {/if}
                     </div>
                 </div>
+
+                {#if showEditMetaForm}
+                    <form class="grid gap-3 rounded-xl border border-primary/40 bg-primary/5 p-4 md:grid-cols-3" onsubmit={handleSaveMetadata}>
+                        <div class="flex items-center justify-between md:col-span-3">
+                            <span class="text-sm font-semibold">Cập nhật thông tin & ngày hiệu lực văn bản</span>
+                            <button type="button" onclick={() => (showEditMetaForm = false)} class="text-muted-foreground hover:text-foreground">
+                                <X class="size-4" />
+                            </button>
+                        </div>
+
+                        <label class="flex flex-col gap-1 text-xs">
+                            <span class="font-medium">Số hiệu văn bản</span>
+                            <Input bind:value={metaNumber} placeholder="VD: Dự thảo 01/2026/NĐ-CP" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-xs md:col-span-2">
+                            <span class="font-medium">Tên / Trích yếu *</span>
+                            <Input bind:value={metaTitle} required />
+                        </label>
+                        <label class="flex flex-col gap-1 text-xs">
+                            <span class="font-medium">Loại văn bản</span>
+                            <Input bind:value={metaType} />
+                        </label>
+                        <label class="flex flex-col gap-1 text-xs">
+                            <span class="font-medium">Cơ quan ban hành / chủ trì</span>
+                            <Input bind:value={metaAgency} />
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex flex-col gap-1 text-xs">
+                                <span class="font-medium">Ngày ban hành</span>
+                                <Input type="date" bind:value={metaIssuedAt} />
+                            </label>
+                            <label class="flex flex-col gap-1 text-xs">
+                                <span class="font-medium">Hiệu lực từ</span>
+                                <Input type="date" bind:value={metaEffectiveFrom} />
+                            </label>
+                        </div>
+                        <div class="flex gap-2 md:col-span-3">
+                            <Button type="submit" size="sm">Lưu thông tin</Button>
+                            <Button type="button" size="sm" variant="ghost" onclick={() => (showEditMetaForm = false)}>Hủy</Button>
+                        </div>
+                    </form>
+                {/if}
 
                 {#if viewMode === "editor"}
                     <div class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/50 p-3">
@@ -612,6 +820,21 @@
                             {/each}
                         </ul>
                     {/if}
+                {:else if viewMode === "audit"}
+                    <LogicAuditPanel
+                        report={auditReport}
+                        loading={loadingAnalysis}
+                        onRefresh={() => selectedDocId && loadAnalysis(selectedDocId, impactDepth)}
+                        onJumpToProvision={jumpToProvision}
+                    />
+                {:else if viewMode === "impact"}
+                    <ImpactScopePanel
+                        report={impactReport}
+                        loading={loadingAnalysis}
+                        maxDepth={impactDepth}
+                        onDepthChange={handleImpactDepthChange}
+                        onRefresh={() => selectedDocId && loadAnalysis(selectedDocId, impactDepth)}
+                    />
                 {:else}
                     <article class="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl border bg-background p-6 font-serif shadow-xs">
                         <div class="border-b pb-4 text-center">

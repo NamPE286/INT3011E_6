@@ -6,6 +6,7 @@
 
     const links = [
         { href: "/drafting", label: "Soạn thảo" },
+        { href: "/audit", label: "Soát logic & Tác động" },
         { href: "/graph", label: "Lược đồ tác động" },
         { href: "/documents", label: "Kho văn bản" },
         { href: "/violations", label: "Khung xử phạt" },
