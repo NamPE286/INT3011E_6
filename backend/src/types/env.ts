@@ -15,4 +15,7 @@ export interface Env {
     PROCESSING_QUEUE: Queue<ProcessingQueueMessage>;
     INTERNAL_MCP_TOKEN?: string;
     INTERNAL_MCP_WRITE_TOKEN?: string;
+    BETTER_AUTH_SECRET?: string;
+    BETTER_AUTH_URL?: string;
+    TRUSTED_ORIGINS?: string;
 }

@@ -19,6 +19,7 @@ export type DocumentSearchInput = {
     documentType: string | null;
     agency: string | null;
     limit: number;
+    workspaceId?: string;
 };
 
 export type DocumentListItem = {
@@ -105,7 +106,7 @@ export async function searchDocuments(db: D1Database, input: DocumentSearchInput
         return { query, documents: await listRecentDocuments(db, input), disclaimer: SEARCH_DISCLAIMER };
     }
 
-    const service = new DocumentService(new DocumentRepository(db), { acceptedOnly: true });
+    const service = new DocumentService(new DocumentRepository(db, input.workspaceId), { acceptedOnly: true });
     const response = await service.searchLegalDocuments({
         query,
         document_type: input.documentType,
@@ -130,11 +131,16 @@ export async function searchDocuments(db: D1Database, input: DocumentSearchInput
 }
 
 /** FR-15: the provisions of one accepted document and the verified or candidate amendments that touch them. */
-export async function getDocumentView(db: D1Database, documentId: string): Promise<DocumentView | null> {
-    const row = await db
-        .prepare("SELECT id, job_id, document_title, page_count, created_at FROM legal_documents WHERE id = ? AND review_status = 'ACCEPTED'")
-        .bind(documentId)
-        .first<DocumentRow>();
+export async function getDocumentView(db: D1Database, documentId: string, workspaceId?: string): Promise<DocumentView | null> {
+    const row = workspaceId
+        ? await db
+              .prepare("SELECT id, job_id, document_title, page_count, created_at FROM legal_documents WHERE id = ? AND workspace_id = ? AND review_status = 'ACCEPTED'")
+              .bind(documentId, workspaceId)
+              .first<DocumentRow>()
+        : await db
+              .prepare("SELECT id, job_id, document_title, page_count, created_at FROM legal_documents WHERE id = ? AND review_status = 'ACCEPTED'")
+              .bind(documentId)
+              .first<DocumentRow>();
 
     if (!row) {
         return null;
@@ -169,15 +175,16 @@ export async function getDocumentView(db: D1Database, documentId: string): Promi
 }
 
 async function listRecentDocuments(db: D1Database, input: DocumentSearchInput): Promise<DocumentListItem[]> {
+    const workspaceId = input.workspaceId ?? "default";
     const result = await db
         .prepare(
             `SELECT d.id, d.document_title, m.document_number, m.document_type, m.agency, m.issued_at
              FROM legal_documents d LEFT JOIN document_metadata m ON m.document_id = d.id
-             WHERE d.review_status = 'ACCEPTED'
+             WHERE d.review_status = 'ACCEPTED' AND d.workspace_id = ?
              ORDER BY m.issued_at DESC, d.created_at DESC
              LIMIT ?`
         )
-        .bind(input.limit || DEFAULT_LIST_LIMIT)
+        .bind(workspaceId, input.limit || DEFAULT_LIST_LIMIT)
         .all<ListedRow>();
 
     return result.results

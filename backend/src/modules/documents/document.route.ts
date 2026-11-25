@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { extractEnvFromRequest } from "../../plugins/context";
+import { resolveWorkspaceAccess } from "../workspaces/workspace.service";
 import { getDocumentView, searchDocuments } from "./document-query.service";
 
 const MAX_SEARCH_LIMIT = 50;
@@ -17,11 +18,20 @@ export const documentQueryModule = new Elysia({ prefix: "/api" })
                 return { message: "Database service unavailable" };
             }
 
+            const access = await resolveWorkspaceAccess(env, request);
+
+            if (!access.ok) {
+                set.status = access.status;
+
+                return { message: access.message };
+            }
+
             return searchDocuments(env.DB, {
                 query: query.q ?? "",
                 documentType: query.document_type ?? null,
                 agency: query.agency ?? null,
                 limit: query.limit ?? DEFAULT_SEARCH_LIMIT,
+                workspaceId: access.workspaceId,
             });
         },
         {
@@ -44,7 +54,15 @@ export const documentQueryModule = new Elysia({ prefix: "/api" })
                 return { message: "Database service unavailable" };
             }
 
-            const view = await getDocumentView(env.DB, params.documentId);
+            const access = await resolveWorkspaceAccess(env, request);
+
+            if (!access.ok) {
+                set.status = access.status;
+
+                return { message: access.message };
+            }
+
+            const view = await getDocumentView(env.DB, params.documentId, access.workspaceId);
 
             if (!view) {
                 set.status = 404;

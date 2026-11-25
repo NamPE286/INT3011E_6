@@ -17,17 +17,24 @@ import { askModule } from "./modules/ask/ask.route";
 import { modelsModule } from "./modules/llm/models.route";
 import { historyModule } from "./modules/history/history.route";
 import { graphModule } from "./modules/graph/graph.route";
+import { authModule } from "./modules/auth/auth.route";
+import { workspaceModule } from "./modules/workspaces/workspace.route";
+import { manualModule } from "./modules/manual/manual.route";
 
 export const app = new Elysia({ aot: false })
     .use(
         cors({
             origin: true,
-            methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-            allowedHeaders: ["Content-Type", "Authorization"],
+            credentials: true,
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+            allowedHeaders: ["Content-Type", "Authorization", "X-Workspace-Id"],
         })
     )
     .use(contextPlugin)
     .use(authPlugin)
+    .use(authModule)
+    .use(workspaceModule)
+    .use(manualModule)
     .use(healthModule)
     .use(uploadModule)
     .use(processingModule)

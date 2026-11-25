@@ -1,5 +1,67 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const user = sqliteTable("user", {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+    image: text("image"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const session = sqliteTable("session", {
+    id: text("id").primaryKey(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+        .notNull()
+        .references(() => user.id, { onDelete: "cascade" }),
+});
+
+export const account = sqliteTable("account", {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+        .notNull()
+        .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp" }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp" }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const verification = sqliteTable("verification", {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+});
+
+export const workspaces = sqliteTable("workspaces", {
+    id: text("id").primaryKey(),
+    ownerUserId: text("owner_user_id")
+        .notNull()
+        .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    domain: text("domain").notNull().default("general"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+});
+
 export const dummyItems = sqliteTable("dummy_items", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     message: text("message").notNull(),
@@ -7,6 +69,7 @@ export const dummyItems = sqliteTable("dummy_items", {
 
 export const processingJobs = sqliteTable("processing_jobs", {
     id: text("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull().default("default"),
     fileKey: text("file_key").notNull(),
     originalFilename: text("original_filename").notNull(),
     mimeType: text("mime_type"),
@@ -22,6 +85,7 @@ export const processingJobs = sqliteTable("processing_jobs", {
 
 export const legalDocuments = sqliteTable("legal_documents", {
     id: text("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull().default("default"),
     jobId: text("job_id").notNull().unique(),
     documentTitle: text("document_title"),
     jsonContent: text("json_content").notNull(),

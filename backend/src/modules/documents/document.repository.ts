@@ -2,7 +2,10 @@ import type { D1Database } from "@cloudflare/workers-types";
 import type { LegalDocumentRecord } from "./document.types";
 
 export class DocumentRepository {
-    constructor(private readonly db: D1Database) {}
+    constructor(
+        private readonly db: D1Database,
+        private readonly workspaceId?: string,
+    ) {}
 
     public async searchCorpusDocuments(
         queryTerms: string[],
@@ -11,6 +14,21 @@ export class DocumentRepository {
     ): Promise<LegalDocumentRecord[]> {
         // Fast SQL filtering on D1 to bound memory and execution cost
         if (queryTerms.length === 0) {
+            const conditions: string[] = [];
+            const params: (string | number)[] = [];
+
+            if (acceptedOnly) {
+                conditions.push("review_status = 'ACCEPTED'");
+            }
+
+            if (this.workspaceId) {
+                conditions.push("workspace_id = ?");
+                params.push(this.workspaceId);
+            }
+
+            params.push(maxFetch);
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
             const result = await this.db
                 .prepare(`
                     SELECT
@@ -23,11 +41,11 @@ export class DocumentRepository {
                         pdf_sha256,
                         created_at
                     FROM legal_documents
-                    ${acceptedOnly ? "WHERE review_status = 'ACCEPTED'" : ""}
+                    ${whereClause}
                     ORDER BY created_at DESC
                     LIMIT ?
                 `)
-                .bind(maxFetch)
+                .bind(...params)
                 .all<LegalDocumentRecord>();
 
             return result.results;
@@ -54,6 +72,13 @@ export class DocumentRepository {
             params.push(`%${term}%`, `%${term}%`, term, term);
         }
 
+        let workspaceClause = "";
+
+        if (this.workspaceId) {
+            workspaceClause = "AND workspace_id = ?";
+            params.push(this.workspaceId);
+        }
+
         params.push(maxFetch);
 
         const sql = `
@@ -69,11 +94,13 @@ export class DocumentRepository {
             FROM legal_documents
             WHERE (${likeClauses.join(" OR ")})
             ${acceptedOnly ? "AND review_status = 'ACCEPTED'" : ""}
+            ${workspaceClause}
             ORDER BY created_at DESC
             LIMIT ?
         `;
 
         const result = await this.db.prepare(sql).bind(...params).all<LegalDocumentRecord>();
+
         return result.results;
     }
 
