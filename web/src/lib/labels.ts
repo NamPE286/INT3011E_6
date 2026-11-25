@@ -54,7 +54,28 @@ export const CANDIDATE_STATUS_LABELS: Record<string, string> = {
     REJECTED: "Đã loại",
 };
 
+export const SANCTION_CHANGE_LABELS: Record<string, string> = {
+    SANCTION_INCREASE: "Tăng nặng xử phạt",
+    SANCTION_DECREASE: "Giảm nhẹ xử phạt",
+    POINT_DEDUCTION_CHANGED: "Thay đổi trừ điểm GPLX",
+    POINT_DEDUCTION_APPLICABILITY_CHANGED: "Bổ sung/Bỏ trừ điểm GPLX",
+    LICENSE_SUSPENSION_CHANGED: "Thay đổi tước GPLX",
+    VEHICLE_CONFISCATION_CHANGED: "Thay đổi tịch thu phương tiện",
+    SANCTION_CHANGED: "Thay đổi mức xử lý",
+    VIOLATION_ADDED: "Bổ sung hành vi xử phạt",
+    ADDITIONAL_SANCTION_CHANGED: "Thay đổi hình phạt bổ sung",
+    REPEALED: "Bãi bỏ xử phạt",
+};
+
+export function sanctionChangeLabel(changeType: string): string {
+    return SANCTION_CHANGE_LABELS[changeType] ?? changeType;
+}
+
 export function relationLabel(type: string, direction: "OUTGOING" | "INCOMING"): string {
+    if (SANCTION_CHANGE_LABELS[type]) {
+        return SANCTION_CHANGE_LABELS[type];
+    }
+
     const labels = RELATION_LABELS[type] ?? RELATION_LABELS.UNKNOWN;
 
     return direction === "OUTGOING" ? labels.outgoing : labels.incoming;

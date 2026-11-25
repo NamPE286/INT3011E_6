@@ -24,6 +24,15 @@ const FAMILY_OF_TYPE: Record<string, keyof typeof FAMILY_COLORS> = {
     GUIDES: "basis",
     DETAILS: "basis",
     EXPLAINS: "basis",
+    SANCTION_INCREASE: "repeal",
+    SANCTION_DECREASE: "supplement",
+    POINT_DEDUCTION_CHANGED: "replace",
+    POINT_DEDUCTION_APPLICABILITY_CHANGED: "replace",
+    LICENSE_SUSPENSION_CHANGED: "replace",
+    VEHICLE_CONFISCATION_CHANGED: "repeal",
+    SANCTION_CHANGED: "amend",
+    VIOLATION_ADDED: "other",
+    ADDITIONAL_SANCTION_CHANGED: "other",
 };
 
 export function relationColor(relationType: string): string {

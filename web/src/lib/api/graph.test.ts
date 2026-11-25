@@ -26,8 +26,11 @@ describe("parseRelationGraph", () => {
 
         expect(parsed?.documents).toHaveLength(1);
         expect(parsed?.provisions[0]).toMatchObject({ pointNo: "b" });
-        expect(parsed?.documentRelations).toEqual([{ id: "e", fromDocumentId: "B", toDocumentId: "A", relationType: "AMENDS", scope: "PARTIAL" }]);
+        expect(parsed?.documentRelations).toEqual([
+            { id: "e", fromDocumentId: "B", toDocumentId: "A", relationType: "AMENDS", scope: "PARTIAL", sourceMode: "AI", note: null },
+        ]);
         expect(parsed?.provisionRelations[0]).toMatchObject({ toProvisionId: null, verificationStatus: "CANDIDATE" });
+        expect(parsed?.sanctionChangeEdges).toEqual([]);
         expect(parsed?.truncated).toBe(true);
     });
 

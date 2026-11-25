@@ -1,4 +1,5 @@
 import { isRecord, readString } from "./read";
+import { readStoredWorkspaceId } from "$lib/stores/workspace-storage";
 
 export class ApiError extends Error {
     constructor(
@@ -32,9 +33,21 @@ export function resolveBackendUrl(configuredUrl: string | undefined): string {
 /** Fetches JSON from the backend and turns every failure into an ApiError with a message safe to show. */
 export async function requestJson(baseUrl: string, path: string, init: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<unknown> {
     let response: Response;
+    const headers = new Headers(init.headers);
+    const activeWorkspaceId = readStoredWorkspaceId();
+
+    if (activeWorkspaceId && !headers.has("X-Workspace-Id")) {
+        headers.set("X-Workspace-Id", activeWorkspaceId);
+    }
+
+    const requestInit: RequestInit = {
+        ...init,
+        headers,
+        credentials: init.credentials ?? (typeof window !== "undefined" ? "include" : undefined),
+    };
 
     try {
-        response = await fetcher(`${baseUrl.replace(/\/$/, "")}${path}`, init);
+        response = await fetcher(`${baseUrl.replace(/\/$/, "")}${path}`, requestInit);
     } catch {
         throw new ApiError("Không thể kết nối máy chủ", null);
     }

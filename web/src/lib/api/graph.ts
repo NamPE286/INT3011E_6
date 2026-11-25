@@ -1,4 +1,6 @@
-import { isRecord, readRows, readString } from "./read";
+import { isRecord, readNumber, readRows, readString } from "./read";
+
+export type GraphSourceMode = "AI" | "MANUAL";
 
 export type GraphDocument = {
     id: string;
@@ -7,6 +9,7 @@ export type GraphDocument = {
     documentType: string | null;
     issuedAt: string | null;
     effectiveFrom: string | null;
+    isManual?: boolean;
 };
 
 export type GraphProvision = {
@@ -27,6 +30,8 @@ export type GraphDocumentRelation = {
     toDocumentId: string;
     relationType: string;
     scope: string;
+    sourceMode?: GraphSourceMode;
+    note?: string | null;
 };
 
 export type ProvisionVerification = "ACCEPTED" | "CANDIDATE";
@@ -42,13 +47,36 @@ export type GraphProvisionRelation = {
     verificationStatus: ProvisionVerification;
     evidenceText: string;
     effectiveFrom: string | null;
+    sourceMode?: GraphSourceMode;
+};
+
+export type GraphSanctionChangeEdge = {
+    id: string;
+    fromDocumentId: string;
+    toDocumentId: string;
+    fromProvisionId: string | null;
+    toProvisionId: string | null;
+    behaviorSummary: string;
+    changeType: string;
+    changeTypes: string[];
+    oldPenaltyText: string | null;
+    newPenaltyText: string | null;
+    oldFineMin: number | null;
+    oldFineMax: number | null;
+    newFineMin: number | null;
+    newFineMax: number | null;
+    severityDeltaPercent: number | null;
+    note: string | null;
+    sourceMode: GraphSourceMode;
 };
 
 export type RelationGraph = {
+    workspaceId?: string;
     documents: GraphDocument[];
     provisions: GraphProvision[];
     documentRelations: GraphDocumentRelation[];
     provisionRelations: GraphProvisionRelation[];
+    sanctionChangeEdges?: GraphSanctionChangeEdge[];
     truncated: boolean;
     disclaimer: string;
 };
@@ -59,10 +87,12 @@ export function parseRelationGraph(value: unknown): RelationGraph | null {
     }
 
     return {
+        workspaceId: readString(value, "workspaceId") ?? undefined,
         documents: readRows(value, "documents", parseDocument),
         provisions: readRows(value, "provisions", parseProvision),
         documentRelations: readRows(value, "documentRelations", parseDocumentRelation),
         provisionRelations: readRows(value, "provisionRelations", parseProvisionRelation),
+        sanctionChangeEdges: readRows(value, "sanctionChangeEdges", parseSanctionChangeEdge),
         truncated: value.truncated === true,
         disclaimer: readString(value, "disclaimer") ?? "",
     };
@@ -82,6 +112,7 @@ function parseDocument(row: Record<string, unknown>): GraphDocument | null {
         documentType: readString(row, "documentType"),
         issuedAt: readString(row, "issuedAt"),
         effectiveFrom: readString(row, "effectiveFrom"),
+        isManual: row.isManual === true,
     };
 }
 
@@ -116,7 +147,15 @@ function parseDocumentRelation(row: Record<string, unknown>): GraphDocumentRelat
         return null;
     }
 
-    return { id, fromDocumentId, toDocumentId, relationType, scope: readString(row, "scope") ?? "UNKNOWN" };
+    return {
+        id,
+        fromDocumentId,
+        toDocumentId,
+        relationType,
+        scope: readString(row, "scope") ?? "UNKNOWN",
+        sourceMode: readString(row, "sourceMode") === "MANUAL" ? "MANUAL" : "AI",
+        note: readString(row, "note"),
+    };
 }
 
 function parseProvisionRelation(row: Record<string, unknown>): GraphProvisionRelation | null {
@@ -145,5 +184,42 @@ function parseProvisionRelation(row: Record<string, unknown>): GraphProvisionRel
         verificationStatus,
         evidenceText: readString(row, "evidenceText") ?? "",
         effectiveFrom: readString(row, "effectiveFrom"),
+        sourceMode: readString(row, "sourceMode") === "MANUAL" ? "MANUAL" : "AI",
+    };
+}
+
+function parseSanctionChangeEdge(row: Record<string, unknown>): GraphSanctionChangeEdge | null {
+    const id = readString(row, "id");
+    const fromDocumentId = readString(row, "fromDocumentId");
+    const toDocumentId = readString(row, "toDocumentId");
+    const behaviorSummary = readString(row, "behaviorSummary");
+    const changeType = readString(row, "changeType");
+
+    if (!id || !fromDocumentId || !toDocumentId || !behaviorSummary || !changeType) {
+        return null;
+    }
+
+    const changeTypes = Array.isArray(row.changeTypes)
+        ? row.changeTypes.filter((item): item is string => typeof item === "string")
+        : [changeType];
+
+    return {
+        id,
+        fromDocumentId,
+        toDocumentId,
+        fromProvisionId: readString(row, "fromProvisionId"),
+        toProvisionId: readString(row, "toProvisionId"),
+        behaviorSummary,
+        changeType,
+        changeTypes,
+        oldPenaltyText: readString(row, "oldPenaltyText"),
+        newPenaltyText: readString(row, "newPenaltyText"),
+        oldFineMin: readNumber(row, "oldFineMin"),
+        oldFineMax: readNumber(row, "oldFineMax"),
+        newFineMin: readNumber(row, "newFineMin"),
+        newFineMax: readNumber(row, "newFineMax"),
+        severityDeltaPercent: readNumber(row, "severityDeltaPercent"),
+        note: readString(row, "note"),
+        sourceMode: readString(row, "sourceMode") === "MANUAL" ? "MANUAL" : "AI",
     };
 }
