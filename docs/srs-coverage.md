@@ -1,8 +1,8 @@
-# Đối chiếu SRS với mã nguồn
+# Đối chiếu SRS v1.0 với mã nguồn
 
-Kiểm tra ngày 02/11/2026 trên nhánh `claude/feat/relation-graph` (SRS v0.12). Căn cứ: đọc mã, `bun test` (backend 314 test, web 87 test), `bun run eval` (dev set), bộ end-to-end trên luật giả `data/fake-law` (`backend/test/fake-law-e2e.test.ts`, LLM giả) và một lần chạy pipeline với OpenAI thật (mục cuối).
+Cập nhật ngày 25/11/2026 trên cơ sở **SRS v1.0** (Soạn Luật Studio — App soạn thảo luật kèm chức năng soát logic luật và phân tích phạm vi tác động). Căn cứ: kiểm tra mã nguồn `backend/` và `web/`, chạy test (`backend`: 324 test pass across 36 files + `tsc --noEmit`; `web`: 92 test pass across 14 files + `svelte-check` 0 errors + `bun run build`).
 
-**Kết luận:** SRS **chưa được triển khai đầy đủ**. Lõi xử lý (đọc PDF → provision → graph văn bản → ChangeInstruction/ProvisionRelation → ViolationRule/Sanction → identity → lineage/as-of → change events) và các trang tra cứu chạy được end-to-end, cả với LLM thật; 9 lỗi tìm thấy đã sửa (bên dưới). Còn thiếu: xác thực Admin, acquisition/discovery tự động (FR-02), search index (FR-19), import nhiều phần/phụ lục và đánh giá held-out/QA (#29).
+**Kết luận:** Các trụ cột cốt lõi của bài toán **Soạn thảo luật + Soát logic luật + Phân tích phạm vi tác động** đã được triển khai end-to-end (Better Auth, đa Workspace cô lập, bàn soạn thảo Chương/Mục/Điều/Khoản/Điểm, bộ máy soát logic 16 quy tắc tất định, bộ máy phân tích phạm vi tác động trực tiếp & dây chuyền đa tầng, lược đồ 2 chế độ, pipeline AI đọc PDF + 6 bước tiền xử lý và trợ lý AI dẫn nguồn). Các phần còn mở nằm ở nâng cao hệ thống: acquisition tự động từ VBPL (FR-02), bảo vệ auth cho các endpoint `/api/uploads`/`/api/jobs*`, chỉ mục FTS5 (FR-19), nhập nhiều phần/phụ lục trong một job và bộ đánh giá held-out (#29).
 
 Ký hiệu: ✅ đạt · 🟡 một phần · ❌ chưa có.
 
@@ -10,70 +10,51 @@ Ký hiệu: ✅ đạt · 🟡 một phần · ❌ chưa có.
 
 | FR | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| FR-01 Import PDF | 🟡 | Upload 1 file, validate, dedup theo SHA-256 (D3), R2 snapshot, queue, LLM đọc theo cụm trang, checkpoint/retry, review. Thiếu: nhiều phần/phụ lục trong một import, metadata khai báo, trạng thái READY/PARTIAL theo SRS, xác thực Admin. Route vẫn là `/api/uploads`, chưa phải `/admin/imports`. |
-| FR-02 Corpus discovery | ❌ | Có frontier (số hiệu được trích dẫn nhưng chưa nhập) nhưng không acquire/reverse search tự động. |
-| FR-03 Document graph | ✅ | Candidate + evidence, resolver theo số hiệu/loại, cạnh ACCEPTED tách khỏi candidate, coverage/frontier. |
+| FR-01 Import PDF | 🟡 | Upload 1 file PDF, validate, dedup theo `(workspace_id, pdf_sha256)`, R2 snapshot, queue, LLM đọc theo cụm trang, checkpoint/retry, review. Thiếu: nhiều phần/phụ lục trong một job và khóa auth bắt buộc cho `/api/uploads`/`/api/jobs*`. |
+| FR-02 Corpus discovery | ❌ | Có `frontier` (số hiệu được trích dẫn nhưng chưa có trong Workspace, hiển thị cả ở Document Relations và Impact Scope) nhưng chưa tự acquire/reverse search từ VBPL. |
+| FR-03 Document graph | ✅ | Candidate + evidence, resolver theo số hiệu/loại, cạnh `ACCEPTED` tách khỏi candidate, cô lập theo `workspace_id`. |
 | FR-04 Provision segmentation | ✅ | Điều/Khoản/Điểm, nội dung trích dẫn trong lệnh sửa đổi tách riêng. |
 | FR-05 Relevance | ✅ | Deterministic theo nội dung. |
 | FR-06 ChangeInstruction | ✅ | Sửa đổi/bổ sung/bãi bỏ/thay thế, locator, ngày hiệu lực. |
-| FR-07 ProvisionRelation | ✅ | Cùng/khác văn bản, cập nhật khi nhập theo thứ tự ngược (đã kiểm tra e2e). |
-| FR-08 / 08.1 Violation extraction | ✅ | Deterministic + LLM theo vocabulary (`get_vocab_snapshot` → `add_vocab`); D2, L3 đã sửa. |
-| FR-09 Sanction | ✅ | Tiền phạt, `point_deduction_applicability`, SanctionEffect có kiểu (tước GPLX, trừ điểm, tịch thu). |
-| FR-10 Identity | ✅ | Deterministic + LLM khi AMBIGUOUS; không gộp context khác nhau. |
-| FR-11 History | ✅ | Lineage theo context, chuỗi rule qua ProvisionRelation. |
-| FR-12 Current / as-of | ✅ | Đã kiểm tra e2e: mức phạt cũ trước ngày hiệu lực, mức mới sau; điểm bị bãi bỏ hết áp dụng. UNCERTAIN khi thiếu evidence. |
-| FR-13 Semantic change | ✅ | Change events; F1 = 1,0 trên dev set (deterministic). |
-| FR-14 Document search | ✅ | Không dùng LLM; xếp hạng số hiệu đã sửa (D1). |
-| FR-15 Document view | ✅ | Đúng hai tab Nội dung + Quan hệ (danh sách hành vi là mục thu gọn trong Nội dung), mục lục Điều, phần bị sửa đổi/bãi bỏ có vạch đỏ/gạch ngang. Đồ thị quan hệ: trang `/graph` (#61). |
-| FR-16.1 Manual search | 🟡 | Khớp theo từ trên tên/alias (D4 đã sửa); chưa tìm trên toàn văn provision. |
-| FR-16.2 / 16.3 AI chat + references | 🟡 | `/api/ask`: claim → evidence, hiện hành + lịch sử (L1), retrieval theo từ rồi model chọn trong danh mục (L2). Chưa có rate limit/xác thực, chưa có bộ QA held-out. |
-| FR-17 Violation detail | ✅ | |
-| FR-18 Violation history | ✅ | |
-| FR-19 Search index | ❌ | Chưa có index FTS/projection; tìm bằng quét bảng. |
-| FR-20 AI provenance | ✅ | ExtractionRun ghi model/prompt/vocabulary version; câu trả lời có `provenance`. |
+| FR-07 ProvisionRelation | ✅ | Cùng/khác văn bản, hỗ trợ cả nguồn AI và nối thủ công (`sourceMode`), cập nhật tăng dần. |
+| FR-08 / 08.1 Violation extraction | ✅ | Deterministic + LLM theo vocabulary (`get_vocab_snapshot` → `add_vocab`). |
+| FR-09 Sanction | ✅ | Tiền phạt, `point_deduction_applicability`, `SanctionEffect` có kiểu (tước GPLX, trừ điểm, tịch thu). |
+| FR-10 Identity | ✅ | Deterministic + LLM khi `AMBIGUOUS`; không gộp context khác nhau. |
+| FR-11 History | ✅ | Lineage theo context, chuỗi rule qua `ProvisionRelation`. |
+| FR-12 Current / as-of | ✅ | Trả mức phạt theo mốc ngày; `UNCERTAIN` khi thiếu evidence. |
+| FR-13 Semantic change | ✅ | `change_events`; F1 = 1,0 trên dev set (deterministic). |
+| FR-14 Document search | ✅ | Không dùng LLM; cô lập theo `workspace_id`. |
+| FR-15 Document view | ✅ | Hai tab **Nội dung** + **Quan hệ**, mục lục Điều, highlight phần bị sửa/bãi bỏ, kèm nút mở nhanh sang `/audit` và `/drafting`. |
+| FR-16.1 Manual search | 🟡 | Khớp theo từ trên tên/alias; chưa có FTS trên toàn văn provision. |
+| FR-16.2 / 16.3 AI chat + references | 🟡 | `/api/ask`: claim → evidence, hiện hành + lịch sử, dẫn nguồn tới Provision. Chưa có rate limit và bộ QA held-out (#29). |
+| FR-17 Violation detail | ✅ | Hiển thị mức phạt hiện hành và theo mốc thời gian. |
+| FR-18 Violation history | ✅ | Hiển thị timeline lineage và biến động chế tài. |
+| FR-19 Search index | ❌ | Chưa có index FTS5; tìm bằng truy vấn SQL/lọc trong bộ nhớ. |
+| FR-20 AI provenance | ✅ | `ExtractionRun` ghi model/prompt/vocabulary version; câu trả lời có `provenance`. |
+| FR-21 Auth & Multi-Workspace | ✅ | Better Auth (`email + password`), cookie phiên, CRUD Workspace độc lập, kiểm tra quyền sở hữu server-side (`401`/`403`), tự seed Workspace mẫu kèm NĐ 100/123/168, TT 73/2024 và Dự thảo 2026. |
+| FR-22 Structured Drafting Studio | ✅ | `/drafting` + `/api/manual/*`: tạo/sửa/xóa văn bản & metadata/ngày hiệu lực, chèn/sửa/xóa cây Chương/Mục/Điều/Khoản/Điểm, xem trước bản thể thức và làm mới soát logic/tác động live. |
+| FR-23 Soát logic luật | ✅ | `backend/src/modules/analysis/logic-audit.ts`, `GET /api/documents/:id/audit`, `GET /api/workspace/audit-summary`, `LogicAuditPanel.svelte`, tích hợp trong `/drafting` (nhảy thẳng về điều khoản lỗi) và `/audit`. Đủ 16 quy tắc tất định thuộc 5 nhóm. |
+| FR-24 Phân tích phạm vi tác động | ✅ | `backend/src/modules/analysis/impact-scope.ts`, `GET /api/documents/:id/impact?max_depth=1..5`, `ImpactScopePanel.svelte`, tích hợp trong `/drafting` và `/audit`: tác động trực tiếp tầng 1, lan truyền dây chuyền đa tầng (BFS), điều khoản bị tác động, biến động chế tài, nhóm đối tượng, `unresolvedFrontier` và danh mục khuyến nghị đồng bộ hóa. |
+| FR-25 Lược đồ tác động 2 chế độ | ✅ | `/graph` + `GET /api/graph`: Chế độ 1 (Biến động mức xử lý) & Chế độ 2 (Ảnh hưởng văn bản/điều khoản), hợp nhất cạnh AI + thủ công và hỗ trợ nối/xóa cạnh thủ công. |
 
 ## Non-functional và hệ thống
 
 | Mục | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| Authorization Admin (§5.7) | ❌ | `authPlugin` vẫn trả `user: null`; mọi endpoint ghi đều mở (TODO #4). |
-| NFR-01/02 Traceability, explainability | ✅ | Mọi rule/cạnh có provision nguồn và evidence. |
-| NFR-03 Reproducibility | 🟡 | Run provenance có; chưa có generation/publish. |
-| NFR-06 Data consistency | 🟡 | Nhập trùng cùng hash đã chặn (D3); khác hash cùng legal identity chưa gộp. |
-| NFR-08 Observability | 🟡 | Log JSON theo job/stage, checklist preprocessing; chưa có metric thời gian/queue. |
-| §14–15 Evaluation, baselines | 🟡 | Dev set + baseline cho preprocessing; thiếu held-out, retrieval/QA và end-to-end metric (#29). |
+| Auth & Workspace Isolation (§5.7) | 🟡 | Better Auth + kiểm tra chủ sở hữu Workspace hoạt động đầy đủ cho `/api/workspaces/*`, `/api/manual/*`, `/api/documents/*`, `/api/graph`, `/api/workspace/audit-summary`. Các route admin upload/job (`/api/uploads`, `/api/jobs*`) vẫn cần khóa phân quyền Admin ở vòng sau. |
+| NFR-01/02 Traceability, explainability | ✅ | Mọi lỗi logic, chuỗi tác động dây chuyền, rule và cạnh đều dẫn nguồn về Provision/Document cụ thể. |
+| NFR-03 Reproducibility | ✅ | Bộ máy soát logic & phạm vi tác động là pure function tất định 100%; AI extraction lưu provenance run. |
+| NFR-06 Data consistency | 🟡 | Dedup PDF theo `(workspace_id, pdf_sha256)`; kiểm tra chu trình & sửa văn bản đã bãi bỏ trong Logic Audit. Khác hash cùng số hiệu chưa tự gộp. |
+| NFR-08 Observability | 🟡 | Log JSON theo job/stage, checklist preprocessing, tổng quan lỗi/rủi ro toàn Workspace. |
+| §14–15 Evaluation, baselines | 🟡 | Dev set + baseline cho preprocessing và `/api/ask`; thiếu bộ held-out QA và benchmark soát logic trên dự thảo thật (#29). |
 
 ## Acceptance criteria (§16)
 
-Đạt: 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24 (mức rule), 30, 31, 32. Một phần: 1 (chưa xác thực Admin), 16–18 (chạy được, chưa có bộ đánh giá), 25 (cùng hash đã đạt; khác hash cùng số hiệu chưa), 27. Chưa đạt: 2, 26, 28, 29.
+- **Đạt:** 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24, 30, 31, 32, **33, 34, 35, 36, 37, 38**.
+- **Một phần:** 1 (chưa khóa auth riêng cho `/api/uploads`), 16–18 (chạy được, chưa có held-out QA), 25 (cùng hash đã đạt theo Workspace; khác hash cùng số hiệu chưa), 27.
+- **Chưa đạt:** 2 (acquisition tự động VBPL), 26, 28, 29 (held-out evaluation).
 
-## Lỗi phát hiện khi kiểm thử — đã sửa
+## Kiểm thử tự động hiện tại
 
-D1–D4 tìm thấy bằng bộ e2e trên luật giả; L1–L4 khi chạy pipeline với OpenAI thật (`gpt-5-mini`); U1 khi thiết kế lại giao diện. Mỗi lỗi có test hồi quy.
-
-| # | Lỗi | Sửa | Test |
-| --- | --- | --- | --- |
-| D3 | Upload lại cùng PDF tạo văn bản trùng; số hiệu trùng làm mất **toàn bộ** quan hệ tới văn bản đó (AC 25, NFR-06). | `processing_jobs.pdf_sha256` (unique, migration 0013); upload trùng nội dung trả job cũ với `duplicate: true`, giao diện admin báo "đã nhập trước đó". Lỗi enqueue xóa cả job, không chỉ snapshot. | `upload.test.ts`, `fake-law-e2e.test.ts` |
-| D1 | Tìm `01/2030` xếp văn bản *trích dẫn* số hiệu lên đầu; số hiệu viết tắt/có gạch nối không khớp chính văn bản. | `queryCitesNumber`: tách số hiệu khỏi truy vấn, khớp đầy đủ hoặc theo tiền tố. | `document-number-match.test.ts` |
-| D2 | Dấu `”.` của nội dung trích dẫn lọt vào hành vi/alias. | `cleanRuleText` bỏ dấu đóng kèm dấu câu sau nó. | `rule-text.test.ts` |
-| D4 | Tìm hành vi chỉ khớp chuỗi liền ("đỗ xe ngoài đô thị" không ra). | Khớp từng từ nguyên vẹn trong cùng alias, cụm liền xếp trước (FR-16.1). Vẫn chưa có index FTS (FR-19). | `fake-law-e2e.test.ts` |
-| L1 | Hỏi "trước đây thế nào" → AI nói không có thông tin: evidence chỉ có rule đang áp dụng. | Evidence thêm rule đã hết hiệu lực của cùng lineage (`earlier`); trạng thái chỉ tính theo rule tại ngày hỏi; rule bị bãi bỏ không có thay thế → `UNCERTAIN`. Prompt `grounded-answer-v2`. | `ask.test.ts`, `fake-law-e2e.test.ts` |
-| L2 | "Vượt đèn đỏ phạt bao nhiêu?" → `NO_ANSWER` (ví dụ demo SRS 12.4). | Khi khớp từ không ra và có model: model chỉ *chọn* trong danh mục hành vi đã lưu, id ngoài danh mục bị bỏ; `provenance.retrievalMethod`. | `ask.test.ts` |
-| L4 | Lỗi model tạm thời (ECONNRESET) ở bước rule vẫn báo DONE: văn bản giữ nhãn deterministic khác nhãn LLM của văn bản khác, lineage bị tách (F1 thay đổi giảm còn 0,71 ở một lần eval). | Bước VIOLATION_RULES báo FAILED kèm lỗi, giữ rule đọc không cần model; "chạy lại bước còn thiếu" sẽ thử lại. | `preprocessing-checklist.test.ts` |
-| U1 | Ô chọn model ở trang hỏi đáp: khi model cấu hình (`OPENAI_MODEL`) không nằm trong danh sách chọn được, ô chọn rơi về lựa chọn đầu tiên và mọi câu hỏi gửi sang model đó. | Thêm lựa chọn "Mặc định (<model>)" với id rỗng, client không gửi `model` nên server dùng model cấu hình. | `web/src/lib/api/models.test.ts` |
-| L3 | `add_vocab` coi "xe mô tô" ≈ "xe ô tô" → AMBIGUOUS, rule mô tô UNCERTAIN. | So theo âm tiết không dấu: thay âm tiết = khái niệm khác; thêm/bớt âm tiết vẫn là gần trùng. | `vocabulary-similarity.test.ts` |
-
-Còn mở: PDF *khác* nhau cùng số hiệu (bản scan + bản số) vẫn làm resolver AMBIGUOUS thay vì gộp về một legal identity (phần còn lại của AC 25).
-
-## Chạy với OpenAI thật (`gpt-5-mini`)
-
-| Kiểm tra | Kết quả |
-| --- | --- |
-| LLM đọc 2 PDF luật giả (3 trang) | Không có validation issue; cấu trúc, quan hệ và mức phạt as-of trùng với bản phiên âm. ~45–55 s mỗi văn bản. |
-| Hỏi "Không đội mũ bảo hiểm… trước đây thế nào?" | `ANSWERED`: 400.000–600.000 đồng từ 01/01/2033, trước đó 200.000–400.000 đồng; mỗi ý dẫn evidence. |
-| Hỏi "Vượt đèn đỏ phạt bao nhiêu?" | `ANSWERED` qua `retrievalMethod: MODEL`: 3–5 triệu đồng + tước GPLX 1–3 tháng. |
-| Hỏi hành vi đã bị bãi bỏ | `UNCERTAIN`, kể lại lịch sử và nói rõ đã bị bãi bỏ từ 01/01/2033. |
-| Hỏi "Thời tiết hôm nay thế nào?" | `NO_ANSWER`, không có claim. |
-| `bun run eval -- --llm` (dev set) | Tất cả F1 = 1,0 (`data/eval/reports/preprocessing-dev-v1.llm-gpt-5-mini.json`); lần chạy trước có lỗi mạng cho 0,71 → dẫn tới L4. |
-
-Kết quả LLM dao động giữa các lần chạy; dev set chỉ là bộ hồi quy, không phải held-out (#29).
+- **Backend:** `cd backend && bun test && bun run typecheck` → **324 pass, 0 fail** (36 file, gồm `test/analysis.test.ts` kiểm thử 16 quy tắc soát logic, lan truyền tác động đa tầng và API theo Workspace; `test/auth-workspace-manual.test.ts` kiểm thử Better Auth, cô lập Workspace và soạn thảo thủ công).
+- **Frontend:** `cd web && bun test && bun run check && bun run build` → **92 pass, 0 fail** (14 file, gồm `src/lib/api/analysis.test.ts`), `svelte-check` 0 errors / 0 warnings, production build Cloudflare Workers thành công.

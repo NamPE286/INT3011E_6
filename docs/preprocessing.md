@@ -1,6 +1,6 @@
 # Preprocessing pipeline
 
-Tài liệu kỹ thuật cho các bước tiền xử lý chạy sau khi PDF đã được LLM đọc thành legal JSON ([PDF upload API](pdf-upload-api.md)). Mỗi bước là deterministic-first: rule/regex và resolver có thể kiểm chứng chạy trước, LLM chỉ dùng ở phần khó và luôn bị kiểm tra lại bằng evidence trong snapshot.
+Tài liệu kỹ thuật cho các bước tiền xử lý chạy sau khi PDF văn bản hiện hành đã được LLM đọc thành legal JSON ([PDF upload API](pdf-upload-api.md)). Mỗi bước là deterministic-first: rule/regex và resolver có thể kiểm chứng chạy trước, LLM chỉ dùng ở phần khó và luôn bị kiểm tra lại bằng evidence trong snapshot. Dữ liệu trích xuất (provisions, document/provision relations, violation rules, change events) lập tức phục vụ **Soát logic luật**, **Phân tích phạm vi tác động** và **Lược đồ 2 chế độ** trong Workspace ([SRS v1.0](srs.md)).
 
 ```text
 saveLegalDocument (ACCEPTED)
@@ -27,9 +27,9 @@ Bảng `preprocessing_stages` giữ một dòng cho mỗi `(job_id, stage)` vớ
 | `GET` | `/api/jobs/:jobId/preprocessing` | Checklist `stages[]` (`stage`, `status`, `error`, `updatedAt`). |
 | `POST` | `/api/jobs/:jobId/preprocessing` | Đưa các bước còn thiếu vào queue: `202 { startStage }`, `200 { startStage: null }` khi đã đủ, `409` nếu văn bản cần review. |
 
-Trang `/admin/review/[jobId]` hiển thị checklist và nút chạy lại các bước còn thiếu; trang `/documents/[id]` có tab "Hành vi vi phạm" liệt kê nhãn hành vi và `vocab_id` của từng rule.
+Trang `/admin/review/[jobId]` hiển thị checklist và nút chạy lại các bước còn thiếu; trang `/documents/[id]` hiển thị danh sách hành vi và nút mở nhanh sang `/audit` và `/drafting`.
 
-> Các endpoint dưới đây chưa có xác thực Admin (TODO #4, giống `/api/jobs*`).
+> Lưu ý phân quyền: Better Auth và cô lập Workspace (`X-Workspace-Id`) đã áp dụng cho `/api/workspaces/*`, `/api/manual/*`, `/api/documents/*`, `/api/graph`, `/api/workspace/audit-summary`; riêng các endpoint `/api/jobs*` và trigger rebuild thủ công bên dưới vẫn chưa khóa role Admin riêng (TODO #4).
 
 ## 1. Provisions — Điều/Khoản/Điểm và vai trò (#8, FR-04/FR-05)
 

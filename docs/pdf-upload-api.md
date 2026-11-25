@@ -109,6 +109,6 @@ File scan 76 trang (`100.signed_01.pdf`, không có text layer), model `gpt-5.4`
 
 - Chưa có pass kiểm chứng thứ hai cho lỗi chép trong câu (chỉ kiểm tra cấu trúc và số thứ tự).
 - `regions`/bbox luôn rỗng, `source_quote` được dựng từ bản chép của LLM.
-- Mỗi lần upload tạo một bản ghi mới; chưa dedup theo `pdf_sha256` (tiêu chí MVP 25).
+- Upload trùng cùng `pdf_sha256` trong cùng Workspace đã được chặn (migration `0013` và `0014`, trả `duplicate: true`); hai PDF khác hash nhưng cùng số hiệu văn bản chưa tự gộp legal identity.
 - Chưa ghép nhiều file PDF thành một văn bản (`part_index` luôn bằng 1).
-- Endpoint admin chưa có xác thực (#4).
+- Các route `/api/uploads` và `/api/jobs*` chưa khóa phân quyền Admin riêng (khác với `/api/workspaces/*` và `/api/manual/*` đã xác thực qua Better Auth).

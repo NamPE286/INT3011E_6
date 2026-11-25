@@ -1,37 +1,27 @@
-# SRS — Vietnamese Traffic Violation Sanction Intelligence
+# SRS — Soạn Luật Studio: Nền tảng Soạn thảo Luật, Soát Logic Luật & Phân tích Phạm vi Tác động
 
-**Version:** 0.12\
-**Domain:** Xử phạt vi phạm giao thông đường bộ Việt Nam  
+**Version:** 1.0  
+**Product:** Soạn Luật Studio (Legislative Drafting, Logic Auditing & Impact Scope Analysis)  
+**MVP Reference Corpus:** Quy định xử phạt vi phạm hành chính giao thông đường bộ Việt Nam (NĐ 100/2019, NĐ 123/2021, NĐ 168/2024, TT 73/2024, Dự thảo 2026)  
 **Project type:** Legal AI / Engineering + R&D  
-**Base project:** Legal Document Change Detection
+**Base foundation:** Legal Document Change Detection & Behavior-Centric Sanction Knowledge Graph
 
 ---
 
 ## 1. Mục tiêu hệ thống
 
-Hệ thống xây dựng cơ sở tri thức về **hành vi vi phạm giao thông và mức xử phạt tương ứng** từ văn bản pháp luật, ưu tiên CSDL quốc gia về văn bản pháp luật (VBPL). Hệ thống tự xây dựng lược đồ quan hệ từ nội dung và bằng chứng pháp lý; không giả định VBPL hoặc nguồn khác cung cấp graph đầy đủ.
+Hệ thống là **ứng dụng soạn thảo văn bản quy phạm pháp luật (dự thảo Luật, Nghị định, Thông tư)** dành cho nhà soạn luật / chuyên viên pháp chế, tích hợp sẵn hai năng lực kiểm định cốt lõi:
 
-Điểm nhấn của hệ thống là **track hành vi qua nhiều văn bản và nhiều điều khoản khác nhau**.
+1. **Soát logic luật (Legal Logic Checking / Consistency Audit):** Tự động phát hiện lỗi kết cấu/đánh số, sai thứ tự hiệu lực theo thời gian, sửa đổi văn bản đã hết hiệu lực, chu trình mâu thuẫn, dẫn chiếu nội/ngoại văn bản bị treo, khung chế tài bất hợp lý và nguy cơ xung đột quy phạm ngầm với hệ thống văn bản hiện hành.
+2. **Phân tích phạm vi tác động (Impact Scope Analysis):** Xác định rõ một dự thảo hoặc điều khoản mới sẽ tác động **trực tiếp** (tầng 1) tới văn bản/Điều/Khoản/Điểm nào, lan truyền **gián tiếp / dây chuyền** (đa tầng) tới các văn bản hướng dẫn/quy định chi tiết/viện dẫn nào, làm biến động khung xử phạt và nhóm đối tượng chịu tác động ra sao, đồng thời sinh danh mục văn bản cần sửa đổi đồng bộ.
 
-Với một hành vi như:
-
-~~~text
-Đỗ xe trên phần đường xe chạy ngoài đô thị
-~~~
-
-hệ thống phải xác định được:
-
-- quy định xử phạt hiện hành;
-- mức phạt hiện hành;
-- Điều / Khoản / Điểm đang là căn cứ;
-- các điều khoản trước đó từng quy định cùng hành vi;
-- điều khoản nào sửa đổi, bổ sung, thay thế hoặc bãi bỏ điều khoản nào;
-- mức phạt và phạm vi hành vi đã thay đổi ra sao theo thời gian;
-- văn bản nguồn cho từng thay đổi.
+Để phục vụ hai năng lực này trên dữ liệu pháp luật thực tế (khởi đầu bằng corpus mẫu **xử phạt vi phạm giao thông đường bộ Việt Nam** từ CSDL VBPL), hệ thống kết hợp:
+- **Soạn thảo cấu trúc thủ công (Manual Mode)** theo từng Workspace cô lập; và
+- **Pipeline Legal AI tự động** đọc PDF văn bản hiện hành, tự xây dựng lược đồ quan hệ văn bản/điều khoản có bằng chứng pháp lý, trích xuất khung xử phạt và lịch sử biến động (as-of).
 
 North-star question:
 
-> Given a traffic violation, what is the currently applicable sanction, which provision establishes it, and how did that rule evolve over time?
+> Khi soạn thảo một dự thảo văn bản pháp luật (hoặc sửa đổi một Điều/Khoản/Điểm), dự thảo đó có mâu thuẫn logic nội tại hay chồng chéo với luật hiện hành không, phạm vi tác động trực tiếp và dây chuyền lan tới những văn bản/điều khoản/đối tượng nào, và khung xử phạt thay đổi ra sao theo thời gian?
 
 ---
 
@@ -39,36 +29,46 @@ North-star question:
 
 ### 2.1. In scope
 
-MVP chỉ tập trung vào **quy định xử phạt vi phạm hành chính đối với hành vi giao thông đường bộ**.
+Hệ thống bao gồm 5 trụ cột nghiệp vụ gắn kết trong một nền tảng thống nhất:
 
-Các rule hình sự, dân sự hoặc trách nhiệm bồi thường không thuộc scope MVP.
+1. **Quản lý tài khoản & Đa không gian làm việc (Multi-Workspace Isolation):**
+   - Đăng ký / đăng nhập bằng Better Auth (`email + password`);
+   - Mỗi nhà soạn luật quản lý nhiều Workspace độc lập (mỗi Workspace ứng với một dự án luật/chuyên đề riêng), cô lập hoàn toàn bộ dự thảo, văn bản hiện hành, kết quả soát logic và lược đồ tác động.
 
-Hệ thống xử lý các dữ liệu cần thiết để xác định:
+2. **Soạn thảo văn bản quy phạm có cấu trúc (Structured Legal Drafting):**
+   - Khởi tạo dự thảo (số hiệu, trích yếu, loại văn bản, cơ quan chủ trì, ngày ban hành, ngày dự kiến có hiệu lực);
+   - Chèn, chỉnh sửa, xóa cây cấu trúc **Chương → Mục → Điều → Khoản → Điểm** chuẩn thể thức và xem trước bản in;
+   - Nối quan hệ tác động thủ công (Chế độ 1: biến động mức xử lý hành vi; Chế độ 2: ảnh hưởng văn bản/điều khoản) kết hợp dữ liệu AI trích xuất từ PDF hiện hành.
 
-- hành vi vi phạm;
-- chủ thể / loại phương tiện;
-- địa điểm, điều kiện và ngoại lệ;
-- mức phạt tiền;
-- trạng thái áp dụng cơ chế trừ điểm giấy phép lái xe và số điểm bị trừ nếu có;
-- hình thức xử phạt bổ sung liên quan trực tiếp, được chuẩn hóa theo loại;
-- biện pháp khắc phục hậu quả liên quan trực tiếp;
-- hiệu lực của rule;
-- rule áp dụng tại một thời điểm cụ thể (as-of date);
-- lịch sử sửa đổi, bổ sung, thay thế, bãi bỏ của rule;
-- quan hệ giữa các Điều / Khoản / Điểm;
-- quan hệ giữa các văn bản cần thiết để reconstruct lịch sử rule.
+3. **Soát logic luật tự động (Legal Logic Checking — 16 quy tắc tất định thuộc 5 nhóm):**
+   - **Kết cấu & đánh số:** trùng số hiệu cùng cấp, nhảy cóc số Điều/Khoản/Điểm, sai thứ bậc cha–con (VD: Điểm nằm trực tiếp dưới Điều), điều khoản rỗng;
+   - **Hiệu lực & thời gian:** ngày hiệu lực sớm hơn ngày ban hành, hiệu lực sửa đổi sớm hơn văn bản gốc, văn bản tự tác động chính nó, chu trình sửa đổi mâu thuẫn, sửa đổi văn bản đã bị thay thế/bãi bỏ toàn bộ;
+   - **Dẫn chiếu & mục tiêu:** dẫn chiếu nội văn bản tới Điều/Khoản không tồn tại, dẫn chiếu tới số hiệu văn bản chưa có trong Workspace (frontier), điều khoản có câu lệnh sửa đổi/bãi bỏ nhưng chưa nối quan hệ tác động;
+   - **Chế tài & xung đột quy phạm:** khung phạt đảo ngược (`fine_min > fine_max`), mức trừ điểm GPLX vượt khung luật định (ngoài 1–12 điểm), nguy cơ xung đột quy phạm ngầm (hai mức phạt khác nhau cho cùng hành vi với văn bản đang có hiệu lực mà chưa có quan hệ sửa đổi/bãi bỏ);
+   - **Kỹ thuật lập pháp:** thiếu ngày dự kiến có hiệu lực.
 
-Nguồn dữ liệu MVP:
+4. **Phân tích phạm vi tác động (Impact Scope Analysis):**
+   - **Tác động trực tiếp (tầng 1):** văn bản và Điều/Khoản/Điểm bị dự thảo trực tiếp `AMENDS / SUPPLEMENTS / REPLACES / REPEALS / SUSPENDS`;
+   - **Tác động gián tiếp / dây chuyền (tầng 2..5):** duyệt đồ thị phụ thuộc ngược (`GUIDES / DETAILS / EXPLAINS / LEGAL_BASIS / REFERENCES / AMENDS`) để phát hiện thông tư hướng dẫn, nghị định chi tiết hoặc văn bản viện dẫn cần rà soát đồng bộ kèm chuỗi lan truyền;
+   - **Phạm vi chế tài & đối tượng chịu tác động:** thống kê tăng nặng/giảm nhẹ/bổ sung/bãi bỏ chế tài (% biến động), nhóm đối tượng/phương tiện chịu tác động;
+   - **Khoảng trống đối chiếu (Frontier) & Danh mục khuyến nghị đồng bộ hóa (Synchronization Checklist)** kèm mức độ rủi ro (`LOW / MEDIUM / HIGH`).
+
+5. **Nền tảng tri thức văn bản hiện hành & AI có căn cứ (MVP corpus: Xử phạt giao thông đường bộ):**
+   - Nhập PDF văn bản pháp luật (kể cả bản scan) bằng LLM, phân tách Điều/Khoản/Điểm, tự xây dựng DocumentRelation & ProvisionRelation có evidence;
+   - Trích xuất hành vi vi phạm, khung phạt tiền, trạng thái trừ điểm GPLX (`APPLIES / NOT_APPLICABLE / UNKNOWN`), xử phạt bổ sung có kiểu, biện pháp khắc phục;
+   - Tái dựng `RuleLineage`, truy vấn hiệu lực tại mốc thời gian (`as-of`), lược đồ tác động 2 chế độ và trợ lý AI rà soát có dẫn chiếu nguồn tới từng Provision.
+
+Nguồn dữ liệu văn bản hiện hành tham chiếu cho corpus MVP:
 
 ~~~text
 https://vbpl.vn/
 ~~~
 
-Admin import bằng một hoặc nhiều tệp PDF của văn bản pháp luật; URL không còn là input import bắt buộc. Hệ thống giữ PDF gốc/hash và có thể dùng nguồn chính thức để acquire các văn bản đích hoặc đối chiếu bản gốc. URL chỉ là provenance/discovery nội bộ hoặc metadata bổ sung, không phải thao tác nhập bằng link. Header và toàn văn PDF là evidence chính; lược đồ nguồn là observations tùy chọn.
+Người dùng / Admin có thể vừa tự soạn dự thảo trong Workspace vừa import một hoặc nhiều tệp PDF văn bản hiện hành làm nền đối chiếu; URL không phải input import bắt buộc. Header và toàn văn PDF là evidence chính; lược đồ nguồn là observations tùy chọn.
 
 ### 2.2. Corpus discovery và graph scope
 
-Khi import một văn bản, hệ thống đọc toàn văn để phát hiện dẫn chiếu và câu lệnh pháp lý, resolve identity văn bản đích, rồi xây dựng DocumentRelation có evidence. Discovery và graph building chạy tăng dần: văn bản mới có thể bổ sung cạnh tới văn bản đã xử lý. Metadata/lược đồ nguồn chỉ cung cấp candidate để đối chiếu.
+Khi import một văn bản hiện hành hoặc soạn dự thảo, hệ thống đọc toàn văn để phát hiện dẫn chiếu và câu lệnh pháp lý, resolve identity văn bản đích, rồi xây dựng DocumentRelation có evidence trong phạm vi Workspace. Discovery và graph building chạy tăng dần: văn bản mới có thể bổ sung cạnh tới văn bản đã xử lý. Metadata/lược đồ nguồn chỉ cung cấp candidate để đối chiếu.
 
 Corpus discovery phải:
 
@@ -79,9 +79,9 @@ Corpus discovery phải:
 - chống refetch cycle bằng visited set nhưng vẫn giữ mọi cạnh tới node đã visited;
 - có retry, cache, checkpoint và safety limit theo discovery policy đã khai báo.
 
-Frontier rỗng chỉ nghĩa là đã xử lý hết candidate trong phạm vi lần chạy, không chứng minh tìm thấy tất cả văn bản pháp luật. Safety cap hoặc khoảng thiếu ảnh hưởng đến chuỗi đang xét phải được thể hiện PARTIAL/UNCERTAIN và có thể resume; không ép một graph có nhiều dẫn chiếu thành traversal toàn bộ pháp luật.
+Frontier rỗng chỉ nghĩa là đã xử lý hết candidate trong phạm vi Workspace/lần chạy, không chứng minh tìm thấy tất cả văn bản pháp luật. Safety cap hoặc khoảng thiếu (văn bản được trích dẫn chưa có trong Workspace) ảnh hưởng đến chuỗi đang xét phải được thể hiện rõ qua `PARTIAL / UNCERTAIN` và mục `unresolvedFrontier` trong báo cáo phạm vi tác động.
 
-Document reference/relation extraction chạy trên toàn bộ văn bản trước relevance filtering. Semantic processing chuyên sâu tập trung vào provision định nghĩa hành vi, chế tài hoặc tác động tới sanction rule. Giữ các relation ngoài traffic relevance đã phát hiện để không làm mất căn cứ và đường truy vết.
+Document reference/relation extraction chạy trên toàn bộ văn bản trước relevance filtering. Semantic processing chuyên sâu tập trung vào provision định nghĩa hành vi, chế tài hoặc tác động tới sanction rule. Giữ các relation ngoài traffic relevance đã phát hiện để không làm mất căn cứ và đường lan truyền tác động.
 
 ---
 
@@ -89,70 +89,53 @@ Document reference/relation extraction chạy trên toàn bộ văn bản trư�
 
 MVP không nhằm:
 
-- bao phủ toàn bộ pháp luật giao thông;
-- tư vấn pháp lý cho một vụ việc cụ thể;
-- tự kết luận một cá nhân có vi phạm hay không;
-- phân tích quy hoạch, hạ tầng hoặc tiêu chuẩn kỹ thuật không liên quan tới xử phạt hành vi;
-- phân tích tổ chức bộ máy và trách nhiệm cơ quan nếu không tác động tới sanction rule;
-- hỗ trợ upload DOCX hoặc định dạng tùy ý ngoài PDF;
-- thay thế CSDL VBPL chính thức;
+- thay thế quy trình thẩm định/ban hành pháp lý chính thức của Quốc hội, Chính phủ hay Bộ Tư pháp;
+- tư vấn pháp lý cho một vụ việc tranh chấp cụ thể hoặc tự kết luận cá nhân có vi phạm hay không;
+- bao phủ tự động toàn bộ hệ thống pháp luật ngoài các văn bản đã soạn hoặc nhập vào Workspace;
+- xử lý quy định hình sự, dân sự hoặc bồi thường thiệt hại trong bộ trích xuất hành vi mặc định (tập trung xử phạt hành chính giao thông đường bộ cho pipeline AI tự động, trong khi chế độ soạn thảo thủ công và soát logic/phạm vi tác động hỗ trợ mọi chuyên đề văn bản quy phạm);
+- hỗ trợ upload DOCX hoặc định dạng tùy ý ngoài PDF cho luồng nhập AI;
 - train foundation model riêng;
-- yêu cầu human review cho mỗi extraction.
+- yêu cầu human review bắt buộc cho mỗi extraction.
 
 ---
 
 ## 3. Actors
 
-### 3.1. User
+### 3.1. Nhà soạn luật / Chuyên viên pháp chế (Lawmaker / Drafter — Actor chính)
 
-User có thể:
+Nhà soạn luật (đã xác thực qua Better Auth) có thể:
 
-- search văn bản;
-- xem nội dung văn bản;
-- xem quan hệ của văn bản với các VBPL khác;
-- thấy provision xử phạt nào còn hiệu lực hoặc đã bị tác động;
-- search hành vi thủ công bằng full-text search;
-- hỏi bằng AI chat để hệ thống tự tìm các hành vi / rule liên quan và trả lời kèm reference;
-- xem mức phạt hiện hành;
-- xem các provision hiện hành áp dụng cho hành vi;
-- xem lịch sử provision và mức phạt của hành vi.
+- quản lý nhiều Workspace độc lập cho từng dự án luật/nghị định;
+- tạo, chỉnh sửa, xóa văn bản dự thảo và cây cấu trúc Chương / Mục / Điều / Khoản / Điểm, cập nhật ngày ban hành/ngày dự kiến có hiệu lực và xem trước bản thể thức;
+- chạy **Soát logic luật** trực tiếp trong bàn soạn thảo hoặc tại Trung tâm Soát Logic (`/audit`), lọc lỗi theo mức độ/nhóm quy tắc và nhảy thẳng tới điều khoản lỗi để sửa;
+- chạy **Phân tích phạm vi tác động** (cấu hình độ sâu lan truyền 1–5 tầng) để xem văn bản/điều khoản chịu tác động trực tiếp, tác động dây chuyền sang thông tư/văn bản hướng dẫn, biến động mức phạt, đối tượng chịu tác động, frontier thiếu dữ liệu và danh mục khuyến nghị đồng bộ hóa;
+- sử dụng **Lược đồ tác động 2 chế độ** (`/graph`: Biến động mức xử lý & Ảnh hưởng văn bản), nối/xóa cạnh thủ công kết hợp cạnh do AI tạo;
+- tra cứu văn bản hiện hành, xem lịch sử thay đổi khung phạt theo mốc thời gian (`as-of`) và hỏi trợ lý AI rà soát chồng chéo/căn cứ có dẫn chiếu tới từng Provision.
 
-### 3.2. Admin
+Khách chưa đăng nhập có thể xem ở chế độ chỉ đọc trên dữ liệu mặc định, nhưng mọi thao tác tạo Workspace, soạn thảo và nối cạnh thủ công yêu cầu đăng nhập.
 
-Admin có thể:
+### 3.2. Quản trị viên / Kiểm duyệt viên (Admin / Reviewer)
 
-- upload PDF văn bản pháp luật, gồm các phần/phụ lục khi văn bản có nhiều tệp;
-- xem trạng thái crawl / process;
-- xem import ở trạng thái READY / PARTIAL / FAILED, cùng discovery scope, cutoff, coverage và candidate/conflict chưa giải quyết;
-- retry import thất bại;
-- trigger reprocess khi cần;
-- xem xét văn bản ở trạng thái `REVIEW_REQUIRED`: đối chiếu các lỗi/cảnh báo validation và danh sách Điều đã đọc (kèm trang, chất lượng đọc) với PDF gốc, rồi duyệt để công bố.
+Quản trị viên (có thể kiêm Nhà soạn luật quản lý kho văn bản nền) có thể:
 
-Admin và Reviewer được gộp thành một role.
+- upload PDF văn bản pháp luật hiện hành (gồm các phần/phụ lục) để AI bóc tách và nạp vào Workspace;
+- xem trạng thái xử lý job, kiểm tra lỗi/cảnh báo validation và danh sách Điều đã đọc đối chiếu với PDF gốc;
+- duyệt công bố văn bản ở trạng thái `REVIEW_REQUIRED` (`ACCEPTED`), chạy lại các bước tiền xử lý còn thiếu trong checklist (`PROVISIONS → DOCUMENT_GRAPH → CHANGE_GRAPH → VIOLATION_RULES → IDENTITY → HISTORY`);
+- retry import thất bại hoặc trigger reprocess khi cần.
 
-MVP không có manual review queue bắt buộc: văn bản `REVIEW_REQUIRED` không chặn các văn bản khác, và chỉ được dùng cho tra cứu, hỏi đáp sau khi Admin/Reviewer duyệt. Duyệt chỉ chuyển trạng thái sang `ACCEPTED` (không sửa nội dung) rồi đưa các bước tiền xử lý vào hàng đợi; văn bản sai được xử lý bằng cách upload lại.
-
-Mỗi job có checklist tiền xử lý (`PROVISIONS → DOCUMENT_GRAPH → CHANGE_GRAPH → VIOLATION_RULES → IDENTITY → HISTORY`), trạng thái `PENDING / RUNNING / DONE / FAILED` từng bước. Hành vi vi phạm và từ vựng (`VIOLATION_RULES`) được trích xuất ngay khi văn bản được công bố, dù tự động (đọc không lỗi) hay sau khi duyệt. Mỗi bước chạy trong một lần gọi queue riêng; bước lỗi được ghi lại và không chặn các bước sau (trừ khi không đọc được Điều/Khoản/Điểm). Khi công bố hoặc khi Admin yêu cầu chạy lại, hệ thống chạy lại từ bước đầu tiên chưa `DONE` đến hết; văn bản chưa có checklist được coi là chưa chạy bước nào.
+MVP gộp Admin và Reviewer thành một role; văn bản `REVIEW_REQUIRED` không chặn các văn bản khác và chỉ được đưa vào soát logic, phân tích tác động, tra cứu và hỏi đáp sau khi duyệt `ACCEPTED`.
 
 ### 3.3. System
 
 System tự động:
 
-- discover corpus từ toàn văn và tìm kiếm ngược;
-- extract dẫn chiếu/câu lệnh pháp lý, resolve document identity và tự build document graph có evidence;
-- parse Điều / Khoản / Điểm;
-- classify provision relevance;
-- extract amendment instructions;
-- resolve provision-to-provision relations;
-- extract traffic violations;
-- extract sanctions;
-- resolve identity của hành vi;
-- detect semantic changes;
-- reconstruct history;
-- determine current rule;
-- index cho full-text / semantic search;
-- retrieve evidence cho AI chat;
-- sinh câu trả lời có reference tới source provision.
+- cô lập dữ liệu theo `workspace_id` và kiểm tra quyền sở hữu Workspace ở backend cho mọi thao tác đọc/ghi;
+- chạy bộ 16 quy tắc **Soát logic luật tất định** trên dự thảo và tập văn bản hiện hành trong Workspace;
+- chạy bộ **Phân tích phạm vi tác động** (1-hop trực tiếp + BFS đa tầng dây chuyền + đối tượng/chế tài + frontier + danh mục đồng bộ hóa);
+- đọc PDF bằng LLM theo cụm trang có checkpoint, phân tách Điều / Khoản / Điểm và phân loại relevance;
+- trích xuất dẫn chiếu, câu lệnh sửa đổi (`ChangeInstruction`), xây dựng `DocumentRelation` và `ProvisionRelation` có bằng chứng;
+- trích xuất hành vi vi phạm, chế tài có cấu trúc (dùng Vocabulary MCP), xác định danh tính hành vi, tái dựng `RuleLineage` / lịch sử `as-of` / `change_events`;
+- cung cấp tìm kiếm văn bản/hành vi và câu trả lời AI có dẫn chiếu chặt chẽ về Provision nguồn.
 
 ---
 
@@ -445,6 +428,37 @@ Bổ sung điểm c vào khoản 4 Điều 7.
 
 ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đồng thời cung cấp evidence để tự build DocumentRelation. Phải giữ raw target citation, danh sách/range locator, scope, ngoại lệ, câu chữ được trích dẫn và thời điểm/điều kiện áp dụng. Target mơ hồ/không tìm được được giữ unresolved; bổ sung một provision mới không bắt buộc resolve tới provision cũ chưa tồn tại.
 
+### 4.9. Workspace (Không gian dự án luật)
+
+Mỗi tài khoản nhà soạn luật sở hữu một hoặc nhiều `Workspace` tách biệt hoàn toàn về:
+- danh sách dự thảo soạn thủ công và văn bản hiện hành nhập qua AI (`legal_documents.workspace_id`, `processing_jobs.workspace_id`);
+- lược đồ quan hệ văn bản, điều khoản và biến động chế tài (`document_relations.workspace_id`, `provision_relations.workspace_id`, `sanction_change_edges.workspace_id`);
+- kết quả soát logic và báo cáo phạm vi tác động.
+
+Mọi truy vấn có `X-Workspace-Id` đều phải xác thực quyền sở hữu phía server (trả `401`/`403` nếu không hợp lệ).
+
+### 4.10. Logic Audit Finding (Phát hiện lỗi logic luật)
+
+Kết quả của bộ máy **Soát logic luật tất định** (`LogicAuditReport`) gồm điểm nhất quán (`0–100`), trạng thái sẵn sàng (`PASS / WARNING / FAIL`) và danh sách `LogicAuditFinding`:
+
+- `code`: mã quy tắc máy đọc được (16 quy tắc chuẩn);
+- `category`: `STRUCTURE` | `TEMPORAL` | `REFERENCE` | `SANCTION_CONFLICT` | `DRAFTING_TECHNIQUE`;
+- `severity`: `ERROR` | `WARNING` | `INFO`;
+- `provisionId` / `relatedDocumentId` / `relatedProvisionId`: định danh chính xác để nhảy thẳng tới Điều/Khoản/Điểm gây lỗi;
+- `evidence`: trích đoạn hoặc cặp dữ liệu chứng minh lỗi;
+- `suggestion`: hướng dẫn khắc phục cụ thể cho nhà soạn luật.
+
+### 4.11. Impact Scope Report (Báo cáo phạm vi tác động)
+
+Báo cáo định lượng phạm vi ảnh hưởng của một dự thảo/văn bản trước khi ban hành:
+
+- `directImpacts`: các văn bản chịu tác động trực tiếp (tầng 1) qua `AMENDS / SUPPLEMENTS / REPLACES / REPEALS / SUSPENDS`, kèm phạm vi `FULL / PARTIAL` và số điều khoản nối;
+- `indirectImpacts`: các văn bản chịu tác động dây chuyền (tầng 2..`maxDepth`) thu được bằng duyệt BFS ngược trên đồ thị phụ thuộc (`GUIDES / DETAILS / EXPLAINS / LEGAL_BASIS / REFERENCES / AMENDS`), kèm `impactPath` và lý do lan truyền;
+- `affectedProvisions`: từng Điều/Khoản/Điểm bị tác động kèm căn cứ;
+- `sanctionShifts` & `affectedSubjects`: các cạnh tăng nặng/giảm nhẹ/bổ sung/bãi bỏ khung phạt (% biến động) và nhóm đối tượng/lĩnh vực chịu ảnh hưởng;
+- `unresolvedFrontier`: các số hiệu văn bản được dẫn chiếu trong dự thảo nhưng chưa có trong Workspace;
+- `synchronizationChecklist`: danh sách hành động ưu tiên (`HIGH / MEDIUM / LOW`) để sửa đổi đồng bộ hệ thống văn bản và điều khoản chuyển tiếp.
+
 ---
 
 <a id="5-high-level-architecture"></a>
@@ -452,164 +466,114 @@ ChangeInstruction là bridge giữa raw amendment text và ProvisionRelation, đ
 
 ## 5. System Design — Thiết kế hệ thống
 
-Chương này mô tả kiến trúc đích của MVP, đặt trước functional requirements để người đọc hiểu cách các thành phần phối hợp. Mục 6 xác định hành vi cần đáp ứng; mục 7–8 chi tiết hóa dữ liệu; mục 9 mô tả các phase xử lý; mục 11 là hợp đồng API sơ bộ. Thiết kế không đồng nghĩa mọi thành phần đã được triển khai trong repository.
+Chương này mô tả kiến trúc của nền tảng **Soạn Luật Studio**, đặt trước functional requirements để người đọc hiểu cách các thành phần phối hợp giữa luồng soạn thảo thủ công, bộ máy soát logic/phạm vi tác động và pipeline Legal AI.
 
 ### 5.1. System context và ranh giới
 
-Hệ thống có hai luồng chính: Admin nhập PDF và theo dõi xử lý bất đồng bộ; User tra cứu văn bản, hành vi, lịch sử và hỏi AI trên cơ sở tri thức đã được kiểm chứng.
+Hệ thống gồm 3 luồng tương tác chính: (1) **Nhà soạn luật** tạo Workspace, soạn thảo dự thảo, chạy soát logic luật, phân tích phạm vi tác động và nối lược đồ 2 chế độ; (2) **Admin/Reviewer** nhập PDF văn bản hiện hành bằng AI và duyệt công bố làm nền đối chiếu; (3) **Tra cứu & Trợ lý AI** kiểm chứng căn cứ, lịch sử `as-of` trên cùng kho tri thức.
 
 ```mermaid
 flowchart LR
-    Admin["Admin"] -->|"Upload PDF / retry / xem job"| System["Traffic Sanction Intelligence"]
-    User["User"] -->|"Search / history / as-of / AI chat"| System
-    System -->|"Acquire văn bản / reverse search"| Source["VBPL và nguồn chính thức"]
-    System -->|"Structured extraction / grounded answer"| LLM["LLM provider"]
+    Lawmaker["Nhà soạn luật"] -->|"Soạn dự thảo / Soát logic / Tác động / Lược đồ"| System["Soạn Luật Studio"]
+    Admin["Admin / Reviewer"] -->|"Upload PDF / duyệt công bố / retry"| System
+    System -->|"Acquire văn bản / đối chiếu"| Source["VBPL và nguồn chính thức"]
+    System -->|"Đọc PDF / trích xuất cấu trúc / hỏi đáp có căn cứ"| LLM["LLM provider"]
 ```
 
-PDF là đầu vào import chính thức. VBPL và nguồn bổ trợ cung cấp văn bản/metadata cho acquisition nội bộ; graph nguồn chỉ là observations. LLM là external boundary: kết quả phải được kiểm tra schema, quality và evidence trước khi sử dụng trong canonical knowledge base. Lựa chọn engine/model cụ thể phải được ghi theo ExtractionRun, không gắn cứng vào domain.
+PDF là đầu vào chuẩn cho văn bản hiện hành nhập tự động; văn bản dự thảo được soạn trực tiếp qua Manual Studio. Bộ máy **Soát logic luật** và **Phân tích phạm vi tác động** chạy **tất định 100%** trên dữ liệu có cấu trúc trong D1 (không phụ thuộc LLM), đảm bảo giải thích được, tái lập được và không hallucinate.
 
 ### 5.2. Kiến trúc thành phần và triển khai
 
-MVP tổ chức backend theo module trong cùng codebase, tách HTTP request khỏi xử lý nền bằng Queue. Chưa cần tách mỗi bước Legal NLP thành một microservice. Frontend SvelteKit gọi API Elysia trên Cloudflare Worker; Worker dùng D1 cho dữ liệu có cấu trúc, R2 cho tệp/snapshots và Queues cho công việc nền.
+Backend tổ chức theo module trong cùng codebase Elysia trên Cloudflare Worker, tách HTTP request khỏi xử lý PDF nền bằng Cloudflare Queues. Frontend SvelteKit gọi API kèm cookie phiên Better Auth và header `X-Workspace-Id`; Worker dùng D1 cho dữ liệu có cấu trúc + auth + workspace, R2 cho PDF/snapshots và Queues cho pipeline AI.
 
 ```mermaid
 flowchart LR
-    Web["SvelteKit Web"] <-->|"Upload / job status / search / chat"| API["Cloudflare Worker<br/>Elysia API"]
-    API <-->|"Jobs / domain data"| D1["Cloudflare D1"]
+    Web["SvelteKit Web<br/>Drafting · Audit · Graph"] <-->|"Auth / Workspace / Manual / Audit / Impact / Ask"| API["Cloudflare Worker<br/>Elysia API"]
+    API <-->|"Auth / Workspaces / Drafts / Graph / Rules"| D1["Cloudflare D1"]
     API <-->|"PDF / snapshots"| R2["Cloudflare R2"]
-    API -->|"Enqueue job"| Queue["Cloudflare Queues"]
+    API -->|"Enqueue PDF job"| Queue["Cloudflare Queues"]
     Queue -->|"Deliver job"| Consumer["Cloudflare Worker<br/>Queue consumer / Legal AI pipeline"]
     Consumer <-->|"Checkpoints / validated results"| D1
     Consumer <-->|"Source files / artifacts"| R2
-    Consumer <-->|"Acquire / discover"| Source["VBPL / official sources"]
     Consumer <-->|"PDF reading / structured extraction"| AI["LLM providers"]
     API <-->|"Grounded answer"| AI
 ```
 
-Sơ đồ chỉ thể hiện các component triển khai và đường tương tác chính. Search/temporal resolver, vocabulary registry/MCP và answer generator là các module logic của backend, được mô tả trong bảng bên dưới; không bắt buộc deploy riêng. Search index là dữ liệu dẫn xuất; full-text search là baseline bắt buộc, embedding/semantic index là phần mở rộng được đánh giá riêng. Công nghệ index và môi trường thực thi đọc PDF bằng LLM cần được kiểm chứng bằng prototype; nếu tác vụ vượt khả năng runtime Worker thì adapter gọi execution service phù hợp, vẫn giữ job/checkpoint tại backend.
-
 | Thành phần | Trách nhiệm và đầu ra | Yêu cầu liên quan |
 | --- | --- | --- |
-| Web UI | Upload PDF, theo dõi job, Document View hai tab, search, detail/history và AI citations. | FR-01, FR-14–18 |
-| API / authorization | Xác thực Admin cho import/retry/reprocess; validate request; cung cấp read API và chat. | FR-01, mục 3 và 11 |
-| Pipeline orchestration | Điều phối phase, retry/resume, checkpoint, trạng thái xử lý và coverage. | FR-01–02, NFR-08 |
-| PDF Ingestion / Source Acquisition | Giữ bản gốc/hash; LLM đọc PDF theo cụm trang (cả bản scan) có page locator; acquire related documents theo policy. | FR-01–02, FR-04 |
-| Document Graph Builder | Full-text references, identity resolution, candidates, accepted edges và relation evidence. | FR-03 |
-| Provision / legal extraction | Hierarchy, relevance, ChangeInstruction, ProvisionRelation và ViolationRule IR có nguồn. | FR-04–09 |
+| Web UI | Bàn soạn thảo (`/drafting`), Trung tâm Soát logic & Tác động (`/audit`), Lược đồ 2 chế độ (`/graph`), Quản lý Workspace (`/workspaces`), Đăng nhập (`/login`), Kho văn bản, Khung xử phạt, Trợ lý AI và Nhập AI (`/admin`). | FR-01, FR-14–18, FR-21–25 |
+| Auth & Multi-Workspace | Better Auth (`email + password`), cookie phiên, quản lý Workspace và kiểm tra quyền sở hữu server-side (`X-Workspace-Id`). | FR-21, mục 3 và 11 |
+| Manual Drafting Studio | CRUD văn bản dự thảo, cây Chương/Mục/Điều/Khoản/Điểm, nối cạnh ảnh hưởng văn bản/điều khoản và cạnh biến động xử phạt. | FR-22, FR-25 |
+| Legal Logic Audit Engine | 16 quy tắc tất định kiểm tra kết cấu, hiệu lực/thời gian, dẫn chiếu, chế tài/xung đột quy phạm và kỹ thuật lập pháp. | FR-23 |
+| Impact Scope Engine | Tính phạm vi tác động trực tiếp (tầng 1), dây chuyền đa tầng (BFS 2–5 tầng), điều khoản, biến động chế tài, đối tượng, frontier và checklist đồng bộ. | FR-24 |
+| Dual-Mode Graph | Hợp nhất dữ liệu AI + Manual thành 2 chế độ cạnh: Biến động mức xử lý & Ảnh hưởng văn bản/điều khoản. | FR-03, FR-07, FR-25 |
+| PDF Ingestion & Preprocessing | Validate/hash/R2 snapshot, LLM đọc PDF theo cụm trang, phân tách Provision, graph, ChangeInstruction, ViolationRule/Sanction, Identity và History. | FR-01–13 |
 | Vocabulary Registry / MCP | Canonical vocab có version, retrieve trước create, server dedup và ambiguity. | FR-08.1, NFR-03/06 |
-| Violation / lineage / temporal engine | Behavior identity, lineage theo context, semantic diff, current/as-of resolution. | FR-10–13 |
-| Search / evidence retrieval | Document/violation FTS, structured filters, rule/history và Provision references. | FR-14, FR-16, FR-19 |
-| Answer generator | Chỉ sinh câu trả lời từ retrieved evidence; không ghi canonical domain data. | FR-16.2–16.3, NFR-07 |
+| Search & Grounded AI | Tìm văn bản/hành vi, truy vấn `as-of` và sinh câu trả lời chỉ từ retrieved evidence kèm trích dẫn Provision. | FR-14, FR-16–20, NFR-07 |
 
 ### 5.3. Pipeline nghiệp vụ
 
 ```mermaid
 flowchart TB
-    PDF["Admin upload PDF"] --> Ingest["Validate / hash / snapshot / LLM đọc PDF theo cụm trang"]
-    Ingest --> Discovery["Corpus discovery / structure / quote context / locators"]
-    Discovery --> Graph["Full-text references / legal clauses / identity và relation resolution"]
-    Graph --> DG["Evidence-backed DocumentRelation graph"]
-    DG --> Parse["Provision segmentation enrichment"]
-    Parse --> Relevance{"Provision relevance"}
-    Relevance -->|"Irrelevant"| Skip["Giữ nguồn và relations đã phát hiện"]
-    Relevance -->|"Relevant"| Change["ChangeInstruction extraction"]
-    Relevance -->|"Relevant"| Extract["Violation / Sanction extraction"]
-    Change --> PR["ProvisionRelation"]
-    Extract --> IR["ViolationRule IR"]
-    PR --> Resolver["Violation Resolver"]
-    IR --> Resolver
-    Resolver --> Violation["TrafficViolation identity"]
-    Violation --> Lineage["RuleLineage"]
-    Lineage --> Diff["Semantic Change Engine"]
-    Diff --> History["Current Rule + History"]
-    History --> Docs["Document Search"]
-    History --> Retrieval["Violation Retrieval"]
-    Retrieval --> FTS["Manual Full-text Search"]
-    Retrieval --> RAG["AI Chat RAG"]
-    RAG --> Answer["Answer + Provision References"]
+    PDF["Upload PDF văn bản hiện hành"] --> Ingest["Validate / hash / snapshot / LLM đọc PDF"]
+    Ingest --> Graph["Provisions → DocumentRelation → ProvisionRelation → Rules → History"]
+    Draft["Nhà soạn luật tạo/sửa Dự thảo (Manual)"] --> WS["Workspace Knowledge Store (D1)"]
+    Graph --> WS
+    WS --> Audit["Soát logic luật (16 quy tắc tất định)"]
+    WS --> Impact["Phân tích phạm vi tác động (1-hop + BFS đa tầng)"]
+    WS --> DualGraph["Lược đồ tác động 2 chế độ"]
+    WS --> Query["Tra cứu văn bản / Lịch sử as-of / Trợ lý AI có dẫn nguồn"]
+    Audit --> Fix["Nhảy tới Điều/Khoản lỗi để sửa trực tiếp"]
+    Impact --> Sync["Danh mục văn bản cần sửa đồng bộ & Frontier"]
 ```
 
 ---
 
-Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve/acquire; incoming links được tính từ graph và tìm kiếm ngược trong corpus, không chờ provider cung cấp. Provision parsing/evidence locators phục vụ graph building trước khi lọc relevance. Lược đồ nguồn chỉ đi vào nhánh observations tùy chọn.
-
-Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields. Chỉ khi snapshot từ `get_vocab_snapshot` không có candidate tương đương đủ mạnh mới được gọi `add_vocab`; server vẫn phải deduplicate và có quyền trả `EXISTING` hoặc `AMBIGUOUS`. MCP là interface truy cập registry, không phải nơi lưu canonical data.
+Corpus discovery và Document Graph Builder có vòng phản hồi: candidate từ văn bản mới được resolve; incoming links được tính từ graph trong Workspace. Trong nhánh Violation/Sanction Extraction, LLM sử dụng Domain Vocabulary Registry qua MCP để retrieve canonical vocabulary trước khi classify/normalize structured fields.
 
 ### 5.4. Thiết kế lưu trữ và quyền sở hữu dữ liệu
 
 | Nơi lưu | Nội dung | Quy tắc sử dụng |
 | --- | --- | --- |
 | R2 | PDF gốc, source snapshots, checkpoint LLM theo cụm trang, validated JSON và output cần tái lập. | Tham chiếu bằng storage key + hash; giữ page/region/offset và phương pháp trích text, không dùng tên file làm legal identity. |
-| D1 | Canonical Document/Provision, relation candidates/evidence, TrafficViolation, RuleLineage, ViolationRule/Sanction, vocabulary và job/run metadata. | Là nguồn chuẩn của domain và trạng thái xử lý; constraints/transactions bảo vệ invariants tại NFR-06. |
-| Queue | Tham chiếu job/task để consumer tiếp tục xử lý. | Không chứa toàn PDF hoặc toàn corpus; không dùng message làm nguồn chuẩn cho trạng thái/progress. |
-| Search indexes | Projection từ văn bản, alias, rule/context và evidence đã được chấp nhận. | Có thể rebuild; hit phải resolve về canonical IDs và phiên bản dữ liệu tương ứng trước khi trả kết luận. |
+| D1 | `user`, `session`, `account`, `verification`, `workspaces`, `legal_documents`, `document_metadata`, `provisions`, `document_relations`, `provision_relations`, `sanction_change_edges`, `change_instructions`, `violation_rules`, `sanctions`, `traffic_violations`, `rule_lineages`, `change_events`, `vocab_entries`, `processing_jobs`. | Là nguồn chuẩn của domain, auth và trạng thái xử lý; mọi bảng dữ liệu chính đều cô lập theo `workspace_id`. |
+| Queue | Tham chiếu `{ jobId, stage }` để consumer xử lý bất đồng bộ từng bước. | Không chứa toàn PDF; không dùng message làm nguồn chuẩn cho trạng thái/progress. |
+| Search indexes | Projection từ văn bản, alias, rule/context và evidence đã được chấp nhận. | Có thể rebuild; hit phải resolve về canonical IDs trong cùng Workspace. |
 
-Quan hệ lưu bằng relational tables trong MVP, không cần graph database. Document graph có thể có cycle/multi-edge hợp lệ; successor chain trong cùng RuleLineage phải được kiểm tra để không tạo cycle. Domain Vocabulary Registry sở hữu canonical vocab; MCP chỉ expose các tool tại mục 4.6.4 và kiểm soát truy cập (token đọc/ghi riêng) vào registry.
-
-Kết quả extraction chưa được kiểm chứng đi vào candidate/run artifacts. Chỉ promote khi identity, locator, evidence và domain constraints đạt policy; giữ `UNRESOLVED / AMBIGUOUS / CONFLICT` riêng với accepted facts. Hash chống duplicate snapshot, còn legal identity cần đối chiếu loại, số/ký hiệu, cơ quan và ngày; hai khái niệm này không được thay thế cho nhau.
-
-Reprocess tạo run có parser/model/vocabulary version và provenance riêng, không ghi đè bản gốc. Bước publish cập nhật dữ liệu được chấp nhận và đánh dấu index cần rebuild; read path dùng cùng generation/run đã publish hoặc báo index chưa sẵn sàng, tránh ghép rule mới với citations từ snapshot cũ. Generation/checkpoint là metadata kỹ thuật cần bổ sung khi triển khai, không phải khẳng định schema hiện tại đã có.
+Quan hệ lưu bằng relational tables trong MVP, không cần graph database. Document graph có thể có multi-edge hợp lệ; chu trình sửa đổi mâu thuẫn được phát hiện bởi bộ máy Soát logic luật (`TEMP_RELATION_CYCLE`).
 
 ### 5.5. Luồng import, retry và publication
 
-1. API kiểm tra quyền Admin và giới hạn upload, validate PDF, tính SHA-256, lưu snapshot R2 rồi ghi ImportJob trong D1. Job tham chiếu đầy đủ các phần/phụ lục nếu có.
-2. Enqueue tham chiếu job; trả job ID để UI theo dõi qua API trạng thái. Không chờ toàn bộ LLM/Legal NLP trong HTTP upload request.
-3. Consumer đọc snapshot và checkpoint, cho LLM đọc PDF theo cụm trang (checkpoint mỗi cụm), chạy quality/structure gate, parse cấu trúc và extract full-text references trước relevance filtering.
-4. Discovery resolve/acquire candidates và tìm kiếm ngược theo policy; checkpoint giữ visited/frontier, cutoff, queries, gaps và lý do dừng. Văn bản mới quay lại bước text/parse/graph, giữ cạnh tới node đã visited.
-5. Semantic processing dùng vocabulary retrieval, extract provision changes/rules/sanctions, resolve behavior và lineage; temporal engine tính history/current từ evidence đã xác minh.
-6. Persist kết quả được chấp nhận, publish generation và cập nhật search index. Job chỉ đạt READY khi các bước bắt buộc hoàn thành trong policy/cutoff; báo PARTIAL hoặc FAILED theo FR-01, độc lập với phần trăm tiến độ.
+1. API validate PDF, tính SHA-256 (dedup theo `(workspace_id, pdf_sha256)`), lưu snapshot R2 rồi ghi `processing_jobs` trong D1.
+2. Enqueue tham chiếu job; trả job ID để UI theo dõi qua API trạng thái.
+3. Consumer đọc snapshot và checkpoint, cho LLM đọc PDF theo cụm trang, chạy quality/structure gate, lưu `legal_documents` (`ACCEPTED` hoặc `REVIEW_REQUIRED`).
+4. Khi văn bản được công bố (`ACCEPTED`), checklist tiền xử lý chạy tuần tự từng stage qua queue (`PROVISIONS → DOCUMENT_GRAPH → CHANGE_GRAPH → VIOLATION_RULES → IDENTITY → HISTORY`).
+5. Dữ liệu sau công bố lập tức có mặt trong Workspace để phục vụ **Soát logic luật**, **Phân tích phạm vi tác động**, **Lược đồ 2 chế độ** và **Trợ lý AI**.
 
-R2, D1 và Queue không được giả định có một transaction chung. Thiết kế đích cần lưu enqueue intent/checkpoint bền vững để có thể gửi lại khi Queue lỗi; cleanup chỉ xóa object được xác định là không còn được job/snapshot nào tham chiếu. Không để job tiếp tục chạy với PDF đã bị xóa sau lỗi enqueue.
+### 5.6. Luồng soát logic, phạm vi tác động, tra cứu as-of và AI chat
 
-Consumer phải xử lý được message trùng và execution bị ngắt. Idempotency dựa trên job/run/stage cùng snapshot hash và phiên bản xử lý; canonical dedup dựa trên identity/constraints, không dựa riêng vào job ID. Claim/checkpoint phải ngăn hai consumer cùng publish một stage; retry tiếp tục từ bước bền vững gần nhất. Lỗi tạm thời dùng retry/backoff có giới hạn; dữ liệu không hợp lệ hoặc evidence mơ hồ được ghi thành lỗi/candidate tương ứng. Hết retry cần expose lỗi và cho Admin retry/resume, không bỏ job âm thầm.
-
-### 5.6. Luồng search, current/as-of và AI chat
-
-Manual search hoạt động độc lập với LLM: query → full-text/alias retrieval → structured context filters → canonical document/violation IDs → detail/history có references. Search hit không tự chứng minh rule đang có hiệu lực.
-
-Current/as-of resolver nhận thời điểm T và vehicle/subject/context, lấy RuleLineage phù hợp, xét effective intervals và accepted provision relations theo FR-12. Thiếu context thì giữ nhiều rule hoặc yêu cầu làm rõ; thiếu incoming coverage hoặc có conflict trọng yếu thì trả UNCERTAIN thay vì suy CURRENT từ absence of edge. Ngày tra cứu pháp lý được tách khỏi thời điểm import/run.
-
-```mermaid
-sequenceDiagram
-    participant U as User / Web
-    participant A as API
-    participant R as Retrieval + temporal resolver
-    participant D as Canonical store + indexes
-    participant G as Answer generator
-    U->>A: Câu hỏi + context + as_of nếu có
-    A->>R: Query đã validate
-    R->>D: Retrieve behavior / lineage / rules / evidence
-    D-->>R: Records + Provision IDs + coverage/cutoff
-    R-->>A: Applicable rules / uncertainty + evidence bundle
-    A->>G: Retrieved evidence + reference IDs
-    G-->>A: Answer + citations hoặc yêu cầu làm rõ
-    A-->>U: Câu trả lời đã kiểm tra references + coverage
-```
-
-Evidence bundle gồm context, effective interval, sanction fields, history transitions, Provision IDs, snapshot locators và coverage/cutoff liên quan. Answer generator không được gọi tool ghi vocabulary/domain trong luồng chat. Backend kiểm tra reference ID thuộc evidence bundle và locator truy được về snapshot; kiểm tra ID hợp lệ chưa đủ chứng minh claim đúng, nên citation support/correctness vẫn phải được đánh giá theo mục 14. Thiếu căn cứ thì trả không đủ evidence; lỗi model không làm hỏng manual search hoặc dữ liệu canonical.
+- **Soát logic luật (`GET /api/documents/:id/audit`):** Đọc snapshot Workspace từ D1 → chạy 16 quy tắc tất định trên 5 nhóm → trả `score`, `status`, `findings[]` kèm `provisionId`, `evidence`, `suggestion`.
+- **Phân tích phạm vi tác động (`GET /api/documents/:id/impact?max_depth=`):** Đọc snapshot Workspace từ D1 → gom cạnh tác động trực tiếp (tầng 1) → duyệt BFS ngược trên đồ thị phụ thuộc (tầng 2..`max_depth`) → tổng hợp điều khoản, biến động chế tài, đối tượng chịu tác động, `unresolvedFrontier` và `synchronizationChecklist`.
+- **Tra cứu `as-of` & AI chat (`POST /api/ask`):** Retrieval lấy rule hiện hành + lịch sử theo `RuleLineage`; trạng thái và claim lập từ evidence trước khi LLM diễn đạt; claim không có dẫn chiếu hợp lệ bị loại bỏ.
 
 ### 5.7. Bảo mật, khả năng vận hành và mở rộng
 
-- **Authorization:** Admin-only cho import/retry/reprocess; kiểm tra quyền server-side với từng job/snapshot được client tham chiếu. LLM/source credentials chỉ nằm ở backend; user xem PDF/evidence qua đường truy cập được kiểm soát.
-- **Validation:** Tệp upload, source responses và model/tool output đều là untrusted input. Text trong PDF chỉ là dữ liệu pháp lý, không được thay đổi system instructions hoặc cấp quyền gọi tool ngoài allowlist. `add_vocab` phải xác minh source provision/evidence và dedup tại server.
-- **Bounded processing:** Giới hạn page/resource, discovery depth/document/request và model budget theo policy; task lớn được chia theo phase/document/page và resume từ checkpoint. Chạm cap phải ghi stop reason và coverage gap.
-- **Observability:** Correlate log theo job/run/document/stage; lưu duration, retry/error, quality flags, candidate/accepted/conflict counts, frontier và index readiness. Không log credentials hoặc toàn bộ PDF/model payload mặc định.
-- **Recovery:** Bản gốc và run provenance cho phép reprocess/rebuild index. Tách dữ liệu/config của local, test và remote; migration đi theo repository workflow. Khả năng phục hồi phải được kiểm tra trước khi coi pipeline là hoàn chỉnh.
-- **Capacity:** Đo upload latency, queue backlog, stage duration và search/chat latency trên corpus MVP trước khi đặt SLA hoặc tách service. Không tuyên bố throughput, chất lượng đọc PDF hoặc legal accuracy khi chưa có evaluation.
+- **Authentication & Workspace Authorization:** Better Auth quản lý phiên bằng cookie HttpOnly; mọi endpoint tạo/sửa/xóa thủ công và quản lý Workspace yêu cầu đăng nhập; mọi truy vấn có `X-Workspace-Id` kiểm tra `workspaces.owner_user_id = session.user.id` phía server (fail closed `401`/`403`).
+- **Validation:** Tệp upload, API request và output LLM đều được validate ở ranh giới (Elysia TypeBox phía server và runtime parser phía client).
+- **Bounded processing:** Giới hạn PDF ≤ 50 MB / ≤ 300 trang, đồ thị ≤ 500 văn bản / 2.000 cạnh điều khoản, độ sâu lan truyền tác động `max_depth` từ 1 đến 5.
+- **Observability:** Log JSON theo job/stage, checklist tiền xử lý và điểm nhất quán toàn Workspace (`/api/workspace/audit-summary`).
 
 ### 5.8. Hiện trạng repository và lộ trình tới thiết kế đích
 
-| Khía cạnh | Hiện có trong code | Thiết kế đích cần triển khai |
+| Khía cạnh | Hiện có trong code | Thiết kế đích / phần mở rộng |
 | --- | --- | --- |
-| Upload | `POST /api/uploads`: kiểm tra `%PDF-`, parse được cấu trúc, không mã hóa, ≤ 50 MB và ≤ 300 trang; lưu snapshot R2, tạo `processing_jobs`, gửi `{ jobId }`. | Admin PDF import nhiều phần/phụ lục, hash dedup và provenance. |
-| Job tracking | `GET /api/jobs`, `GET /api/jobs/:jobId`, `GET /api/jobs/:jobId/document`, `POST /api/jobs/:jobId/review` (duyệt văn bản `REVIEW_REQUIRED`, trang `/admin/review/[jobId]`), `GET/POST /api/jobs/:jobId/preprocessing` (checklist tiền xử lý và chạy lại các bước còn thiếu); trạng thái `queued / processing / completed / needs_review / failed` (`failed` = lỗi tạm thời đang chờ retry). | ImportJob theo FR-01 với READY/PARTIAL/FAILED, coverage/cutoff, frontier và unresolved/conflict riêng. |
-| Consumer | LLM đọc PDF theo cụm trang (checkpoint R2, retry/resume), ghép cây Phần→Điểm deterministic, kiểm tra số thứ tự/độ phủ trang/chất lượng, lưu `legal_documents` với `review_status` và run provenance ([chi tiết](pdf-upload-api.md)). | Discovery/graph, semantic extraction và publish/index thật. |
-| Domain storage | `processing_jobs`, `legal_documents` (JSON contract v1 dạng blob), `vocab_entries`/`vocab_metadata`. | Schema domain theo mục 7–8 (Document/Provision tách bảng), constraints và indexes. |
-| MCP | `POST /mcp`: `get_vocab_snapshot`, `add_vocab`, `search_legal_documents`; token đọc và token ghi riêng, fail closed ([chi tiết](mcp-server.md)). | Ghi `vocabulary_version` theo ExtractionRun khi có pipeline trích xuất hành vi. |
-| Auth | `authPlugin` là placeholder, trả `user: null`; endpoint admin chưa được bảo vệ. | Xác thực session/token và authorization Admin ở backend. |
-| Search / chat | Chưa triển khai knowledge base retrieval và grounded QA. | FTS trước; temporal/history APIs; AI retrieval/answers dùng chung evidence. |
-
-Các route `/api/uploads` và `/api/jobs*` là hợp đồng hiện tại; `/admin/imports` và các read/chat API tại mục 11 là hợp đồng đích sơ bộ. Việc bổ sung tài liệu này không đổi endpoint hoặc runtime hiện có. Thứ tự triển khai: hoàn thiện authorization + PDF ingestion/job recovery → graph/provision/domain persistence → rule/history/FTS → grounded chat và evaluation. Mỗi bước phải đáp ứng acceptance criteria liên quan trước khi mở rộng.
+| Auth & Multi-Workspace | Better Auth (`email + password`), bảng `user`/`session`/`account`/`workspaces` (migration `0014`), cô lập `workspace_id`, tự khởi tạo Workspace mẫu có NĐ 100/123/168, TT 73 và Dự thảo 2026. | Chia sẻ Workspace đa thành viên / phân quyền vai trò (owner/editor/reviewer) và áp dụng auth bắt buộc cho cả route `/api/uploads`, `/api/jobs*`. |
+| Soạn thảo thủ công | `/drafting` + `/api/manual/*`: CRUD văn bản, cập nhật metadata/ngày hiệu lực, chèn/sửa/xóa cây Chương/Mục/Điều/Khoản/Điểm, xem trước bản in. | Lịch sử phiên bản dự thảo (draft versioning/diff) và xuất DOCX/PDF chuẩn Nghị định 30/2020/NĐ-CP. |
+| Soát logic luật | `/api/documents/:id/audit`, `/api/workspace/audit-summary`, tích hợp live trong `/drafting` (nhảy thẳng tới điều khoản lỗi) và trang `/audit` (16 quy tắc tất định thuộc 5 nhóm). | Bổ sung lớp soát ngữ nghĩa sâu bằng LLM (kiểm tra mâu thuẫn câu chữ phức tạp ngoài regex/khung phạt) có trích dẫn bắt buộc. |
+| Phân tích phạm vi tác động | `/api/documents/:id/impact?max_depth=`, tích hợp trong `/drafting` và `/audit`: tác động trực tiếp tầng 1, lan truyền dây chuyền đa tầng (BFS), điều khoản, biến động chế tài, đối tượng, frontier và danh mục đồng bộ hóa. | Mô phỏng tác động theo kịch bản "what-if" chưa lưu và biểu đồ cây lan truyền tương tác trực tiếp trên `/graph`. |
+| Lược đồ 2 chế độ | `/graph` + `GET /api/graph`: Chế độ 1 (Biến động mức xử lý hành vi) & Chế độ 2 (Ảnh hưởng văn bản/điều khoản), hợp nhất cạnh AI + thủ công. | Bộ lọc đánh dấu nút theo mức độ rủi ro tác động và lỗi logic. |
+| PDF AI Pipeline | `POST /api/uploads` (dedup theo `(workspace_id, pdf_sha256)`), R2 snapshot, Queue consumer đọc PDF theo cụm trang, review `/admin/review/[jobId]`, checklist 6 bước tiền xử lý. | Nhập nhiều phần/phụ lục trong một job, corpus discovery/acquisition tự động từ VBPL (FR-02). |
+| Search, As-of & AI Chat | `/documents`, `/violations` (as-of + lịch sử), `/ask` (grounded answer + citations), MCP nội bộ `/mcp`. | FTS5 index (FR-19), bộ đánh giá held-out QA và kiểm định logic trên tập dự thảo thực tế (#29). |
 
 ---
 
@@ -1417,6 +1381,80 @@ Không có human_verified requirement bắt buộc trong MVP.
 
 ---
 
+## FR-21 — Tài khoản & Không gian làm việc độc lập (Auth & Multi-Workspace Isolation)
+
+System phải:
+
+1. hỗ trợ đăng ký, đăng nhập, đọc phiên và đăng xuất bằng Better Auth (`email + password`, cookie phiên HttpOnly);
+2. cho phép mỗi tài khoản tạo, đổi tên, cập nhật mô tả/lĩnh vực và xóa nhiều `Workspace` độc lập (mỗi Workspace cô lập hoàn toàn văn bản, điều khoản, quan hệ, cạnh biến động chế tài và báo cáo rà soát);
+3. tự động khởi tạo một Workspace mẫu kèm dữ liệu pháp luật giao thông mẫu (NĐ 100/2019, NĐ 123/2021, NĐ 168/2024, TT 73/2024 và Dự thảo 2026) khi người dùng mới đăng nhập lần đầu;
+4. kiểm tra quyền sở hữu Workspace server-side cho mọi yêu cầu mang `X-Workspace-Id` (trả `401` nếu chưa đăng nhập, `403` nếu truy cập Workspace của tài khoản khác).
+
+---
+
+## FR-22 — Soạn thảo văn bản quy phạm pháp luật có cấu trúc (Structured Drafting Studio)
+
+Nhà soạn luật đã đăng nhập phải có thể:
+
+1. khởi tạo văn bản dự thảo mới với số hiệu, trích yếu, loại văn bản (`Dự thảo`, `Luật`, `Nghị định`, `Thông tư`, `Nghị quyết`), cơ quan chủ trì, ngày ban hành và ngày dự kiến có hiệu lực;
+2. cập nhật thông tin định danh & ngày hiệu lực của văn bản trực tiếp trong bàn soạn thảo;
+3. chèn, sửa nội dung, đổi số hiệu/tiêu đề và xóa cây điều khoản **Chương → Mục → Điều → Khoản → Điểm** theo đúng thứ bậc cha–con (tự gợi ý số thứ tự tiếp theo và xóa cascade mục con khi xóa mục cha);
+4. chuyển đổi giữa chế độ **Soạn thảo**, **Soát logic**, **Phạm vi tác động** và **Xem trước** bản thể thức văn bản quy phạm ngay trên cùng một màn hình;
+5. mỗi thay đổi trên dự thảo phải tự động làm mới kết quả soát logic và phạm vi tác động.
+
+---
+
+## FR-23 — Soát logic luật tự động (Deterministic Legal Logic Checking)
+
+System phải cung cấp bộ kiểm định logic luật tất định (`GET /api/documents/:documentId/audit` và tổng quan toàn Workspace `GET /api/workspace/audit-summary`) gồm tối thiểu 16 quy tắc thuộc 5 nhóm:
+
+1. **Kết cấu & đánh số (`STRUCTURE`):**
+   - `STRUCT_DUPLICATE_NUMBER` (`ERROR`): trùng số hiệu cùng cấp dưới cùng mục cha;
+   - `STRUCT_NUMBERING_GAP` (`WARNING`): đánh số Điều/Khoản/Điểm bị nhảy cóc;
+   - `STRUCT_INVALID_HIERARCHY` (`ERROR`): sai thứ bậc cha–con (VD: Điểm đặt trực tiếp dưới Điều không qua Khoản);
+   - `STRUCT_EMPTY_PROVISION` (`WARNING`): điều khoản không có nội dung và không có mục con.
+2. **Hiệu lực & thời gian (`TEMPORAL`):**
+   - `TEMP_EFFECTIVE_BEFORE_ISSUED` (`ERROR`): ngày có hiệu lực sớm hơn ngày ban hành;
+   - `TEMP_AMEND_BEFORE_TARGET_EFFECTIVE` (`ERROR`): ngày hiệu lực của văn bản sửa đổi/bãi bỏ sớm hơn ngày hiệu lực của văn bản bị tác động;
+   - `TEMP_SELF_RELATION` (`ERROR`): văn bản tự tác động lên chính nó;
+   - `TEMP_RELATION_CYCLE` (`ERROR`): chu trình mâu thuẫn trong đồ thị quan hệ sửa đổi/thay thế/bãi bỏ;
+   - `TEMP_AMEND_REPEALED_TARGET` (`ERROR`): dự thảo sửa đổi/bổ sung một văn bản đã bị văn bản khác thay thế hoặc bãi bỏ toàn bộ trước đó.
+3. **Dẫn chiếu & mục tiêu (`REFERENCE`):**
+   - `REF_BROKEN_INTERNAL_CITATION` (`ERROR`): viện dẫn tới Điều hoặc "khoản X Điều này" không tồn tại trong văn bản;
+   - `REF_UNRESOLVED_EXTERNAL_DOCUMENT` (`WARNING`): trích dẫn số hiệu văn bản chưa có trong Workspace;
+   - `REF_UNLINKED_AMENDMENT_CLAUSE` (`WARNING`): điều khoản chứa câu lệnh sửa đổi/bổ sung/bãi bỏ/thay thế nhưng chưa có cạnh quan hệ tác động tương ứng.
+4. **Chế tài & xung đột quy phạm (`SANCTION_CONFLICT`):**
+   - `SANC_INVERTED_FINE_RANGE` (`ERROR`): khung phạt tiền có mức tối thiểu lớn hơn tối đa (trong câu chữ hoặc cạnh biến động xử phạt);
+   - `SANC_INVALID_POINT_DEDUCTION` (`ERROR`): số điểm trừ GPLX ≤ 0 hoặc > 12 điểm;
+   - `SANC_IMPLICIT_NORM_CONFLICT` (`WARNING`): điều khoản dự thảo quy định khung phạt khác cho hành vi tương tự một văn bản đang có hiệu lực khác trong Workspace nhưng chưa khai báo quan hệ sửa đổi/thay thế/bãi bỏ.
+5. **Kỹ thuật lập pháp (`DRAFTING_TECHNIQUE`):**
+   - `DRAFT_MISSING_EFFECTIVE_DATE` (`INFO`): chưa khai báo ngày dự kiến có hiệu lực.
+
+Mỗi phát hiện (`LogicAuditFinding`) phải trả đủ `code`, `category`, `severity`, `title`, `message`, `evidence`, `suggestion` và `provisionId`/`relatedDocumentId` để giao diện nhảy trực tiếp tới điều khoản lỗi. Điểm nhất quán (`0–100`) và trạng thái (`PASS / WARNING / FAIL`) được tính minh bạch, kèm disclaimer giới hạn phạm vi Workspace.
+
+---
+
+## FR-24 — Phân tích phạm vi tác động (Direct & Cascading Impact Scope Analysis)
+
+System phải cung cấp API và giao diện phân tích phạm vi tác động (`GET /api/documents/:documentId/impact?max_depth=1..5`) cho mọi dự thảo hoặc văn bản trong Workspace:
+
+1. **Tác động trực tiếp (tầng 1):** liệt kê toàn bộ văn bản bị tác động trực tiếp qua `AMENDS / SUPPLEMENTS / REPLACES / REPEALS / SUSPENDS`, phạm vi `FULL / PARTIAL`, nguồn (`AI / MANUAL`) và số lượng điều khoản nối;
+2. **Tác động gián tiếp / dây chuyền (tầng 2..`max_depth`):** duyệt BFS ngược trên đồ thị phụ thuộc (`GUIDES / DETAILS / EXPLAINS / LEGAL_BASIS / REFERENCES / AMENDS / SUPPLEMENTS`) để phát hiện các thông tư hướng dẫn, văn bản quy định chi tiết hoặc văn bản viện dẫn bị ảnh hưởng dây chuyền, hiển thị rõ tầng (`depth`), chuỗi đường đi (`impactPath`) và lý do;
+3. **Tác động cấp Điều/Khoản/Điểm:** liệt kê từng `ProvisionRelation` xuất phát từ dự thảo kèm trích đoạn căn cứ và link mở thẳng tới điều khoản bị tác động;
+4. **Phạm vi chế tài & đối tượng chịu tác động:** tổng hợp số hành vi tăng nặng/giảm nhẹ/bổ sung/bãi bỏ (% biến động mức phạt) và nhận diện các nhóm đối tượng/lĩnh vực chịu tác động;
+5. **Khoảng trống đối chiếu (Frontier) & Danh mục khuyến nghị đồng bộ hóa:** trích xuất mọi số hiệu văn bản được dẫn chiếu nhưng chưa có trong Workspace (`unresolvedFrontier`), tính mức độ rủi ro (`LOW / MEDIUM / HIGH`) và sinh danh mục hành động ưu tiên (`HIGH / MEDIUM / LOW`) cho cơ quan soạn thảo.
+
+---
+
+## FR-25 — Lược đồ tác động 2 chế độ (Dual-Mode Legal Graph)
+
+Trang `/graph` và API `GET /api/graph` phải hợp nhất dữ liệu AI trích xuất và dữ liệu soạn thảo thủ công trong cùng Workspace thành hai chế độ cạnh chuyển đổi được:
+
+1. **Chế độ 1 — Biến động mức xử lý hành vi (`sanction_change`):** hiển thị cạnh tăng nặng, giảm nhẹ, thay đổi trừ điểm/tước GPLX, bổ sung/bãi bỏ chế tài kèm phần trăm biến động (`severityDeltaPercent`), mức phạt cũ → mới và hỗ trợ nối/xóa cạnh thủ công (`/api/manual/graph/sanction-edges`);
+2. **Chế độ 2 — Quan hệ ảnh hưởng văn bản & điều khoản (`document_influence`):** hiển thị văn bản nào sửa đổi, bổ sung, thay thế, bãi bỏ, hướng dẫn hay làm căn cứ cho văn bản nào ở cả cấp văn bản và cấp Điều/Khoản/Điểm, phân biệt nhãn `AI tự nối` vs `Thủ công` và hỗ trợ nối/xóa cạnh thủ công (`/api/manual/graph/document-relations`, `/api/manual/graph/provision-relations`).
+
+---
+
 ## 7. Data Model
 
 Core model:
@@ -1849,55 +1887,91 @@ Không có incoming edge trong graph hoặc frontier rỗng không chứng minh 
 
 ## 11. API sơ bộ
 
-### Public — Documents
+Mọi endpoint đọc/ghi theo Workspace chấp nhận header `X-Workspace-Id` (xác thực quyền sở hữu qua cookie phiên Better Auth).
+
+### Auth & Workspaces
 
 ~~~http
-GET /documents/search?q=
-GET /documents/:id
-GET /documents/:id/content
-GET /documents/:id/relations
+POST /api/auth/sign-up/email
+POST /api/auth/sign-in/email
+POST /api/auth/sign-out
+GET  /api/auth/get-session
+
+GET    /api/workspaces
+POST   /api/workspaces
+PATCH  /api/workspaces/:workspaceId
+DELETE /api/workspaces/:workspaceId
+~~~
+
+### Manual Drafting & Dual-Mode Graph Authoring (yêu cầu đăng nhập)
+
+~~~http
+POST   /api/manual/documents
+PATCH  /api/manual/documents/:documentId
+DELETE /api/manual/documents/:documentId
+
+POST   /api/manual/documents/:documentId/provisions
+PATCH  /api/manual/documents/:documentId/provisions/:provisionId
+DELETE /api/manual/documents/:documentId/provisions/:provisionId
+
+POST   /api/manual/graph/document-relations
+DELETE /api/manual/graph/document-relations/:relationId
+POST   /api/manual/graph/provision-relations
+DELETE /api/manual/graph/provision-relations/:relationId
+POST   /api/manual/graph/sanction-edges
+DELETE /api/manual/graph/sanction-edges/:edgeId
+~~~
+
+### Soát Logic Luật & Phân tích Phạm vi Tác động
+
+~~~http
+GET /api/documents/:documentId/audit
+GET /api/documents/:documentId/impact?max_depth=1..5
+GET /api/workspace/audit-summary
+GET /api/graph
+~~~
+
+### Documents, Provisions, Violations & AI Chat
+
+~~~http
+GET  /api/documents?q=&document_type=&agency=&limit=
+GET  /api/documents/:documentId
+GET  /api/documents/:documentId/relations
+GET  /api/documents/:documentId/changes
+GET  /api/provisions/:provisionId/relations
+
+GET  /api/violations?q=&limit=
+GET  /api/violations/:violationId
+GET  /api/violations/:violationId/rules?as_of=
+GET  /api/violations/:violationId/history
+GET  /api/violations/:violationId/changes
+POST /api/ask
 ~~~
 
 Relation response phải có accepted edges, candidates/status, evidence, incoming/outgoing, scope và coverage/cutoff; client không được tự xem mọi candidate là accepted.
 
-### Public — Provisions
+### PDF Ingestion & Review (Admin / AI Pipeline)
 
 ~~~http
-GET /provisions/:id
-GET /provisions/:id/history
-GET /provisions/:id/relations
-~~~
-
-### Public — Violations
-
-~~~http
-GET  /violations/search?q=
-GET  /violations/:id
-GET  /violations/:id/rules?as_of=
-GET  /violations/:id/history
-POST /violations/chat
-~~~
-
-### Admin
-
-~~~http
-POST /admin/imports  (multipart/form-data: PDF files + optional metadata)
-GET  /admin/imports
-GET  /admin/imports/:id
-POST /admin/imports/:id/retry
-POST /admin/imports/:id/review  { decision: "accept" }  (chỉ khi REVIEW_REQUIRED; 409 nếu không)
-~~~
-
-Import payload: multipart PDF upload. `files` chứa các PDF của văn bản/phụ lục, `metadata` tùy chọn; không có trường URL làm input import. URLs nếu có chỉ ghi trong source provenance.
-
-~~~text
-files: [document.pdf, appendix.pdf]
-metadata: { declared_document_number?, part_labels?, source_provenance? }
+POST /api/uploads  (multipart/form-data: PDF file)
+GET  /api/jobs
+GET  /api/jobs/:jobId
+GET  /api/jobs/:jobId/document
+POST /api/jobs/:jobId/review  { decision: "accept" }  (chỉ khi REVIEW_REQUIRED; 409 nếu không)
+GET  /api/jobs/:jobId/preprocessing
+POST /api/jobs/:jobId/preprocessing
 ~~~
 
 ---
 
 ## 12. UI Requirements
+
+### 12.0. Soạn thảo, Soát Logic Luật, Phạm vi Tác động & Lược đồ 2 chế độ
+
+- **Bàn soạn thảo (`/drafting`):** Danh sách văn bản trong Workspace bên trái; vùng soạn thảo chính hỗ trợ 4 tab **Soạn thảo** (cây Chương/Mục/Điều/Khoản/Điểm + chỉnh sửa thông tin văn bản & ngày hiệu lực), **Soát logic** (badge số lỗi live, bấm "Sửa điều khoản" nhảy thẳng về điều khoản lỗi), **Phạm vi tác động** (cấu hình độ sâu 1–5 tầng) và **Xem trước** (thể thức bản in).
+- **Trung tâm Soát Logic & Phạm vi Tác động (`/audit`):** KPI tổng quan toàn Workspace (tổng văn bản, lỗi, cảnh báo, văn bản rủi ro cao), danh sách văn bản kèm điểm nhất quán `0–100`, chuyển tab xem chi tiết 5 nhóm quy tắc soát logic và báo cáo phạm vi tác động trực tiếp + dây chuyền + danh mục khuyến nghị đồng bộ hóa.
+- **Lược đồ tác động 2 chế độ (`/graph`):** Chuyển đổi giữa **Chế độ 1 (Biến động mức xử lý hành vi)** và **Chế độ 2 (Quan hệ ảnh hưởng văn bản & điều khoản)**, kèm bảng nối cạnh thủ công và gắn nhãn rõ `AI tự nối` vs `Thủ công`.
+- **Quản lý Workspace (`/workspaces`) & Đăng nhập (`/login`):** Tạo/sửa/xóa Workspace độc lập (có tùy chọn nạp dữ liệu lập pháp mẫu) và thanh chuyển Workspace ngay trên header.
 
 ### 12.1. Document Search
 
@@ -2295,224 +2369,135 @@ MVP hoàn thành khi:
 30. Import-time LLM phải nạp `get_vocab_snapshot` trước khi `add_vocab`; vocabulary mới có provenance/evidence/Provision nguồn, được server deduplicate và có thể giữ `AMBIGUOUS` thay vì ép tạo canonical entry.
 31. Additional sanction được lưu thành typed `SanctionEffect`; tối thiểu phân biệt tước GPLX, trừ điểm GPLX và tịch thu phương tiện.
 32. History/as-of query thể hiện được trạng thái `APPLIES / NOT_APPLICABLE / UNKNOWN` của cơ chế trừ điểm và semantic diff khi trạng thái này thay đổi.
+33. Nhà soạn luật đăng ký/đăng nhập qua Better Auth, quản lý nhiều Workspace độc lập; dữ liệu và đồ thị cô lập hoàn toàn theo `workspace_id`, chặn truy cập chéo tài khoản (`403`).
+34. Nhà soạn luật soạn thảo dự thảo có cấu trúc (Chương/Mục/Điều/Khoản/Điểm), sửa metadata/ngày hiệu lực và xem trước bản thể thức ngay trên `/drafting`.
+35. Bộ máy **Soát logic luật** (`GET /api/documents/:id/audit`, `/audit`, tab Soát logic trong `/drafting`) phát hiện chính xác lỗi kết cấu/đánh số, mâu thuẫn hiệu lực (bao gồm sửa văn bản đã bị bãi bỏ/thay thế toàn bộ, chu trình sửa đổi), dẫn chiếu nội/ngoại văn bản bị treo, khung phạt đảo ngược/trừ điểm > 12 và xung đột quy phạm ngầm; cho phép nhảy thẳng tới điều khoản lỗi để sửa.
+36. Bộ máy **Phân tích phạm vi tác động** (`GET /api/documents/:id/impact?max_depth=`) tính được văn bản/điều khoản tác động trực tiếp (tầng 1), tác động dây chuyền đa tầng (VD: Thông tư hướng dẫn nghị định bị sửa), biến động khung chế tài, đối tượng chịu tác động, frontier thiếu dữ liệu và danh mục khuyến nghị đồng bộ hóa.
+37. Lược đồ 2 chế độ (`/graph`) hợp nhất cạnh AI và cạnh thủ công, cho phép chuyển đổi giữa **Chế độ 1 (Biến động mức xử lý)** và **Chế độ 2 (Ảnh hưởng văn bản & điều khoản)**.
+38. Tổng quan toàn Workspace (`GET /api/workspace/audit-summary`) cung cấp điểm nhất quán, số lỗi/cảnh báo và mức rủi ro tác động của từng văn bản trong Workspace.
 
 ---
 
 ## 17. Demo Scenario
 
-1. Admin upload PDF văn bản giao thông, gồm đủ phần/phụ lục. System cho LLM đọc PDF (kể cả bản scan) và hiển thị quality/coverage.
+### Kịch bản A — Soạn thảo dự thảo, Soát logic luật & Phân tích phạm vi tác động (Luồng chính)
 
-2. System discover corpus từ toàn văn/reverse searches và tự build document graph; lược đồ nguồn có thể thiếu hoặc không có.
+1. Nhà soạn luật đăng nhập trên `/login`; hệ thống tự khởi tạo Workspace mẫu gồm NĐ 100/2019, NĐ 123/2021, NĐ 168/2024, Thông tư hướng dẫn 73/2024/TT-BCA và **Dự thảo 01/2026/NĐ-CP**.
+2. Nhà soạn luật mở `/drafting`, chọn **Dự thảo 01/2026/NĐ-CP**, chèn thêm Khoản/Điểm mới (ví dụ thêm quy định phạt tiền ngược khung hoặc trích dẫn `Điều 99` không tồn tại / `Thông tư số 99/2025/TT-BGTVT` chưa có trong kho).
+3. Chuyển sang tab **Soát logic** ngay trong `/drafting` (hoặc mở Trung tâm `/audit`):
+   - Hệ thống lập tức báo lỗi `SANC_INVERTED_FINE_RANGE`, `REF_BROKEN_INTERNAL_CITATION`, cảnh báo `REF_UNRESOLVED_EXTERNAL_DOCUMENT` cùng điểm nhất quán và đề xuất sửa;
+   - Nhà soạn luật bấm **Sửa điều khoản** → nhảy thẳng về đúng Khoản/Điểm gây lỗi để chỉnh sửa, điểm nhất quán tự động tăng về `100/100` (`PASS`).
+4. Nếu nhà soạn luật thử nối cạnh sửa đổi từ Dự thảo sang `100/2019/NĐ-CP` (văn bản đã bị `168/2024/NĐ-CP` thay thế toàn bộ), bộ máy soát logic phát hiện ngay lỗi `TEMP_AMEND_REPEALED_TARGET` và gợi ý chuyển mục tiêu sang `168/2024/NĐ-CP`.
+5. Chuyển sang tab **Phạm vi tác động**:
+   - **Tầng 1 (Trực tiếp):** `168/2024/NĐ-CP` (Khoản 7 Điều 6 bị sửa đổi);
+   - **Tầng 2 (Dây chuyền):** `73/2024/TT-BCA` (Thông tư hướng dẫn NĐ 168) kèm chuỗi lan truyền `Dự thảo 01/2026 → 168/2024/NĐ-CP → 73/2024/TT-BCA`;
+   - **Biến động chế tài & Đối tượng:** Tăng khung phạt dừng/đỗ trên cao tốc (+29%, trừ 08 điểm GPLX), phân hóa giảm nhẹ vi phạm đèn tín hiệu lần đầu (-25%), tác động tới người điều khiển xe ô tô, phương tiện lưu thông trên cao tốc và cơ quan thực thi CSGT;
+   - **Danh mục khuyến nghị đồng bộ hóa:** Ưu tiên cao sửa đổi đồng bộ Thông tư `73/2024/TT-BCA` và kiểm tra văn bản trong `unresolvedFrontier`.
+6. Mở **Lược đồ 2 chế độ (`/graph`)** để trực quan hóa cả Chế độ 1 (Biến động mức xử lý) và Chế độ 2 (Ảnh hưởng văn bản), nối thêm cạnh thủ công nếu cần.
 
-3. System parse provisions.
+### Kịch bản B — Nhập PDF văn bản hiện hành bằng AI, Lịch sử as-of & Hỏi đáp có dẫn chiếu
 
-4. System phát hiện từ toàn văn, kể cả khi lược đồ nguồn không có cạnh:
-   Document B sửa Document A.
-   Evidence span + identity + scope được kiểm chứng; ambiguous giữ candidate.
-
-5. System resolve xuống:
-   Provision B AMENDS Provision A.
-
-6. Cả Provision A và B được map vào:
-   TrafficViolation "Đỗ xe ngoài đô thị".
-
-7. System extract:
-   Rule A:
-     Fine: 400k–600k
-     Point deduction: NOT_APPLICABLE
-     Additional effect: LICENSE_SUSPENSION 1–3 tháng
-
-   Rule B:
-     Fine: 800k–1m
-     Point deduction: APPLIES, 4 điểm
-     Additional effect: LICENSE_POINT_DEDUCTION
-
-8. Semantic diff:
-   SANCTION_INCREASE
-   POINT_DEDUCTION_APPLICABILITY_CHANGED
-   POINT_DEDUCTION_CHANGED
-   LICENSE_SUSPENSION_CHANGED.
-
-9. User dùng Manual Search:
-   "đỗ xe ngoài đô thị"
-
-10. System trả:
-    matching TrafficViolation;
-    current sanction;
-    current provision;
-    current source document.
-
-11. User mở History.
-
-12. System hiển thị:
-    Chuỗi kế thừa provision như sơ đồ dưới đây:
-    cùng relation, effective date và mức phạt từng thời kỳ.
-
-13. User chuyển sang Ask AI:
-    "Đỗ xe ngoài đô thị hiện bị phạt bao nhiêu và mức phạt đã thay đổi thế nào?"
-
-14. AI retrieve TrafficViolation + current rule + history và trả lời kèm references tới từng Provision liên quan.
-
-15. User click reference để mở đúng Điều / Khoản / Điểm trong Document View.
-
-16. Tab Nội dung highlight provision cũ là SUPERSEDED.
-
-17. Tab Quan hệ hiển thị graph hệ thống tự build, evidence, candidates và scope/cutoff/coverage của document.
-
-18. User hỏi:
-    "Mức phạt hành vi này năm 2022 là bao nhiêu?"
-
-19. System sử dụng as-of resolution để trả historical rule và reference đúng provision tại thời điểm đó.
-
-20. Với câu hỏi thiếu vehicle/context, AI hiển thị nhiều applicable rules hoặc yêu cầu bổ sung context thay vì tự chọn một rule.
-
-```mermaid
-flowchart LR
-    A["Provision A"] --> B["Provision B"] --> Next["Các provision kế tiếp"]
-```
+7. Admin/Nhà soạn luật upload PDF văn bản hiện hành tại `/admin`; LLM đọc theo cụm trang, ghép cây Điều/Khoản/Điểm, trích xuất quan hệ văn bản, `ChangeInstruction`, `ProvisionRelation`, hành vi và chế tài có kiểm soát qua Vocabulary MCP.
+8. Tra cứu hành vi tại `/violations` hoặc hỏi Trợ lý AI tại `/ask` ("Đỗ xe ngoài đô thị hiện bị phạt bao nhiêu và mức phạt năm 2022 ra sao?"): hệ thống trả câu trả lời kèm chip trích dẫn click được về đúng Điều/Khoản/Điểm nguồn và giữ trạng thái `AMBIGUOUS`/`UNCERTAIN` khi thiếu ngữ cảnh hoặc bằng chứng.
 
 ---
 
 ## 18. Research Contribution
 
-Project không chỉ scrape hoặc hiển thị dữ liệu VBPL.
+Project không chỉ dừng ở việc số hóa văn bản VBPL hay xây chatbot RAG thông thường, mà giải quyết bài toán khép kín cho **soạn thảo luật hiện đại**:
 
-VBPL và nguồn chính thức bổ trợ cung cấp văn bản/metadata; quan hệ nguồn có thể thiếu/sai hoặc không có. Hệ thống tự dựng document graph từ nội dung, resolve identity và kiểm chứng evidence; đây là một phần của đóng góp nghiên cứu.
+1. xây dựng đồ thị quan hệ văn bản và điều khoản có bằng chứng pháp lý từ toàn văn (kết hợp trích xuất tự động và biên tập thủ công);
+2. kiểm định **logic luật tất định** đa chiều (kết cấu, thứ tự hiệu lực, vòng lặp/sửa văn bản đã bãi bỏ, dẫn chiếu treo, bất hợp lý chế tài và xung đột quy phạm ngầm) với khả năng truy vết chính xác tới từng Điều/Khoản/Điểm;
+3. mô phỏng **phạm vi tác động đa tầng** (trực tiếp 1-hop + lan truyền dây chuyền sang văn bản hướng dẫn/viện dẫn + biến động khung xử phạt + frontier chưa phủ) giúp phát hiện sớm các văn bản cần sửa đổi đồng bộ;
+4. chuẩn hóa danh tính hành vi (`TrafficViolation`), tách `RuleLineage` theo ngữ cảnh, semantic diff khung phạt/trừ điểm GPLX và truy vấn hiệu lực theo thời điểm (`as-of`);
+5. cung cấp lớp hỏi đáp AI có dẫn chiếu bắt buộc về Provision nguồn trên cùng kho tri thức đã kiểm chứng.
 
-Contribution của hệ thống nằm ở việc tự động:
-
-1. build và đánh giá document graph từ references/legal clauses, gồm discovery incoming và evidence-backed identity/action resolution;
-2. resolve thay đổi xuống cấp Điều / Khoản / Điểm;
-3. tạo ProvisionRelation graph;
-4. extract TrafficViolation và Sanction;
-5. nhận diện cùng một hành vi qua nhiều wording / provision;
-6. dùng hành vi làm identity để nối rule qua thời gian;
-7. semantic-diff các rule;
-8. xác định rule hiện hành và reconstruct legal history có traceability;
-9. tách TrafficViolation identity khỏi RuleLineage để không trộn các rule context song song;
-10. hỗ trợ temporal/as-of legal QA;
-11. cung cấp cited AI retrieval/QA trên cùng behavior-centric knowledge base.
-
-Core research pipeline:
+Core pipeline:
 
 ```mermaid
 flowchart TB
-    N0["Full text + references + legal actions + identity resolution"]
-    N1["Evidence-backed Document relationship"]
-    N2["Provision relationship"]
-    N3["TrafficViolation identity"]
-    N4["Semantic rule change"]
-    N5["Current sanction + legal history"]
-    N6["Manual search + grounded AI QA"]
+    N0["Dự thảo (Manual) + Văn bản hiện hành (AI PDF Pipeline)"]
+    N1["Workspace Knowledge Graph (DocumentRelation + ProvisionRelation + Sanction Shifts)"]
+    N2["Deterministic Legal Logic Audit (16 quy tắc · 5 nhóm)"]
+    N3["Cascading Impact Scope Analysis (1-hop + BFS đa tầng + Sync Checklist)"]
+    N4["Dual-Mode Graph + As-of History + Grounded AI QA"]
     N0 --> N1
     N1 --> N2
-    N2 --> N3
-    N3 --> N4
-    N4 --> N5
-    N5 --> N6
+    N1 --> N3
+    N1 --> N4
 ```
 
 ---
 
 ## 19. Technical Direction
 
-Hệ thống tách PDF ingestion khỏi external acquisition và graph domain:
+Hệ thống tách PDF ingestion khỏi external acquisition, graph domain và bộ máy phân tích tất định:
 
 ~~~text
 PDFIngestionAdapter: validatePdf(), storeSnapshot(), splitPageRanges(), transcribeWithLlm(), assembleAndValidate()
-SourceAcquisitionAdapter: getDocument(), getContent(), getMetadata(), searchDocuments()
-Optional: getSourceRelationObservations()
 DocumentGraphBuilder: extractReferences(), extractRelationCandidates(), resolveDocumentIdentity(), validateEvidence(), buildRelations()
-VocabularyRegistry: searchVocab(), resolveExisting(), addVocab(), version()
-VocabularyMCPServer: get_vocab_snapshot(), add_vocab(), search_legal_documents()
+VocabularyRegistry / MCP: get_vocab_snapshot(), add_vocab(), search_legal_documents()
+ManualDraftingService: CRUD documents, provisions, document/provision relations, sanction edges (workspace-scoped)
+LegalLogicAuditEngine: runLogicAudit(workspaceSnapshot, documentId) -> LogicAuditReport
+ImpactScopeEngine: analyzeImpactScope(workspaceSnapshot, documentId, maxDepth) -> ImpactScopeReport
 ~~~
 
-PDF adapter phải giữ page/region/hash và model/prompt/schema provenance; model LLM có thể khác theo môi trường nhưng không bỏ quality policy và không dùng OCR engine riêng. Nguồn scrape/JSON phục vụ acquisition/corpus enrichment, không trở thành URL import UI hoặc canonical relation provider. Corpus thu thập lưu ở `data/` với source/snapshot/hash/status/coverage manifests; không gọi snapshot/keyword matches là toàn bộ pháp luật hiện tại.
-
-Dữ liệu domain phù hợp với relational database.
-
-Raw HTML / snapshots có thể lưu object storage.
-
-Manual behavior search dùng full-text search.
-
-AI chat dùng retrieval layer tách biệt với answer generation; có thể kết hợp full-text, alias, structured filters và embedding. Answer generator chỉ nhận retrieved legal evidence và phải giữ reference IDs tới Provision.
-
-Domain Vocabulary Registry là canonical store cho vocabulary; MCP server chỉ là adapter để LLM trong import pipeline truy cập registry. MCP expose `get_vocab_snapshot`, `add_vocab` (vocabulary) và `search_legal_documents` (document discovery). Backend/resolver có thể gọi VocabularyRegistry trực tiếp; canonical state không phụ thuộc vào transport/protocol MCP.
-
-Không cần graph database trong MVP; DocumentRelation và ProvisionRelation có thể model bằng relational tables.
+PDF adapter giữ page/region/hash và model/prompt/schema provenance; dữ liệu domain lưu trên relational database (Cloudflare D1) cô lập theo `workspace_id`; raw snapshots lưu trên object storage (R2). Bộ máy soát logic và phân tích phạm vi tác động là pure functions độc lập với framework, dễ kiểm thử đơn vị và tái lập 100%.
 
 ---
 
 ## 20. Nguyên tắc thiết kế cốt lõi
 
-1. **Behavior-centric**  
-   TrafficViolation là semantic identity xuyên suốt history.
+1. **Drafting, auditing, and impact analysis in one loop**  
+   Soạn thảo, soát logic luật và đánh giá phạm vi tác động gắn liền trong cùng bàn làm việc — sửa một điều khoản là thấy ngay điểm nhất quán và tác động cập nhật.
 
-2. **Provision relations are first-class**  
-   Hệ thống phải biết Điều/Khoản/Điểm nào sửa, bổ sung, thay thế hoặc bãi bỏ Điều/Khoản/Điểm nào.
+2. **Deterministic logic audit before LLM opinion**  
+   Lỗi kết cấu, thứ tự hiệu lực, dẫn chiếu treo, khung phạt ngược và tác động dây chuyền được kiểm định bằng quy tắc tất định trên đồ thị trước, bảo đảm không hallucinate và 100% giải thích được.
 
-3. **Document relations guide, provision relations explain**  
-   Document graph giúp discover và contextualize; provision graph giải thích thay đổi pháp lý cụ thể.
+3. **Provision relations are first-class**  
+   Hệ thống biết chính xác Điều/Khoản/Điểm nào sửa, bổ sung, thay thế hoặc bãi bỏ Điều/Khoản/Điểm nào.
 
-4. **Provision is not Behavior**  
-   Một provision có thể chứa 0, 1 hoặc nhiều ViolationRule.
+4. **Document relations guide, provision relations explain**  
+   Document graph giúp phát hiện lan truyền dây chuyền (Thông tư hướng dẫn, văn bản căn cứ); provision graph giải thích thay đổi pháp lý cụ thể.
 
-5. **Explicit legal evidence first**  
-   Nội dung pháp lý explicit và derivation được kiểm chứng có precedence cao hơn source relationship metadata/semantic inference; conflicting evidence được giữ rõ.
+5. **Workspace isolation by design**  
+   Mọi dự án luật của từng nhà soạn luật được cô lập ở tầng dữ liệu và xác thực quyền sở hữu phía server.
 
-6. **Semantic diff over text diff**  
-   Mục tiêu là phát hiện thay đổi về hành vi, phạm vi và sanction chứ không chỉ text.
+6. **Explicit legal evidence first**  
+   Nội dung pháp lý explicit và derivation được kiểm chứng có precedence cao hơn metadata nguồn hoặc suy luận ngữ nghĩa; khoảng trống dữ liệu (`unresolvedFrontier`, `UNCERTAIN`) luôn được khai báo trung thực.
 
-7. **Every important result is traceable**  
-   Không có current sanction hoặc history transition nào không có source provision.
+7. **Semantic diff over text diff**  
+   Mục tiêu là phát hiện thay đổi về hành vi, phạm vi đối tượng và khung chế tài chứ không chỉ so sánh chuỗi ký tự.
 
-8. **Narrow legal scope, deep change tracking**  
-   MVP chỉ tập trung vào xử phạt hành vi giao thông nhưng track sâu document → provision → behavior → sanction.
+8. **Every important result is traceable**  
+   Mọi lỗi logic, phạm vi tác động, mức phạt hiện hành và câu trả lời AI đều dẫn trực tiếp về Provision/Document nguồn.
 
-9. **Search and answer are separate**  
-   Manual search phải hoạt động độc lập bằng full-text retrieval; AI chat là lớp grounded QA dùng cùng knowledge base.
+9. **Same behavior does not imply same lineage**  
+   Rule cho ô tô, xe máy hoặc context khác nhau có thể cùng TrafficViolation nhưng nằm ở lineage riêng nếu không trực tiếp kế thừa nhau.
 
-10. **No citation, no legal claim**  
-    AI answer về mức phạt, hiệu lực hoặc lịch sử phải reference về Provision nguồn.
+10. **Temporal correctness is first-class**  
+    CURRENT chỉ là trường hợp đặc biệt của truy vấn theo thời điểm (`as-of`); mọi văn bản và quan hệ sửa đổi đều phải nhất quán về trục thời gian hiệu lực.
 
-11. **Same behavior does not imply same lineage**  
-    Rule cho ô tô, xe máy hoặc context khác nhau có thể cùng TrafficViolation nhưng phải nằm ở lineage riêng nếu chúng không trực tiếp kế thừa nhau.
+11. **Prefer ambiguity over false certainty**  
+    Khi thiếu ngữ cảnh hoặc thiếu văn bản trong Workspace, hệ thống giữ `AMBIGUOUS / UNCERTAIN` và ghi rõ `unresolvedFrontier` thay vì đoán.
 
-12. **Temporal correctness is first-class**  
-    CURRENT chỉ là trường hợp đặc biệt của query theo thời gian; mọi rule phải có effective interval rõ nhất có thể. Trạng thái áp dụng cơ chế trừ điểm cũng là temporal data và phải được lưu explicit cho từng rule/effective period.
-
-13. **Prefer ambiguity over false certainty**  
-    Khi context hoặc evidence chưa đủ, hệ thống giữ AMBIGUOUS / UNCERTAIN thay vì ép merge, ép lineage hoặc chọn một sanction tùy ý.
-
-14. **Evaluation must avoid legal-lineage leakage**  
-    Dataset split phải tránh việc amendment chain gần như giống nhau xuất hiện ở cả train/dev và test.
-
-15. **Reuse vocabulary before creation**  
-    Import-time LLM phải retrieve canonical vocabulary trước khi đề xuất vocabulary mới; khác wording không đồng nghĩa concept mới. Canonical vocab mới chỉ được tạo khi server không resolve được entry tương đương và phải giữ provenance/evidence.
+12. **Reuse vocabulary before creation**  
+    Import-time LLM phải nạp `get_vocab_snapshot` trước khi đề xuất `add_vocab` và giữ provenance/evidence đầy đủ.
 
 ---
 
 ## 21. Alignment with Course Requirements
 
-SRS giữ nguyên các yêu cầu chính của project **Legal Document Change Detection**:
+SRS đáp ứng trọn vẹn bài toán ứng dụng **Soạn thảo Luật tích hợp Soát Logic Luật & Phân tích Phạm vi Tác động** trên nền tảng Legal AI:
 
-- working prototype;
-- real legal documents;
-- deterministic/full-text retrieval;
-- AI retrieval / grounded question answering;
-- LLM / Legal NLP;
-- knowledge representation;
-- legal change detection;
-- baseline comparison;
-- quantitative evaluation;
-- temporal/as-of legal reasoning;
-- end-to-end QA evaluation;
-- traceability;
-- hallucination awareness;
-- reproducible methodology.
+- working end-to-end prototype (Frontend SvelteKit + Backend Cloudflare Workers/D1/R2/Queues + Better Auth);
+- real Vietnamese legal documents + structured manual drafting;
+- deterministic legal logic checking (16 rules, 5 categories);
+- direct & multi-hop cascading impact scope analysis + synchronization checklist;
+- dual-mode interactive relation graph (sanction shift & document influence);
+- LLM PDF ingestion, knowledge representation, vocabulary MCP, legal change detection & temporal `as-of` reasoning;
+- grounded AI Q&A with mandatory citations, hallucination awareness, baselines & reproducible evaluation.
 
-Việc giới hạn domain vào xử phạt hành vi giao thông là scope reduction, không thay đổi bài toán nghiên cứu cốt lõi.
+Điểm nhấn học thuật và thực tiễn của project là:
 
-Điểm nhấn học thuật của project là:
-
-> Từ toàn văn và bằng chứng pháp lý, tự build document graph, resolve provision-level changes, dùng traffic-violation identity để reconstruct semantic sanction history, sau đó hỗ trợ full-text retrieval và grounded AI question answering có source references cùng coverage được khai báo.
+> Kết hợp soạn thảo văn bản quy phạm có cấu trúc với đồ thị tri thức pháp luật có bằng chứng, từ đó cung cấp bộ máy soát logic luật tất định, phân tích phạm vi tác động trực tiếp lẫn dây chuyền đa tầng, theo dõi biến động chế tài theo thời điểm và trợ lý AI có dẫn chiếu nguồn.

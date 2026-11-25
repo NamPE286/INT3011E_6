@@ -1,43 +1,81 @@
-# Truy vấn: API và giao diện
+# API và Giao diện — Soạn Luật Studio
 
-Tài liệu cho epic Truy vấn (#39): tìm văn bản (#23), tra cứu hành vi/mức phạt/lịch sử (#24) và hỏi đáp AI có dẫn nguồn (#26). Dữ liệu lấy từ pipeline ở [preprocessing.md](preprocessing.md).
+Tài liệu kỹ thuật cho toàn bộ API và giao diện web của **Soạn Luật Studio** (Soạn thảo văn bản quy phạm pháp luật, Soát logic luật, Phân tích phạm vi tác động, Lược đồ 2 chế độ và Tra cứu/AI có dẫn nguồn). Pipeline nạp PDF nền xem tại [preprocessing.md](preprocessing.md).
 
-## API mới
+## 1. Xác thực & Cô lập Workspace
+
+- Xác thực dùng **Better Auth** (`email + password`) qua cookie phiên HttpOnly (`credentials: "include"`).
+- Mọi request tới API dữ liệu trong Workspace tự động đính kèm header `X-Workspace-Id` (đọc từ `web/src/lib/stores/workspace-storage.ts` trong `web/src/lib/api/http.ts`).
+- Backend kiểm tra quyền sở hữu Workspace (`resolveWorkspaceAccess`) cho từng request: chưa đăng nhập mà yêu cầu thao tác ghi hoặc truyền `X-Workspace-Id` → `401`; truy cập Workspace của tài khoản khác → `403`.
+
+## 2. Hợp đồng API
+
+### Auth & Workspaces
 
 | Method | Path | Mô tả |
 | --- | --- | --- |
-| `GET` | `/api/documents?q=&document_type=&agency=&limit=` | Tìm văn bản đã `ACCEPTED` theo số hiệu, tên, từ khóa; không dùng LLM. `q` rỗng liệt kê văn bản mới nhất. `limit` tối đa 50, vượt quá trả `400`. |
-| `GET` | `/api/documents/:documentId` | Metadata, provision theo thứ tự đọc và `amendments`: ProvisionRelation tác động vào văn bản (kèm `verificationStatus` `ACCEPTED`/`CANDIDATE`). `404` nếu không có hoặc còn `REVIEW_REQUIRED`. |
-| `GET` | `/api/graph` | Đồ thị quan hệ toàn corpus (#61): `documents` (xếp theo ngày ban hành), `documentRelations` (chỉ `ACCEPTED`), `provisionRelations` (giữ `verificationStatus`, `evidenceText`, `effectiveFrom`), `provisions` ở hai đầu cạnh điều khoản, `truncated` khi vượt giới hạn (500 văn bản, 2.000 cạnh điều khoản), `disclaimer`. |
-| `POST` | `/api/ask` | Body `{ question, as_of? }`. Trả `status` (`ANSWERED`/`AMBIGUOUS`/`UNCERTAIN`/`NO_ANSWER`), `claims` mỗi claim dẫn `evidenceIds`, `evidence` (rule, mức phạt, hiệu lực, provision nguồn), `clarification`, `scope`, `provenance`. |
+| `POST` | `/api/auth/sign-up/email` · `/sign-in/email` · `/sign-out` | Đăng ký, đăng nhập và đăng xuất (Better Auth). |
+| `GET` | `/api/auth/get-session` | Đọc phiên đăng nhập hiện tại. |
+| `GET` | `/api/workspaces` | Liệt kê Workspace của tài khoản (tự khởi tạo Workspace mẫu kèm NĐ 100/123/168, TT 73/2024 và Dự thảo 2026 nếu chưa có). |
+| `POST` | `/api/workspaces` | Tạo Workspace mới (`name`, `description?`, `domain?`, `seedSample?`). |
+| `PATCH` / `DELETE` | `/api/workspaces/:workspaceId` | Đổi tên/mô tả hoặc xóa toàn bộ dữ liệu Workspace. |
 
-`GET /api/violations/:id/rules` có thêm `reasonCodes` cho từng rule để client tự dịch lý do `UNCERTAIN`.
+### Soạn thảo thủ công & Nối cạnh lược đồ (yêu cầu đăng nhập)
 
-Các endpoint đọc khác đã có: `/api/violations`, `/api/violations/:id`, `/rules?as_of=`, `/history`, `/api/documents/:id/relations`.
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `POST` / `PATCH` / `DELETE` | `/api/manual/documents[/:documentId]` | Tạo, cập nhật metadata/ngày hiệu lực và xóa văn bản dự thảo trong Workspace. |
+| `POST` / `PATCH` / `DELETE` | `/api/manual/documents/:documentId/provisions[/:provisionId]` | Chèn, sửa nội dung và xóa cascade cây Chương / Mục / Điều / Khoản / Điểm. |
+| `POST` / `DELETE` | `/api/manual/graph/document-relations[/:relationId]` | Nối/xóa cạnh ảnh hưởng cấp văn bản (`AMENDS`, `REPLACES`, `REPEALS`, `GUIDES`, `LEGAL_BASIS`, `REFERENCES`...). |
+| `POST` / `DELETE` | `/api/manual/graph/provision-relations[/:relationId]` | Nối/xóa cạnh ảnh hưởng cấp Điều/Khoản/Điểm. |
+| `POST` / `DELETE` | `/api/manual/graph/sanction-edges[/:edgeId]` | Nối/xóa cạnh biến động khung xử phạt (tăng nặng, giảm nhẹ, trừ điểm GPLX...). |
 
-## Hỏi đáp AI (`backend/src/modules/ask`)
+### Soát Logic Luật & Phân tích Phạm vi Tác động
 
-1. **Retrieval** (`ask.retrieval.ts`): khớp từ của câu hỏi với tên và alias của `TrafficViolation`; chỉ giữ khớp mạnh, nên câu hỏi không liên quan không lấy được gì. Nếu câu hỏi nêu phương tiện mà một số lineage có, các lineage khác bị loại.
-2. **Evidence**: rule áp dụng (`CURRENT`) hoặc chưa chắc (`UNCERTAIN`) tại `as_of` theo `getRulesAsOf`. Không có rule nào → `NO_ANSWER`, không có claim.
-3. **Trạng thái và claim** (`ask.answer.ts`) được lập bằng quy tắc, không phụ thuộc model: nhiều rule cùng hiệu lực → `AMBIGUOUS` kèm câu hỏi làm rõ; chỉ có rule `UNCERTAIN` → `UNCERTAIN`.
-4. **LLM** (khi có `OPENAI_API_KEY`) chỉ diễn đạt lại claim. Claim bị loại nếu không dẫn evidence hợp lệ hoặc chứa số không có trong evidence đã dẫn. Nếu model lỗi, không còn claim hợp lệ hoặc không phủ hết evidence, trả câu trả lời lập từ rule và ghi `provenance.fallbackReason`.
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/documents/:documentId/audit` | Chạy 16 quy tắc tất định soát logic luật trên 5 nhóm (`STRUCTURE`, `TEMPORAL`, `REFERENCE`, `SANCTION_CONFLICT`, `DRAFTING_TECHNIQUE`). Trả `summary` (`status`, `score`, `errorCount`, `warningCount`, `infoCount`), `findings[]` (kèm `provisionId`, `evidence`, `suggestion`) và `disclaimer`. |
+| `GET` | `/api/documents/:documentId/impact?max_depth=1..5` | Phân tích phạm vi tác động trực tiếp (tầng 1) và lan truyền dây chuyền đa tầng (BFS trên đồ thị phụ thuộc ngược `GUIDES`/`DETAILS`/`LEGAL_BASIS`/`REFERENCES`/`AMENDS`), trả `directImpacts`, `indirectImpacts` (kèm `impactPath`), `affectedProvisions`, `sanctionShifts`, `affectedSubjects`, `unresolvedFrontier` và `synchronizationChecklist`. |
+| `GET` | `/api/workspace/audit-summary` | Tổng quan điểm nhất quán, tổng số lỗi/cảnh báo và mức rủi ro tác động của toàn bộ văn bản trong Workspace hiện tại. |
 
-Giới hạn: retrieval chỉ khớp theo từ trong tên/alias đã lưu, nên cách nói khác hẳn ("vượt đèn đỏ") chỉ tìm được khi đã có alias đó; endpoint chưa có xác thực hay rate limit; chưa có bộ QA held-out (#29).
+### Lược đồ, Văn bản, Khung xử phạt & Hỏi đáp AI
 
-## Giao diện (`web`)
+| Method | Path | Mô tả |
+| --- | --- | --- |
+| `GET` | `/api/graph` | Đồ thị quan hệ 2 chế độ theo Workspace: `documents`, `provisions`, `documentRelations`, `provisionRelations` và `sanctionChangeEdges` (hợp nhất cạnh `AI` và `MANUAL`). |
+| `GET` | `/api/documents?q=&document_type=&agency=&limit=` | Tìm văn bản `ACCEPTED` trong Workspace theo số hiệu, tên, từ khóa (không dùng LLM). |
+| `GET` | `/api/documents/:documentId` | Metadata, danh sách provision theo thứ tự đọc và `amendments` tác động vào văn bản. |
+| `GET` | `/api/documents/:documentId/relations` | Cạnh `ACCEPTED`, candidate chưa xác minh, `frontier` và phạm vi dữ liệu. |
+| `GET` | `/api/violations`, `/api/violations/:id`, `/rules?as_of=`, `/history` | Tìm hành vi, xem khung phạt theo mốc ngày `as_of` và chuỗi lịch sử theo `RuleLineage`. |
+| `POST` | `/api/ask` | Hỏi đáp AI có căn cứ (`ANSWERED`/`AMBIGUOUS`/`UNCERTAIN`/`NO_ANSWER`) kèm `claims` dẫn chiếu bắt buộc tới `evidence` và `provisionId`. |
+
+## 3. Giao diện (`web/src/routes`)
 
 | Route | Nội dung |
 | --- | --- |
-| `/` | Ô tìm hành vi ngay đầu trang, chip tìm nhanh, lối vào văn bản/đồ thị/hỏi đáp (kèm câu hỏi mẫu). |
-| `/documents` | Tìm văn bản (form `GET`, trạng thái nằm trên URL). |
-| `/documents/[id]` | Đúng hai tab: **Nội dung** (mục lục Điều, cây Điều/Khoản/Điểm, phần bị tác động có vạch đỏ, phần bị bãi bỏ gạch ngang, mục thu gọn "Hành vi vi phạm") và **Quan hệ** (cạnh `ACCEPTED` tách riêng khỏi dẫn chiếu chưa xác minh, frontier, phạm vi dữ liệu). |
-| `/violations` | Tìm hành vi theo từng từ trong alias; không có kết quả thì gợi ý hỏi AI với cùng từ khóa. |
-| `/violations/[id]?as_of=` | Mức phạt tại ngày chọn hiển thị lớn nhất; chip chọn nhanh Hôm nay và mỗi mốc phiên bản; ngày không có quy định gợi ý mốc gần nhất; lịch sử dạng timeline, trạng thái tính theo ngày đang xem (`web/src/lib/version-view.ts`). Mỗi lineage/ngữ cảnh hiển thị riêng, rule `UNCERTAIN` có lý do. |
-| `/graph?document=` | Đồ thị quan hệ (#61): cột văn bản theo thời gian, điều khoản dưới văn bản chứa nó, cung giữa văn bản và đường cong giữa điều khoản tô màu theo loại; cạnh ứng viên nét đứt. Lọc theo loại quan hệ, trạng thái xác minh, cấp hiển thị, văn bản trọng tâm (`?document=` từ tab Quan hệ) và tìm số hiệu/tên. Chọn ô để xem cạnh vào/ra kèm căn cứ và link mở điều khoản. Logic lọc/bố cục thuần ở `web/src/lib/graph-view.ts`. |
-| `/ask?q=` | Hỏi đáp AI; câu hỏi mẫu, Ctrl+Enter để gửi, chọn model trong mục "Tùy chọn"; mỗi claim có chip nguồn dẫn tới provision. |
-| `/admin` | Trang nhập PDF trước đây ở `/` (vẫn chưa có xác thực, TODO #4). Job `needs_review` có nút **Xem xét**. |
-| `/admin/review/[jobId]` | Xem lỗi/cảnh báo validation và danh sách Điều đã đọc của văn bản `REVIEW_REQUIRED`; nút **Duyệt và công bố** gọi `POST /api/jobs/:jobId/review`. |
+| `/` | Trang chủ Soạn Luật Studio: giới thiệu 3 trụ cột (Soạn thảo cấu trúc, Soát logic luật, Phân tích phạm vi tác động), thống kê Workspace hiện tại và lối vào nhanh. |
+| `/drafting?document=` | **Bàn soạn thảo cấu trúc:** chọn/tạo/xóa dự thảo, sửa metadata & ngày hiệu lực inline, chèn/sửa/xóa Chương/Mục/Điều/Khoản/Điểm, chuyển đổi 4 tab **Soạn thảo · Soát logic (live) · Phạm vi tác động (live) · Xem trước**. Bấm "Sửa điều khoản" trên lỗi logic sẽ nhảy thẳng về đúng điều khoản lỗi để chỉnh sửa. |
+| `/audit?document=&tab=` | **Trung tâm Soát Logic & Phạm vi Tác động:** KPI toàn Workspace, danh sách văn bản kèm điểm nhất quán `0–100`, bộ lọc lỗi theo mức độ/nhóm quy tắc, cấu hình độ sâu lan truyền `1–5` tầng và danh mục khuyến nghị đồng bộ hóa. |
+| `/graph?document=` | **Lược đồ tác động 2 chế độ:** chuyển đổi Chế độ 1 (Biến động mức xử lý hành vi) và Chế độ 2 (Ảnh hưởng văn bản & điều khoản), lọc theo loại cạnh/văn bản trọng tâm và bảng nối/xóa cạnh thủ công. |
+| `/workspaces` | Quản lý nhiều Workspace độc lập cho tài khoản (tạo mới, tùy chọn nạp dữ liệu lập pháp mẫu, đổi tên, xóa, chuyển đổi nhanh). |
+| `/login` | Đăng nhập và đăng ký tài khoản qua Better Auth. |
+| `/documents`, `/documents/[id]` | Kho văn bản hiện hành & dự thảo; trang chi tiết có hai tab **Nội dung** (mục lục, highlight điều khoản bị sửa/bãi bỏ) và **Quan hệ**, kèm nút mở nhanh sang `/audit` và `/drafting`. |
+| `/violations`, `/violations/[id]?as_of=` | Tra cứu khung xử phạt hành vi và lịch sử hiệu lực theo mốc thời gian (`as-of`). |
+| `/ask?q=` | Trợ lý AI rà soát chồng chéo, căn cứ và lịch sử khung phạt có chip dẫn nguồn click được tới Provision. |
+| `/admin`, `/admin/review/[jobId]` | Nhập PDF văn bản hiện hành bằng AI, theo dõi job, kiểm tra validation và duyệt công bố (`ACCEPTED`) + chạy lại checklist tiền xử lý. |
 
-Mọi liên kết nguồn có dạng `/documents/<documentId>#<provisionId>`. Phản hồi backend được kiểm tra ở biên (`web/src/lib/api/*`): dòng sai định dạng bị bỏ, status/loại không biết không được hiển thị như kết quả. Văn bản giải thích hiển thị cho người dùng do frontend sở hữu (tiếng Việt); không hiển thị chuỗi tiếng Anh từ backend.
+Mọi phản hồi backend đều được kiểm tra ở biên (`web/src/lib/api/*`: `analysis.ts`, `graph.ts`, `documents.ts`, `violations.ts`, `ask.ts`, `review.ts`); dòng sai định dạng bị bỏ qua an toàn, không hiển thị chuỗi lỗi nội bộ thô cho người dùng.
 
-Chạy thử: `cd backend && bun run dev` (cần D1 local đã migrate và dữ liệu), `cd web && cp .env.example .env && bun run dev`. Kiểm tra: `cd web && bun test && bun run check`.
+Chạy thử local:
+
+```bash
+cd backend && bun run d1:migrate:local && bun run dev
+cd web && cp .env.example .env && bun run dev
+```
+
+Kiểm tra chất lượng:
+
+```bash
+cd backend && bun test && bun run typecheck
+cd web && bun test && bun run check && bun run build
+```

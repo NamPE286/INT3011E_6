@@ -1,8 +1,11 @@
-# INT3011E_6 — Vietnamese Traffic Violation Sanction Intelligence
+# INT3011E_6 — Soạn Luật Studio (Soạn thảo Luật, Soát Logic Luật & Phân tích Phạm vi Tác động)
 
-Nền tảng Legal AI hỗ trợ truy vết quy định xử phạt vi phạm giao thông đường bộ Việt Nam theo từng hành vi, căn cứ pháp lý và lịch sử thay đổi của quy định.
+Nền tảng **soạn thảo văn bản quy phạm pháp luật** dành cho nhà soạn luật / chuyên viên pháp chế, tích hợp sẵn hai năng lực kiểm định cốt lõi:
 
-Repository hiện có: luồng nhập PDF văn bản pháp luật (kể cả bản scan) thành JSON có cấu trúc bằng LLM ([chi tiết](docs/pdf-upload-api.md)), dashboard admin để upload và theo dõi job, MCP server nội bộ cho vocabulary và tìm văn bản ([chi tiết](docs/mcp-server.md)), và pipeline tiền xử lý chạy sau khi đọc PDF ([chi tiết](docs/preprocessing.md)). Phạm vi sản phẩm hoàn chỉnh được quy định trong SRS.
+1. **Soát logic luật tự động (16 quy tắc tất định thuộc 5 nhóm):** kiểm tra kết cấu Chương/Mục/Điều/Khoản/Điểm, thứ tự hiệu lực theo thời gian, sửa đổi văn bản đã bãi bỏ/thay thế toàn bộ, chu trình mâu thuẫn, dẫn chiếu nội/ngoại văn bản bị treo, khung phạt đảo ngược/trừ điểm GPLX vượt chuẩn và nguy cơ xung đột quy phạm ngầm.
+2. **Phân tích phạm vi tác động (trực tiếp & dây chuyền đa tầng):** xác định văn bản và Điều/Khoản/Điểm chịu tác động trực tiếp (tầng 1), lan truyền dây chuyền sang thông tư hướng dẫn/văn bản căn cứ (tầng 2–5), biến động khung xử phạt, nhóm đối tượng chịu tác động, khoảng trống đối chiếu (frontier) và danh mục văn bản cần sửa đổi đồng bộ.
+
+Repository bao gồm: **Bàn soạn thảo cấu trúc (`/drafting`)**, **Trung tâm Soát Logic & Phạm vi Tác động (`/audit`)**, **Lược đồ tác động 2 chế độ (`/graph`)**, xác thực Better Auth & đa không gian làm việc độc lập (`/workspaces`), luồng nhập PDF văn bản hiện hành bằng LLM ([chi tiết](docs/pdf-upload-api.md)), pipeline tiền xử lý 6 bước ([chi tiết](docs/preprocessing.md)), MCP server nội bộ cho vocabulary ([chi tiết](docs/mcp-server.md)), tra cứu lịch sử `as-of` và trợ lý AI rà soát có dẫn chiếu nguồn ([chi tiết](docs/query-frontend.md)). Đặc tả đầy đủ xem tại [SRS v1.0](docs/srs.md).
 
 ## Overview
 
@@ -12,17 +15,16 @@ Tài liệu nguồn của dự án nằm trong thư mục [`docs`](docs):
 
 | Vai trò | Tài liệu nên đọc | Mục đích |
 | --- | --- | --- |
-| Lead | [Software Requirements Specification](docs/srs.md), đặc biệt các mục 1–6 (bao gồm System Design tại mục 5), 13, 16 và 19–21 | Nắm toàn bộ định hướng sản phẩm và kỹ thuật; quản lý phạm vi, phân rã yêu cầu, duyệt thiết kế và review thay đổi trước khi chuyển sang kiểm thử. |
-| Developer | [SRS](docs/srs.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Hiểu yêu cầu của task trước khi triển khai; tuân thủ quy trình estimate, branch, pull request, review và Definition of Done. |
-| Tester | [SRS](docs/srs.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria; kiểm tra happy path, edge case, regression và báo lỗi đúng mẫu. |
+| Lead | [Software Requirements Specification (v1.0)](docs/srs.md), đặc biệt các mục 1–6 (bao gồm System Design tại mục 5 và FR-21–25), 11–12 và 16–21 | Nắm toàn bộ định hướng sản phẩm soạn thảo luật, soát logic, phạm vi tác động và kiến trúc kỹ thuật; duyệt thiết kế và review thay đổi. |
+| Developer | [SRS](docs/srs.md), [API & Frontend Guide](docs/query-frontend.md), sau đó [Developer Workflow Guide](docs/workflow/dev.md) | Hiểu yêu cầu nghiệp vụ, hợp đồng API và quy trình estimate, branch, PR, review, Definition of Done. |
+| Tester | [SRS](docs/srs.md), [SRS Coverage](docs/srs-coverage.md), sau đó [Tester Workflow Guide](docs/workflow/tester.md) | Xây dựng test case từ acceptance criteria (AC 1–38); kiểm tra happy path, edge case, regression và báo lỗi đúng mẫu. |
 
 Thứ tự đọc:
 
-1. Đọc mục tiêu, phạm vi và actor trong SRS.
-2. Đọc [System Design](docs/srs.md#5-system-design) để nắm thành phần, luồng dữ liệu, lưu trữ, retry và ranh giới giữa demo hiện có với kiến trúc đích.
-3. Đọc các functional requirement liên quan đến task được giao.
-4. Đọc guide dành cho vai trò của mình; Lead sử dụng cả hai workflow guide để điều phối vòng review và kiểm thử.
-5. Lead và Developer tiếp tục phần [Setup](#setup) và [Architecture](#architecture) bên dưới trước khi làm việc với mã nguồn.
+1. Đọc mục tiêu, phạm vi và actor trong [SRS v1.0](docs/srs.md).
+2. Đọc [System Design](docs/srs.md#5-system-design) để nắm luồng soạn thảo, bộ máy soát logic/tác động, pipeline AI PDF, cô lập Workspace và lưu trữ.
+3. Đọc các functional requirement liên quan (đặc biệt FR-21–25 cho soạn thảo, soát logic, phạm vi tác động, đồ thị 2 chế độ).
+4. Đọc guide dành cho vai trò của mình và tiếp tục phần [Setup](#setup) bên dưới trước khi làm việc với mã nguồn.
 
 ## Setup
 
@@ -44,12 +46,13 @@ bun --version
 
 | Thành phần | Công nghệ | Vai trò |
 | --- | --- | --- |
-| Frontend | [Svelte 5](https://svelte.dev/docs/svelte/overview), [SvelteKit](https://svelte.dev/docs/kit/introduction), [Vite](https://vite.dev/guide/) | Xây dựng giao diện, routing và development server. |
+| Frontend | [Svelte 5](https://svelte.dev/docs/svelte/overview), [SvelteKit](https://svelte.dev/docs/kit/introduction), [Vite](https://vite.dev/guide/) | Bàn soạn thảo, Trung tâm Soát logic & Tác động, Lược đồ 2 chế độ, quản lý Workspace và giao diện tra cứu. |
 | UI | [Tailwind CSS](https://tailwindcss.com/docs), [shadcn-svelte](https://www.shadcn-svelte.com/docs), [Lucide Svelte](https://lucide.dev/guide/packages/lucide-svelte) | Styling và component giao diện. |
-| Backend API | [Elysia](https://elysiajs.com/) chạy trên [Cloudflare Workers](https://developers.cloudflare.com/workers/) | Cung cấp HTTP API và queue consumer. |
-| Lưu trữ | [Cloudflare D1](https://developers.cloudflare.com/d1/) và [Cloudflare R2](https://developers.cloudflare.com/r2/) | Lưu trạng thái job và tệp nguồn. |
+| Backend API | [Elysia](https://elysiajs.com/) chạy trên [Cloudflare Workers](https://developers.cloudflare.com/workers/) | HTTP API (Auth, Workspaces, Manual Drafting, Legal Logic Audit, Impact Scope, Graph, Ask, Upload) và queue consumer. |
+| Xác thực | [Better Auth](https://www.better-auth.com/) (`email + password`) | Đăng ký, đăng nhập, quản lý phiên cookie và phân quyền sở hữu Workspace. |
+| Lưu trữ | [Cloudflare D1](https://developers.cloudflare.com/d1/) và [Cloudflare R2](https://developers.cloudflare.com/r2/) | Lưu dữ liệu auth/workspace/dự thảo/đồ thị/quy tắc và tệp PDF nguồn. |
 | ORM | [Drizzle ORM](https://orm.drizzle.team/) | Khai báo schema TypeScript, sinh migration và truy vấn Cloudflare D1. |
-| Xử lý bất đồng bộ | [Cloudflare Queues](https://developers.cloudflare.com/queues/) | Tách yêu cầu upload khỏi pipeline xử lý nền. |
+| Xử lý bất đồng bộ | [Cloudflare Queues](https://developers.cloudflare.com/queues/) | Tách yêu cầu upload PDF khỏi pipeline trích xuất AI chạy nền. |
 | Công cụ phát triển | [Wrangler](https://developers.cloudflare.com/workers/wrangler/) và TypeScript | Mô phỏng tài nguyên Cloudflare, chạy Worker, kiểm tra kiểu và deploy. |
 
 ### 1. Cài dependency
@@ -189,58 +192,56 @@ Backend deploy riêng: `cd backend && bun run d1:migrate:remote && npx wrangler 
 ### Kiến trúc hiện tại trong repository
 
 ```text
-Trình duyệt (SvelteKit)
+Trình duyệt (SvelteKit — Soạn Luật Studio)
+  ├── /drafting    Bàn soạn thảo cấu trúc + tab Soát logic & Phạm vi tác động live
+  ├── /audit       Trung tâm Soát logic luật & Phân tích phạm vi tác động toàn Workspace
+  ├── /graph       Lược đồ tác động 2 chế độ (Biến động xử phạt & Ảnh hưởng văn bản)
+  ├── /workspaces  Quản lý đa Workspace cô lập theo tài khoản (Better Auth)
+  └── /documents, /violations, /ask, /admin (Nhập PDF AI + Review)
         │
-        │ POST /api/uploads (multipart/form-data)
+        │ Cookie phiên Better Auth + Header X-Workspace-Id
         ▼
-Cloudflare Worker (Elysia)
-        ├── R2 / FILE_STORAGE
-        │     Lưu tệp tại uploads/{jobId}/{filename}
-        ├── D1 / DB
-        │     Lưu metadata, trạng thái và tiến độ job
-        └── Queue / PROCESSING_QUEUE
-              Gửi message { jobId }
-                    │
-                    ▼
-              Queue Consumer
-                    │ cập nhật từng giai đoạn xử lý
-                    ▼
-                   D1
-
-Trình duyệt ── GET /api/jobs/:jobId mỗi 1 giây ──► Worker ──► D1
-Preprocessing LLM ── POST /mcp (token nội bộ) ──► Worker ──► D1 (vocabulary, legal_documents)
+Cloudflare Worker (Elysia API)
+  ├── auth + workspaces    Better Auth (email/password) & phân quyền sở hữu Workspace
+  ├── manual               CRUD dự thảo, Điều/Khoản/Điểm, cạnh quan hệ & xử phạt thủ công
+  ├── analysis             Soát logic luật tất định (16 quy tắc) & Phạm vi tác động (BFS đa tầng)
+  ├── graph                Hợp nhất cạnh AI + Thủ công (2 chế độ)
+  ├── upload + processing  Lưu PDF vào R2 → Queue → LLM đọc theo cụm trang → 6 bước tiền xử lý
+  └── documents, violations, history, ask, mcp
+        ├── D1 / DB             Auth, Workspaces, Dự thảo, Đồ thị, Hành vi, Chế tài, Jobs
+        ├── R2 / FILE_STORAGE   Snapshot PDF nguồn và checkpoint LLM
+        └── Queue               Xử lý PDF và từng stage tiền xử lý bất đồng bộ
 ```
-
-Luồng xử lý:
-
-1. Frontend gửi tệp tới `POST /api/uploads` và hiển thị tiến độ upload theo số byte thực tế.
-2. Backend kiểm tra PDF (header, cấu trúc, không mã hóa, tối đa 50 MB và 300 trang), lưu snapshot vào R2 và tạo bản ghi `processing_jobs` trong D1.
-3. Backend đẩy `{ jobId }` vào Cloudflare Queue.
-4. Queue consumer chia PDF theo cụm trang, gọi LLM đọc từng cụm (checkpoint trong R2), ghép và kiểm tra cấu trúc rồi lưu `legal_documents` trong D1.
-5. Frontend gọi `GET /api/jobs/:jobId` mỗi giây cho đến khi job ở trạng thái `completed` hoặc `needs_review`; JSON lấy qua `GET /api/jobs/:jobId/document`.
-
-D1 là nguồn dữ liệu chuẩn cho trạng thái xử lý. R2 chỉ lưu nội dung tệp, còn Queue đảm nhiệm vận chuyển công việc bất đồng bộ; không thành phần nào trong hai thành phần này thay thế trạng thái bền vững trong D1.
 
 ### Cấu trúc mã nguồn
 
 ```text
 .
 ├── backend/
-│   ├── migrations/             # Schema và migration D1
+│   ├── migrations/             # 15 migration D1 (tới 0014_create_auth_and_workspaces.sql)
 │   ├── src/
-│   │   ├── modules/            # Health, upload, processing (PDF → JSON), MCP, vocabulary, documents
-│   │   ├── plugins/            # Context Cloudflare và auth
-│   │   ├── types/              # Kiểu cho environment/binding
+│   │   ├── modules/
+│   │   │   ├── analysis/       # Soát logic luật (logic-audit.ts) & Phạm vi tác động (impact-scope.ts)
+│   │   │   ├── auth/           # Better Auth (email + password)
+│   │   │   ├── workspaces/     # Multi-workspace isolation & seed dữ liệu lập pháp mẫu
+│   │   │   ├── manual/         # Soạn thảo thủ công văn bản, Điều/Khoản/Điểm và cạnh đồ thị
+│   │   │   ├── graph/          # Lược đồ 2 chế độ (sanction_change & document_influence)
+│   │   │   └── upload, processing, provisions, documents, changes, violations, identity, history, ask, mcp
+│   │   ├── plugins/            # Context Cloudflare và auth session helper
 │   │   ├── app.ts              # Khai báo ứng dụng Elysia
 │   │   └── index.ts            # Worker fetch handler và queue consumer
-│   ├── test/                   # Test backend
+│   ├── test/                   # 36 file test backend (unit + integration + e2e)
 │   └── wrangler.jsonc          # D1, R2, Queue bindings
 ├── web/
 │   └── src/
-│       ├── lib/components/     # Component UI và FileProcessor
-│       └── routes/             # Route SvelteKit
+│       ├── lib/api/            # API client + runtime parsers (analysis, graph, documents, workspaces, ask, violations)
+│       ├── lib/components/     # LogicAuditPanel, ImpactScopePanel, RelationGraph, SiteHeader, UI primitives
+│       └── routes/             # /drafting, /audit, /graph, /workspaces, /login, /documents, /violations, /ask, /admin
 └── docs/
-    ├── srs.md                  # Đặc tả yêu cầu và kiến trúc đích
+    ├── srs.md                  # Đặc tả yêu cầu v1.0 (Soạn thảo · Soát logic · Phạm vi tác động)
+    ├── srs-coverage.md         # Ma trận đối chiếu SRS với mã nguồn
+    ├── query-frontend.md       # Hợp đồng API & hướng dẫn giao diện
+    ├── preprocessing.md        # Pipeline tiền xử lý 6 bước sau đọc PDF
     └── workflow/               # Quy trình theo vai trò
 ```
 
@@ -250,12 +251,8 @@ Các binding được khai báo tại [`backend/wrangler.jsonc`](backend/wrangle
 
 | Binding | Dịch vụ | Trách nhiệm |
 | --- | --- | --- |
-| `DB` | D1 | Lưu metadata và trạng thái hiện tại của job. |
-| `FILE_STORAGE` | R2 | Lưu tệp nguồn theo key của job. |
-| `PROCESSING_QUEUE` | Queues | Gửi và nhận lệnh xử lý bất đồng bộ. |
+| `DB` | D1 | Lưu auth, workspaces, văn bản/dự thảo, đồ thị quan hệ, quy tắc xử phạt và trạng thái job. |
+| `FILE_STORAGE` | R2 | Lưu tệp PDF gốc và checkpoint LLM theo key của job. |
+| `PROCESSING_QUEUE` | Queues | Gửi và nhận lệnh xử lý PDF và từng stage tiền xử lý bất đồng bộ. |
 
-### Kiến trúc đích
-
-Theo [System Design trong SRS](docs/srs.md#5-system-design), hệ thống cuối cùng mở rộng từ nền tảng trên thành pipeline Legal AI: nhập PDF pháp luật (LLM đọc trực tiếp, kể cả bản scan) và kiểm tra quality, tự build đồ thị từ header + toàn văn và thu thập văn bản liên quan, phân tách Điều/Khoản/Điểm, trích xuất quan hệ sửa đổi và chế tài, xác định danh tính hành vi, tái dựng lịch sử quy định, lập chỉ mục tìm kiếm và cung cấp câu trả lời AI có dẫn chiếu nguồn.
-
-Khi triển khai feature mới, SRS là nguồn quyết định cho nghiệp vụ; README này mô tả trạng thái kỹ thuật đang có để hỗ trợ chạy và phát triển local.
+Khi triển khai feature mới, [SRS v1.0](docs/srs.md) là nguồn quyết định cho nghiệp vụ; README này phản ánh chính xác kiến trúc và tính năng đang chạy trong repository.

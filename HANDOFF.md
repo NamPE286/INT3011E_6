@@ -61,3 +61,17 @@ Nhánh `claude/gifted-gauss-9l0xfj`:
 - Failed case (Legal AI): hỏi về quy định đã bị bãi bỏ (đèn chiếu sáng, 01/06/2033) → `UNCERTAIN` đúng nhưng 0/3 lần nói "bãi bỏ", có lần lộ "REPEALED", ngày ISO. Evidence thiếu văn bản bãi bỏ; prompt `grounded-answer-v2` không yêu cầu nói rõ.
 - Lỗi vận hành (không phải failed case Legal AI): Worker không gọi được OpenAI → queue thử 3 lần rồi vào DLQ, nhưng job vẫn `failed` với lỗi thô và trước đây hiện "Lỗi, đang thử lại". Đã đổi nhãn thành "Lỗi"; còn thiếu trạng thái retrying/ghi lỗi cuối và nút thử lại.
 - Sửa 7 lỗi UI/UX ở trang quản trị, header mobile và trạng thái rỗng trang hành vi.
+
+## Định hướng Soạn Luật Studio, Soát Logic Luật & Phạm vi Tác động (25/11/2026)
+
+- **Đã hoàn thiện căn chỉnh tài liệu theo đúng bài toán:** nâng cấp [docs/srs.md](docs/srs.md) lên v1.0 (bổ sung FR-21..FR-25 và AC 33–38 cho soạn thảo luật, soát logic luật, phạm vi tác động và lược đồ 2 chế độ), cập nhật đồng bộ `README.md`, `docs/srs-coverage.md`, `docs/query-frontend.md`, `docs/team-plan-proposal.md`, `docs/preprocessing.md`, `docs/pdf-upload-api.md`.
+- **Backend (`backend/src/modules/analysis/*`):**
+  - `logic-audit.ts`: bộ máy **Soát logic luật tất định** gồm 16 quy tắc thuộc 5 nhóm (`STRUCTURE`, `TEMPORAL`, `REFERENCE`, `SANCTION_CONFLICT`, `DRAFTING_TECHNIQUE`), trả điểm nhất quán `0–100`, trạng thái `PASS / WARNING / FAIL`, bằng chứng và gợi ý sửa kèm `provisionId`/`relatedDocumentId`.
+  - `impact-scope.ts`: bộ máy **Phân tích phạm vi tác động** tính tác động trực tiếp (tầng 1), lan truyền dây chuyền đa tầng (BFS `1..5` tầng qua `GUIDES`/`DETAILS`/`LEGAL_BASIS`/`REFERENCES`/`AMENDS`), điều khoản bị tác động, biến động khung chế tài, nhóm đối tượng, `unresolvedFrontier` và `synchronizationChecklist`.
+  - Routes mới (cô lập theo `workspace_id`): `GET /api/documents/:documentId/audit`, `GET /api/documents/:documentId/impact?max_depth=`, `GET /api/workspace/audit-summary`.
+  - Bổ sung Thông tư hướng dẫn `73/2024/TT-BCA` (`GUIDES` `168/2024/NĐ-CP`) và cạnh điều khoản `Dự thảo 01/2026 → 168/2024` vào dữ liệu mẫu Workspace để demo tác động trực tiếp + dây chuyền ngay sau khi đăng nhập.
+- **Frontend (`web/`):**
+  - Thêm `LogicAuditPanel.svelte`, `ImpactScopePanel.svelte` và trang chuyên dụng `/audit` (**Trung tâm Soát Logic Luật & Phạm vi Tác động**).
+  - Nâng cấp `/drafting`: thêm tab live **Soát logic** (bấm "Sửa điều khoản" nhảy thẳng vào chỉnh sửa điều khoản lỗi), tab live **Phạm vi tác động**, chỉnh sửa metadata/ngày hiệu lực inline và hỗ trợ `?document=`.
+  - Cập nhật `SiteHeader.svelte`, trang chủ `+page.svelte` và `/documents/[id]` để liên kết xuyên suốt Soạn thảo ↔ Soát logic & Tác động ↔ Lược đồ 2 chế độ.
+- **Kiểm tra:** Backend `324 pass / 0 fail` + `tsc --noEmit` pass; Frontend `92 pass / 0 fail` + `svelte-check` 0 errors + `bun run build` pass.
