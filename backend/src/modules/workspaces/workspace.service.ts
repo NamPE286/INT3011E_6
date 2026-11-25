@@ -234,6 +234,7 @@ export async function seedSampleLegislativeDataset(db: D1Database, workspaceId: 
     const doc100 = `${workspaceId}-doc-nd100`;
     const doc123 = `${workspaceId}-doc-nd123`;
     const doc168 = `${workspaceId}-doc-nd168`;
+    const docTt73 = `${workspaceId}-doc-tt73`;
     const docDraft = `${workspaceId}-doc-draft2026`;
 
     const documents = [
@@ -267,6 +268,17 @@ export async function seedSampleLegislativeDataset(db: D1Database, workspaceId: 
             type: "Nghị định",
             agency: "Chính phủ",
             issuedAt: "2024-12-26",
+            effectiveFrom: "2025-01-01",
+            model: "AI_EXTRACTED",
+        },
+        {
+            id: docTt73,
+            title: "Thông tư quy định công tác tuần tra, kiểm soát, xử lý vi phạm pháp luật về trật tự, an toàn giao thông đường bộ",
+            number: "73/2024/TT-BCA",
+            normalized: "73/2024/TT-BCA",
+            type: "Thông tư",
+            agency: "Bộ Công an",
+            issuedAt: "2024-11-15",
             effectiveFrom: "2025-01-01",
             model: "AI_EXTRACTED",
         },
@@ -365,7 +377,8 @@ export async function seedSampleLegislativeDataset(db: D1Database, workspaceId: 
         { id: `${workspaceId}-dr-1`, from: doc123, to: doc100, type: "AMENDS", scope: "PARTIAL", mode: "AI", note: "Sửa đổi, bổ sung một số điều của Nghị định 100/2019/NĐ-CP" },
         { id: `${workspaceId}-dr-2`, from: doc168, to: doc100, type: "REPLACES", scope: "FULL", mode: "AI", note: "Thay thế các quy định xử phạt giao thông đường bộ tại Nghị định 100/2019/NĐ-CP" },
         { id: `${workspaceId}-dr-3`, from: doc168, to: doc123, type: "REPEALS", scope: "PARTIAL", mode: "AI", note: "Bãi bỏ các điều khoản sửa đổi giao thông đường bộ của Nghị định 123/2021/NĐ-CP" },
-        { id: `${workspaceId}-dr-4`, from: docDraft, to: doc168, type: "AMENDS", scope: "PARTIAL", mode: "MANUAL", note: "Dự thảo sửa đổi Điều 6 Nghị định 168/2024/NĐ-CP về vi phạm cao tốc" },
+        { id: `${workspaceId}-dr-4`, from: docTt73, to: doc168, type: "GUIDES", scope: "PARTIAL", mode: "AI", note: "Hướng dẫn quy trình tuần tra, xử lý vi phạm và trừ điểm GPLX theo Nghị định 168/2024/NĐ-CP" },
+        { id: `${workspaceId}-dr-5`, from: docDraft, to: doc168, type: "AMENDS", scope: "PARTIAL", mode: "MANUAL", note: "Dự thảo sửa đổi Điều 6 Nghị định 168/2024/NĐ-CP về vi phạm cao tốc" },
     ];
 
     for (const rel of docRelations) {
@@ -400,6 +413,27 @@ export async function seedSampleLegislativeDataset(db: D1Database, workspaceId: 
             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'AMENDS', 'điểm a khoản 5 Điều 5', 'ACCEPTED', 'EXPLICIT', 'Nâng mức phạt không chấp hành đèn tín hiệu từ 3-5 triệu lên 4-6 triệu.', '2022-01-01', 'AI', '1.0', 'AI', ?)`,
         )
         .bind(`${workspaceId}-pr-1`, workspaceId, `${workspaceId}-ci-1`, doc123, `${doc123}:d2k3`, doc100, `${doc100}:d5k5da`, now)
+        .run();
+
+    await db
+        .prepare(
+            `INSERT INTO change_instructions (
+                id, source_document_id, source_provision_id, operation, raw_text, raw_target_citation,
+                target_document_id, target_scope, resolution_status, resolution_reason, method, extractor_version, created_at
+            ) VALUES (?, ?, ?, 'AMEND', 'Sửa đổi khoản 7 Điều 6 Nghị định 168/2024/NĐ-CP', 'khoản 7 Điều 6', ?, 'PROVISION', 'RESOLVED', 'seed', 'MANUAL', '1.0', ?)`,
+        )
+        .bind(`${workspaceId}-ci-2`, docDraft, `${docDraft}:d1k1`, doc168, now)
+        .run();
+
+    await db
+        .prepare(
+            `INSERT INTO provision_relations (
+                id, workspace_id, change_instruction_id, from_document_id, from_provision_id,
+                to_document_id, to_provision_id, relation_type, target_locator, verification_status,
+                evidence_level, evidence_text, effective_from, method, extractor_version, source_mode, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'AMENDS', 'khoản 7 Điều 6', 'ACCEPTED', 'MANUAL', 'Điều chỉnh khung phạt dừng, đỗ xe trái phép trên đường cao tốc lên 14–18 triệu và trừ 08 điểm GPLX.', '2026-10-01', 'MANUAL', '1.0', 'MANUAL', ?)`,
+        )
+        .bind(`${workspaceId}-pr-2`, workspaceId, `${workspaceId}-ci-2`, docDraft, `${docDraft}:d1k1`, doc168, `${doc168}:d6k7`, now)
         .run();
 
     // Seed Sanction Change Edges (Mode 1: Penalty / Sanction Escalation & Shifts)

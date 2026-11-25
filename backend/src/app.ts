@@ -20,6 +20,7 @@ import { graphModule } from "./modules/graph/graph.route";
 import { authModule } from "./modules/auth/auth.route";
 import { workspaceModule } from "./modules/workspaces/workspace.route";
 import { manualModule } from "./modules/manual/manual.route";
+import { analysisModule } from "./modules/analysis/analysis.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -35,6 +36,7 @@ export const app = new Elysia({ aot: false })
     .use(authModule)
     .use(workspaceModule)
     .use(manualModule)
+    .use(analysisModule)
     .use(healthModule)
     .use(uploadModule)
     .use(processingModule)
