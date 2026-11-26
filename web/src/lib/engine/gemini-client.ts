@@ -208,6 +208,18 @@ export async function callGeminiDecisions(
 ): Promise<{ answers: Record<string, DecisionAnswer>; usage: GeminiUsage }> {
     const baseUrl = normalizeGeminiBaseUrl(request.apiBaseUrl);
     const fetcher = request.fetcher ?? fetch;
+    const sanitizedQuestions: Record<string, Record<string, unknown>> = {};
+
+    for (const [key, question] of Object.entries(request.questions)) {
+        if (question.type === "noul") {
+            sanitizedQuestions[key] = {
+                type: "noul",
+                instructions: question.instructions,
+            };
+        } else {
+            sanitizedQuestions[key] = question;
+        }
+    }
 
     const response = await fetchWithTransientRetry(`${baseUrl}/v1beta/decisions`, {
         method: "POST",
@@ -219,7 +231,7 @@ export async function callGeminiDecisions(
         body: JSON.stringify({
             model: GEMINI_DECISION_MODEL,
             input: request.input,
-            questions: request.questions,
+            questions: sanitizedQuestions,
         }),
     }, fetcher, !request.fetcher);
 

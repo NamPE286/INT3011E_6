@@ -899,6 +899,7 @@
                     totalTokens: sessionTokenUsage.totalTokens + runTokens,
                     lastRunTokens: runTokens,
                     savedPercent: next.lean?.tokenStats.savedPercent ?? sessionTokenUsage.savedPercent,
+                    llmCalls: (sessionTokenUsage.llmCalls ?? 0) + (runTokens > 0 ? 1 : 0),
                 };
             } else {
                 sessionTokenUsage = {
@@ -1375,10 +1376,26 @@
                 currentPath: activeFilePath,
                 ambiguityOverrides: overrides,
                 useAi,
+                useDecisionGate: useAi,
                 apiKey: localSettings.apiKey,
                 apiBaseUrl: localSettings.apiBaseUrl,
                 model: localSettings.model,
             });
+
+            if (debugResult.tokenUsage && (debugResult.tokenUsage.totalTokens > 0 || (debugResult.llmCalls ?? 0) > 0)) {
+                const runInput = debugResult.tokenUsage.inputTokens + (debugResult.tokenUsage.decisionInputTokens ?? 0);
+                const runOutput = debugResult.tokenUsage.outputTokens;
+                const runTotal = debugResult.tokenUsage.totalTokens;
+
+                sessionTokenUsage = {
+                    inputTokens: sessionTokenUsage.inputTokens + runInput,
+                    outputTokens: sessionTokenUsage.outputTokens + runOutput,
+                    totalTokens: sessionTokenUsage.totalTokens + runTotal,
+                    lastRunTokens: runTotal,
+                    savedPercent: sessionTokenUsage.savedPercent,
+                    llmCalls: (sessionTokenUsage.llmCalls ?? 0) + (debugResult.llmCalls ?? 0),
+                };
+            }
         } catch (cause: unknown) {
             if (isGeminiInvalidApiKeyError(cause)) {
                 handleInvalidApiKey();
@@ -1455,6 +1472,7 @@
                 totalTokens: sessionTokenUsage.totalTokens + result.usage.totalTokens,
                 lastRunTokens: result.usage.totalTokens,
                 savedPercent: sessionTokenUsage.savedPercent,
+                llmCalls: (sessionTokenUsage.llmCalls ?? 0) + 1,
             };
 
             const nextContent = applyQuickFix(content, result.fix);

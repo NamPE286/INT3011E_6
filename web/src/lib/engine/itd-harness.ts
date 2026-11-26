@@ -319,6 +319,13 @@ export async function runItdLiveJudge(input: ItdLiveJudgeInput): Promise<ItdLive
     const usage = sim.tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, decisionInputTokens: 0 };
     const llmCalls = sim.llmCalls ?? 0;
 
+    const hasFlashTokens = usage.inputTokens > 0 || usage.outputTokens > 0;
+    const modelUsed = hasFlashTokens
+        ? (input.model ?? DEFAULT_GEMINI_MODEL)
+        : llmCalls > 0
+            ? "gemini-decision-1"
+            : "deterministic-lean";
+
     return {
         output: {
             caseId: input.caseId,
@@ -337,7 +344,7 @@ export async function runItdLiveJudge(input: ItdLiveJudgeInput): Promise<ItdLive
             decisionInputTokens: usage.decisionInputTokens ?? 0,
             llmCalls,
             durationMs,
-            modelUsed: llmCalls > 0 ? (input.model ?? DEFAULT_GEMINI_MODEL) : "deterministic-lean",
+            modelUsed,
         },
     };
 }

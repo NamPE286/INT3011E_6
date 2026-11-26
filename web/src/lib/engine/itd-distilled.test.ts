@@ -330,4 +330,225 @@ describe("ITD Distilled Engine Capabilities (Red -> Green)", () => {
         expect(res.usage.outputTokens).toBe(0);
         expect(res.usage.modelUsed).toBe("gemini-decision-1");
     });
+
+    it("records both LP002 and AM005 in multi-violation PARTIALLY_ENFORCEABLE scenarios (JG-DEV-MV04)", async () => {
+        const draft = [
+            "Nghị định số 168/2024/NĐ-CP quy định xử phạt vi phạm hành chính về giao thông đường bộ",
+            "Điều 2. Xử phạt người điều khiển xe mô tô",
+            "1. Phạt tiền từ 400.000 đồng đến 600.000 đồng đối với người điều khiển xe mô tô không đội mũ bảo hiểm.",
+            "Điều 3. Xử phạt hành vi bị nghiêm cấm",
+            "1. Nghiêm cấm tự ý can thiệp phần mềm hệ thống hỗ trợ lái của xe mô tô điện.",
+            "Điều 4. Hiệu lực thi hành",
+            "1. Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2025.",
+        ].join("\n");
+
+        const judgeRes = await runItdLiveJudge({
+            caseId: "UNIT-JG-MV04",
+            draftContent: draft,
+            scenario: "Anh D đi xe máy không đội mũ bảo hiểm và tự ý can thiệp phần mềm hệ thống hỗ trợ lái của xe mô tô điện.",
+        });
+
+        expect(judgeRes.output.outcome).toBe("PARTIALLY_ENFORCEABLE");
+        expect(judgeRes.output.abstained).toBe(false);
+        expect(judgeRes.output.applicableFine).toEqual({ min: 400_000, max: 600_000 });
+        expect(judgeRes.output.detectedDefectCodes).toContain("LP002");
+        expect(judgeRes.output.detectedDefectCodes).toContain("AM005");
+        expect(judgeRes.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 2")).toBe(true);
+        expect(judgeRes.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 3")).toBe(true);
+        expect(judgeRes.usage.llmCalls).toBe(0);
+    });
+
+    it("escalates missed secondary violation in compound scenarios via Channel 3 Decision API (without noul criteria) + Channel 4 mapper", async () => {
+        const contractDraft = [
+            "Hợp đồng thi công xây dựng số 08/2026/HĐXD",
+            "Điều 1. Vi phạm tiến độ thi công",
+            "1. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với cá nhân và tổ chức chậm tiến độ thi công từ 10 ngày đến 30 ngày.",
+            "Điều 2. Vi phạm chất lượng vật tư",
+            "1. Phạt tiền từ 15.000.000 đồng đến 25.000.000 đồng đối với cá nhân và tổ chức sử dụng vật tư không bảo đảm chất lượng theo hồ sơ thiết kế.",
+            "Điều 3. Hiệu lực thi hành",
+            "1. Hợp đồng này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2026.",
+        ].join("\n");
+
+        const decisionBodies: Record<string, unknown>[] = [];
+        let flashCalls = 0;
+
+        const fakeFetchEscalate = (async (url: string, init?: RequestInit) => {
+            if (url.includes("/v1beta/decisions")) {
+                const parsed = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+                decisionBodies.push(parsed);
+
+                return new Response(
+                    JSON.stringify({
+                        answers: { missed_secondary_violation: { type: "noul", noul: 0.89, confidence: 0.91 } },
+                        usage: { total_input_tokens: 145, total_output_tokens: 0, total_tokens: 145 },
+                    }),
+                    { status: 200, headers: { "content-type": "application/json" } },
+                );
+            }
+
+            flashCalls += 1;
+
+            return new Response(
+                JSON.stringify({
+                    output_text: JSON.stringify({ matchedProvisionRefs: ["Khoản 1 Điều 2"] }),
+                    usage: { total_input_tokens: 190, total_output_tokens: 24, total_tokens: 214 },
+                }),
+                { status: 200, headers: { "content-type": "application/json" } },
+            );
+        }) as unknown as typeof fetch;
+
+        const escalated = await runItdLiveJudge({
+            caseId: "UNIT-JG-SEC-01",
+            draftContent: contractDraft,
+            scenario: "Nhà thầu vừa chậm tiến độ thi công 15 ngày, vừa tự ý tráo chủng loại thép sai bản vẽ kỹ thuật.",
+            useAi: true,
+            apiKey: "unit-test-only",
+            fetcher: fakeFetchEscalate,
+        });
+
+        expect(decisionBodies).toHaveLength(1);
+        const questions = decisionBodies[0].questions as Record<string, Record<string, unknown>>;
+        expect(questions.missed_secondary_violation?.type).toBe("noul");
+        expect("criteria" in (questions.missed_secondary_violation ?? {})).toBe(false);
+        expect(flashCalls).toBe(1);
+        expect(escalated.output.outcome).toBe("GUILTY_SANCTIONED");
+        expect(escalated.output.applicableFine).toEqual({ min: 20_000_000, max: 35_000_000 });
+        expect(escalated.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 1")).toBe(true);
+        expect(escalated.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 2")).toBe(true);
+        expect(escalated.usage.llmCalls).toBe(2);
+        expect(escalated.usage.decisionInputTokens).toBe(145);
+        expect(escalated.usage.inputTokens).toBe(190);
+        expect(escalated.usage.outputTokens).toBe(24);
+
+        // When Decision API rejects secondary violation (low noul), Channel 4 must NOT be called
+        let rejectedFlashCalls = 0;
+
+        const fakeFetchReject = (async (url: string) => {
+            if (url.includes("/v1beta/decisions")) {
+                return new Response(
+                    JSON.stringify({
+                        answers: { missed_secondary_violation: { type: "noul", noul: 0.11, confidence: 0.93 } },
+                        usage: { total_input_tokens: 140, total_output_tokens: 0, total_tokens: 140 },
+                    }),
+                    { status: 200, headers: { "content-type": "application/json" } },
+                );
+            }
+
+            rejectedFlashCalls += 1;
+
+            return new Response("{}", { status: 500 });
+        }) as unknown as typeof fetch;
+
+        const gated = await runItdLiveJudge({
+            caseId: "UNIT-JG-SEC-02",
+            draftContent: contractDraft,
+            scenario: "Nhà thầu vừa chậm tiến độ thi công 15 ngày, vừa gửi công văn xin gia hạn lịch nghiệm thu.",
+            useAi: true,
+            apiKey: "unit-test-only",
+            fetcher: fakeFetchReject,
+        });
+
+        expect(rejectedFlashCalls).toBe(0);
+        expect(gated.output.outcome).toBe("GUILTY_SANCTIONED");
+        expect(gated.output.applicableFine).toEqual({ min: 5_000_000, max: 10_000_000 });
+        expect(gated.usage.llmCalls).toBe(1);
+        expect(gated.usage.decisionInputTokens).toBe(140);
+        expect(gated.usage.modelUsed).toBe("gemini-decision-1");
+    });
+
+    it("detects Vietnamese organization entities with Unicode boundaries (hợp tác xã, ngân hàng) while keeping hộ kinh doanh cá nhân as individual", async () => {
+        const draft = [
+            "Nghị định xử phạt vi phạm hành chính",
+            "Điều 1. Nguyên tắc xử phạt",
+            "1. Đối với cùng một hành vi vi phạm hành chính thì mức phạt tiền đối với tổ chức bằng 02 lần mức phạt tiền đối với cá nhân.",
+            "Điều 2. Xử phạt chậm báo cáo",
+            "1. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với cá nhân chậm nộp báo cáo định kỳ từ 05 ngày đến 15 ngày.",
+        ].join("\n");
+
+        const coopRes = await runLocalDebugSimulation({
+            content: draft,
+            scenario: "Hợp tác xã Minh Long chậm nộp báo cáo định kỳ 10 ngày.",
+        });
+
+        expect(coopRes.verdict.outcome).toBe("GUILTY_SANCTIONED");
+        expect(coopRes.verdict.applicableFine).toEqual({ min: 10_000_000, max: 20_000_000 });
+
+        const bankRes = await runLocalDebugSimulation({
+            content: draft,
+            scenario: "Ngân hàng TMCP Bắc Á chậm nộp báo cáo định kỳ 10 ngày.",
+        });
+
+        expect(bankRes.verdict.outcome).toBe("GUILTY_SANCTIONED");
+        expect(bankRes.verdict.applicableFine).toEqual({ min: 10_000_000, max: 20_000_000 });
+
+        const householdRes = await runLocalDebugSimulation({
+            content: draft,
+            scenario: "Ông C là hộ kinh doanh cá nhân chậm nộp báo cáo định kỳ 10 ngày.",
+        });
+
+        expect(householdRes.verdict.outcome).toBe("GUILTY_SANCTIONED");
+        expect(householdRes.verdict.applicableFine).toEqual({ min: 5_000_000, max: 10_000_000 });
+    });
+
+    it("resolves secondary violations directly via Channel 3 per-clause noul answers with 0 output tokens and strips criteria from noul questions", async () => {
+        const contractDraft = [
+            "Hợp đồng thi công xây dựng số 08/2026/HĐXD",
+            "Điều 1. Vi phạm tiến độ thi công",
+            "1. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với cá nhân và tổ chức chậm tiến độ thi công từ 10 ngày đến 30 ngày.",
+            "Điều 2. Vi phạm chất lượng vật tư",
+            "1. Phạt tiền từ 15.000.000 đồng đến 25.000.000 đồng đối với cá nhân và tổ chức sử dụng vật tư không bảo đảm chất lượng theo hồ sơ thiết kế.",
+            "Điều 3. Hiệu lực thi hành",
+            "1. Hợp đồng này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2026.",
+        ].join("\n");
+
+        let flashCalls = 0;
+
+        const fakeFetchDirect = (async (url: string, init?: RequestInit) => {
+            if (url.includes("/v1beta/decisions")) {
+                const body = JSON.parse(String(init?.body ?? "{}")) as {
+                    questions?: Record<string, Record<string, unknown>>;
+                };
+
+                for (const question of Object.values(body.questions ?? {})) {
+                    if (question.type === "noul") {
+                        expect("criteria" in question).toBe(false);
+                    }
+                }
+
+                return new Response(
+                    JSON.stringify({
+                        answers: {
+                            missed_secondary_violation: { type: "noul", noul: 0.94, confidence: 0.95 },
+                            p0: { type: "noul", noul: 0.96, confidence: 0.96 },
+                        },
+                        usage: { total_input_tokens: 390, total_output_tokens: 0, total_tokens: 390 },
+                    }),
+                    { status: 200, headers: { "content-type": "application/json" } },
+                );
+            }
+
+            flashCalls += 1;
+
+            return new Response("{}", { status: 500 });
+        }) as unknown as typeof fetch;
+
+        const directRes = await runItdLiveJudge({
+            caseId: "UNIT-JG-SEC-DIRECT",
+            draftContent: contractDraft,
+            scenario: "Nhà thầu vừa chậm tiến độ thi công 15 ngày, vừa tự ý tráo chủng loại thép sai bản vẽ kỹ thuật.",
+            useAi: true,
+            apiKey: "unit-test-only",
+            fetcher: fakeFetchDirect,
+        });
+
+        expect(flashCalls).toBe(0);
+        expect(directRes.output.outcome).toBe("GUILTY_SANCTIONED");
+        expect(directRes.output.applicableFine).toEqual({ min: 20_000_000, max: 35_000_000 });
+        expect(directRes.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 1")).toBe(true);
+        expect(directRes.output.citations.some((c) => c.provisionRef === "Khoản 1 Điều 2")).toBe(true);
+        expect(directRes.usage.llmCalls).toBe(1);
+        expect(directRes.usage.outputTokens).toBe(0);
+        expect(directRes.usage.decisionInputTokens).toBe(390);
+        expect(directRes.usage.modelUsed).toBe("gemini-decision-1");
+    });
 });

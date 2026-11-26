@@ -513,6 +513,17 @@ export function parseDebugSimulationResult(value: unknown): DebugSimulationResul
     const trace = (readArray(value, "trace") ?? []).map(parseDebugStep).filter((item): item is DebugTraceStep => item !== null);
     const ambiguities = (readArray(value, "ambiguities") ?? []).map(parseAmbiguityItem).filter((item): item is AmbiguityDecisionItem => item !== null);
 
+    const rawUsage = isRecord(value.tokenUsage) ? value.tokenUsage : null;
+    const tokenUsage = rawUsage
+        ? {
+            inputTokens: readNumber(rawUsage, "inputTokens") ?? 0,
+            outputTokens: readNumber(rawUsage, "outputTokens") ?? 0,
+            totalTokens: readNumber(rawUsage, "totalTokens") ?? 0,
+            decisionInputTokens: readNumber(rawUsage, "decisionInputTokens") ?? 0,
+        }
+        : undefined;
+    const llmCalls = readNumber(value, "llmCalls") ?? undefined;
+
     return {
         scenario,
         extractedFacts,
@@ -522,6 +533,8 @@ export function parseDebugSimulationResult(value: unknown): DebugSimulationResul
         workspaceOnly: readBoolean(value, "workspaceOnly") ?? true,
         method: value.method === "LEAN_PLUS_AI" ? "LEAN_PLUS_AI" : "LEAN_SYMBOLIC",
         durationMs,
+        ...(tokenUsage ? { tokenUsage } : {}),
+        ...(llmCalls !== undefined ? { llmCalls } : {}),
     };
 }
 
@@ -1097,12 +1110,59 @@ function parseJudgeVerdict(value: unknown): JudgeVerdict | null {
         })
         .filter((item): item is ExploitedDefect => item !== null);
 
+    const nonMonetarySanctions = (readArray(value, "nonMonetarySanctions") ?? [])
+        .map((item) => {
+            if (!isRecord(item)) {
+                return null;
+            }
+
+            const kind = readString(item, "kind");
+            const label = readString(item, "label");
+
+            if (!kind || !label) {
+                return null;
+            }
+
+            return {
+                kind,
+                label,
+                minMonths: readNumber(item, "minMonths"),
+                maxMonths: readNumber(item, "maxMonths"),
+                provisionRef: readString(item, "provisionRef"),
+            };
+        })
+        .filter((item): item is NonNullable<JudgeVerdict["nonMonetarySanctions"]>[number] => item !== null);
+    const citations = (readArray(value, "citations") ?? [])
+        .map((item) => {
+            if (!isRecord(item)) {
+                return null;
+            }
+
+            const provisionRef = readString(item, "provisionRef");
+            const verbatimQuote = readString(item, "verbatimQuote");
+
+            if (!provisionRef || !verbatimQuote) {
+                return null;
+            }
+
+            return {
+                provisionRef,
+                verbatimQuote,
+                sourceDocument: readString(item, "sourceDocument"),
+            };
+        })
+        .filter(
+            (item): item is { provisionRef: string; verbatimQuote: string; sourceDocument: string | null } => item !== null,
+        );
+
     return {
         outcome,
         outcomeLabel,
         summary,
         applicableFine,
         additionalSanctions,
+        ...(nonMonetarySanctions.length > 0 ? { nonMonetarySanctions } : {}),
+        ...(citations.length > 0 ? { citations } : {}),
         exploitedDefects,
         judicialReasoning,
         lawmakerAction,

@@ -90,9 +90,19 @@ type ScenarioFacts = {
 };
 
 const MEASUREMENT_PATTERN = new RegExp(`(\\d+(?:[.,]\\d+)*)\\s*${UNIT_PATTERN}(?![\\p{L}\\p{N}])`, "giu");
-const ORG_HINT = /\b(?:công ty|doanh nghiệp|tổ chức|hợp tác xã|tập đoàn)\b/iu;
+const EXPLICIT_CORPORATE_HINT = /(?<![\p{L}])(?:công\s+ty|tổng\s+công\s+ty|doanh\s+nghiệp|tổ\s+chức|hợp\s+tác\s+xã|tập\s+đoàn|ngân\s+hàng|quỹ\s+tín\s+dụng|chi\s+nhánh|nhà\s+máy|xí\s+nghiệp)(?![\p{L}])/iu;
+const ORG_ROLE_HINT = /(?<![\p{L}])(?:cơ\s+sở\s+sản\s+xuất|đơn\s+vị\s+thi\s+công|tổng\s+thầu|nhà\s+thầu)(?![\p{L}])/iu;
+const INDIVIDUAL_OVERRIDE_HINT = /(?<![\p{L}])(?:hộ\s+kinh\s+doanh(?:\s+cá\s+nhân)?|hộ\s+cá\s+thể|cá\s+nhân)(?![\p{L}])/iu;
 const EXCEPTION_HINT = /(trường hợp đặc biệt|lý do chính đáng|trường hợp cần thiết|bất khả kháng)/iu;
 const MISSING_QUANT_HINT = /(?:không\s+nêu\s+rõ|không\s+ghi\s+rõ|chưa\s+đo\s+đạc|chưa\s+xác\s+định|chưa\s+cân|chưa\s+rõ\s+mức\s+độ|không\s+rõ\s+bao\s+nhiêu)/iu;
+const META_ARTICLE_TITLE = /hiệu\s+lực|giải\s+thích\s+từ\s+ngữ|nguyên\s+tắc|tổ\s+chức\s+thực\s+hiện|điều\s+khoản\s+thi\s+hành/iu;
+const PROHIBITION_NODE_HINT = /(?<![\p{L}])(?:nghiêm\s+cấm|không\s+được\s+phép|cấm)(?![\p{L}])/iu;
+const ARTICLE_BODY_SANCTION_HINT = /(?:phạt\s+tiền|phạt\s+cảnh\s+cáo|phạt\s+tù|tù\s+chung\s+thân|tử\s+hình|cải\s+tạo\s+không\s+giam\s+giữ|cấm\s+đảm\s+nhiệm|cấm\s+hành\s+nghề|đình\s+chỉ\s+hoạt\s+động|tước\s+quyền|tịch\s+thu|buộc\s+|bị\s+xử\s+lý|chịu\s+trách\s+nhiệm|xử\s+phạt\s+(?:theo|từ|bằng|đối\s+với|vi\s+phạm)|quy\s+định\s+tại\s+Điều)/iu;
+const MULTI_ACTION_STRONG_HINT = /(?<![\p{L}])(?:vừa\s+[^.;]{2,140}\s+vừa|đồng\s+thời|cùng\s+lúc|ngoài\s+ra|bên\s+cạnh\s+đó|thêm\s+vào\s+đó|kiêm\s+hành\s+vi)(?![\p{L}])/iu;
+const MULTI_ACTION_COORDINATING_HINT = /(?<![\p{L}])(?:và|cũng\s+như)(?![\p{L}])/iu;
+const SINGLE_ACTION_DEFENSE_AND = /(?<![\p{L}])và\s+(?:viện\s+dẫn|yêu\s+cầu|trình\s+bày|khai\s+báo|giải\s+thích|đề\s+nghị|không\s+gây)(?![\p{L}])/iu;
+const DECISION_ESCALATE_MIN_NOUL = 0.72;
+const DECISION_ESCALATE_MIN_CONFIDENCE = 0.75;
 
 const STOPWORDS = new Set([
     "người", "điều", "khiển", "phương", "tiện", "tham", "giao", "thông", "trên", "đường",
@@ -119,7 +129,11 @@ const JUDGE_AI_SCHEMA: Record<string, unknown> = {
 };
 
 const CLAUSE_MAPPER_SYSTEM_PROMPT = `Bạn là trợ lý pháp lý. Cho danh sách các điều khoản (provisionRef + nội dung) trong dự thảo và một tình huống thực tế.
-Hãy chọn tối đa 3 provisionRef khớp nhất với hành vi trong tình huống. Nếu không có điều khoản nào khớp, trả về mảng rỗng.`;
+Hãy chọn tối đa 3 provisionRef khớp nhất với hành vi trong tình huống (kể cả khi dùng từ đồng nghĩa hoặc diễn đạt khác). Nếu không có điều khoản nào khớp, trả về mảng rỗng.`;
+
+const SECONDARY_MAPPER_SYSTEM_PROMPT = `Bạn là trợ lý pháp lý. Một phần hành vi trong tình huống đã khớp với ALREADY_MATCHED.
+Hãy chỉ chọn tối đa 2 provisionRef từ danh sách OTHER_PROVISIONS tương ứng với hành vi vi phạm PHỤ bị bỏ sót trong tình huống (kể cả dùng từ đồng nghĩa).
+KHÔNG lặp lại điều khoản đã khớp và KHÔNG chọn mức ngưỡng khác của cùng một hành vi. Nếu không có hành vi phụ nào khớp, trả về mảng rỗng.`;
 
 const CLAUSE_MAPPER_SCHEMA: Record<string, unknown> = {
     type: "object",
@@ -269,68 +283,164 @@ export async function runLocalDebugSimulation(input: DebugSimulationInput): Prom
 
     let method: "LEAN_SYMBOLIC" | "LEAN_PLUS_AI" = "LEAN_SYMBOLIC";
 
-    if (
-        input.useAi
-        && input.apiKey
-        && input.apiKey.trim().length > 0
-        && trace.length === 0
-        && evaluatedNumericNodeIds.size === 0
-    ) {
-        let shouldEscalateToMapper = true;
+    if (input.useAi && input.apiKey && input.apiKey.trim().length > 0) {
+        const substantiveNodes = getSubstantiveClauseNodes(draft);
 
-        if (input.useDecisionGate) {
-            const gate = await triageScenarioWithDecisionApi(draft, input.scenario, {
-                apiKey: input.apiKey,
-                apiBaseUrl: input.apiBaseUrl,
-                fetcher: input.fetcher,
-            });
-            tokenUsage.decisionInputTokens = (tokenUsage.decisionInputTokens ?? 0) + gate.decisionInputTokens;
-            tokenUsage.totalTokens += gate.decisionInputTokens;
+        if (trace.length === 0) {
+            const remainingCandidates = substantiveNodes.filter((node) => !evaluatedNumericNodeIds.has(node.id));
 
-            if (gate.called) {
-                llmCalls += 1;
+            if (remainingCandidates.length > 0) {
+                let shouldEscalateToMapper = true;
+                let directNodes: ParsedNode[] = [];
+
+                if (input.useDecisionGate) {
+                    const gate = await triageScenarioWithDecisionApi(remainingCandidates, input.scenario, {
+                        apiKey: input.apiKey,
+                        apiBaseUrl: input.apiBaseUrl,
+                        fetcher: input.fetcher,
+                    });
+                    tokenUsage.decisionInputTokens = (tokenUsage.decisionInputTokens ?? 0) + gate.decisionInputTokens;
+                    tokenUsage.totalTokens += gate.decisionInputTokens;
+
+                    if (gate.called) {
+                        llmCalls += 1;
+                    }
+
+                    directNodes = gate.directNodes;
+                    shouldEscalateToMapper = gate.shouldEscalate && directNodes.length === 0;
+                }
+
+                let resolvedNodes = directNodes;
+
+                if (shouldEscalateToMapper) {
+                    const mapped = await mapScenarioToClausesWithAi(remainingCandidates, input.scenario, {
+                        apiKey: input.apiKey,
+                        apiBaseUrl: input.apiBaseUrl,
+                        model: input.model ?? DEFAULT_GEMINI_MODEL,
+                        fetcher: input.fetcher,
+                    });
+
+                    if (mapped.usage) {
+                        tokenUsage.inputTokens += mapped.usage.inputTokens;
+                        tokenUsage.outputTokens += mapped.usage.outputTokens;
+                        tokenUsage.totalTokens += mapped.usage.totalTokens;
+                        llmCalls += 1;
+                    }
+
+                    resolvedNodes = mapped.nodes;
+                }
+
+                if (resolvedNodes.length > 0) {
+                    method = "LEAN_PLUS_AI";
+                    evaluateClauseList(
+                        draft,
+                        input.scenario,
+                        resolvedNodes,
+                        facts,
+                        thresholds,
+                        fineRanges,
+                        nonMonetaryAll,
+                        analysis.diagnostics,
+                        overrides,
+                        hasOrgConversionClause,
+                        crossDocEffects,
+                        trace,
+                        ambiguities,
+                        exploitedDefects,
+                        matchedFine,
+                        additionalSanctions,
+                        nonMonetarySanctions,
+                        citations,
+                    );
+                }
             }
+        } else if (input.useDecisionGate) {
+            const hasConflictOrAbstention = trace.some(
+                (step) => step.status === "CONFLICT_HIT" || step.status === "AMBIGUOUS_BRANCH",
+            );
+            const matchedInfo = collectMatchedNodeInfo(draft, trace, evaluatedNumericNodeIds);
+            const matchedThresholdArticles = new Set(
+                matchedInfo.matchedNodes
+                    .filter((node) => node.articleNo && thresholds.some((th) => th.articleNo === node.articleNo))
+                    .map((node) => node.articleNo!),
+            );
+            const remainingCandidates = substantiveNodes.filter(
+                (node) =>
+                    !matchedInfo.excludedNodeIds.has(node.id)
+                    && !(node.articleNo && matchedThresholdArticles.has(node.articleNo)),
+            );
 
-            shouldEscalateToMapper = gate.shouldEscalate;
-        }
-
-        if (shouldEscalateToMapper) {
-            const mapped = await mapScenarioToClausesWithAi(draft, input.scenario, {
-                apiKey: input.apiKey,
-                apiBaseUrl: input.apiBaseUrl,
-                model: input.model ?? DEFAULT_GEMINI_MODEL,
-                fetcher: input.fetcher,
-            });
-
-            if (mapped.usage) {
-                tokenUsage.inputTokens += mapped.usage.inputTokens;
-                tokenUsage.outputTokens += mapped.usage.outputTokens;
-                tokenUsage.totalTokens += mapped.usage.totalTokens;
-                llmCalls += 1;
-            }
-
-            if (mapped.nodes.length > 0) {
-                method = "LEAN_PLUS_AI";
-                evaluateClauseList(
-                    draft,
+            if (
+                !hasConflictOrAbstention
+                && matchedInfo.matchedNodes.length === 1
+                && remainingCandidates.length > 0
+                && hasPotentialMissedSecondaryBehavior(input.scenario, matchedInfo.matchedNodes, draft)
+            ) {
+                const secGate = await triageMissedSecondaryViolationWithDecisionApi(
+                    remainingCandidates,
+                    matchedInfo.matchedNodes,
                     input.scenario,
-                    mapped.nodes,
-                    facts,
-                    thresholds,
-                    fineRanges,
-                    nonMonetaryAll,
-                    analysis.diagnostics,
-                    overrides,
-                    hasOrgConversionClause,
-                    crossDocEffects,
-                    trace,
-                    ambiguities,
-                    exploitedDefects,
-                    matchedFine,
-                    additionalSanctions,
-                    nonMonetarySanctions,
-                    citations,
+                    {
+                        apiKey: input.apiKey,
+                        apiBaseUrl: input.apiBaseUrl,
+                        fetcher: input.fetcher,
+                    },
                 );
+                tokenUsage.decisionInputTokens = (tokenUsage.decisionInputTokens ?? 0) + secGate.decisionInputTokens;
+                tokenUsage.totalTokens += secGate.decisionInputTokens;
+
+                if (secGate.called) {
+                    llmCalls += 1;
+                }
+
+                let secondaryNodes = secGate.directNodes;
+
+                if (secGate.shouldEscalate && secondaryNodes.length === 0) {
+                    const mapped = await mapSecondaryClausesWithAi(
+                        remainingCandidates,
+                        matchedInfo.matchedNodes,
+                        input.scenario,
+                        {
+                            apiKey: input.apiKey,
+                            apiBaseUrl: input.apiBaseUrl,
+                            model: input.model ?? DEFAULT_GEMINI_MODEL,
+                            fetcher: input.fetcher,
+                        },
+                    );
+
+                    if (mapped.usage) {
+                        tokenUsage.inputTokens += mapped.usage.inputTokens;
+                        tokenUsage.outputTokens += mapped.usage.outputTokens;
+                        tokenUsage.totalTokens += mapped.usage.totalTokens;
+                        llmCalls += 1;
+                    }
+
+                    secondaryNodes = mapped.nodes;
+                }
+
+                if (secondaryNodes.length > 0) {
+                    method = "LEAN_PLUS_AI";
+                    evaluateClauseList(
+                        draft,
+                        input.scenario,
+                        secondaryNodes,
+                        facts,
+                        thresholds,
+                        fineRanges,
+                        nonMonetaryAll,
+                        analysis.diagnostics,
+                        overrides,
+                        hasOrgConversionClause,
+                        crossDocEffects,
+                        trace,
+                        ambiguities,
+                        exploitedDefects,
+                        matchedFine,
+                        additionalSanctions,
+                        nonMonetarySanctions,
+                        citations,
+                    );
+                }
             }
         }
     }
@@ -426,7 +536,7 @@ function extractScenarioFacts(scenario: string): ScenarioFacts {
         }
     }
 
-    const subject = ORG_HINT.test(scenario) ? "ORGANIZATION" : "INDIVIDUAL";
+    const subject = detectScenarioSubject(scenario);
     const vehicle = detectVehicleKind(scenario);
     const scenarioDateIso = extractScenarioDateIso(scenario);
     const exceptionMatch = EXCEPTION_HINT.exec(scenario);
@@ -1232,6 +1342,17 @@ function evaluateClauseList(
                 impactInCourt: "Tòa tuyên không thể xử phạt vì hành vi bị cấm không có điều khoản chế tài tương ứng.",
             });
 
+            evaluateNodeSanctionIssues(
+                draft,
+                node,
+                diagnostics,
+                overrides,
+                trace,
+                ambiguities,
+                exploitedDefects,
+                additionalSanctions,
+            );
+
             continue;
         }
 
@@ -1521,6 +1642,30 @@ function evaluateClauseList(
                 evaluation: `Áp dụng chế tài phi tiền tệ: ${nodeNonMonetary.map((s) => s.label).join(", ")}.`,
                 leanCheck: `SanctionValid("${node.refLabel}") → MATCHED`,
                 diagnosticCode: null,
+            });
+        } else if (isUnsanctionedProhibitionNode(draft, node, effectiveText)) {
+            pushCitation(citations, {
+                provisionRef: node.refLabel,
+                verbatimQuote: firstLineOfNode(node),
+                sourceDocument: null,
+            });
+
+            trace.push({
+                stepNumber: trace.length + 1,
+                line: node.startLine,
+                provisionRef: node.refLabel,
+                status: "LOOPHOLE_HIT",
+                condition: `Khớp hành vi tại ${node.refLabel}`,
+                evaluation: "Điều khoản nêu lệnh cấm nhưng không có mức phạt tiền hay chế tài kèm theo trong nội dung điều khoản.",
+                leanCheck: `HasSanction "${node.refLabel}" = false → UNSANCTIONED`,
+                diagnosticCode: "LP002",
+            });
+
+            pushDefect(exploitedDefects, {
+                code: "LP002",
+                category: "LOOPHOLE",
+                title: "Hành vi bị cấm thiếu chế tài xử lý",
+                impactInCourt: "Tòa tuyên không thể xử phạt vì hành vi bị cấm không có điều khoản chế tài tương ứng.",
             });
         }
 
@@ -1899,57 +2044,291 @@ function buildJudicialReasoning(
     return reasons;
 }
 
-async function triageScenarioWithDecisionApi(
+function detectScenarioSubject(scenario: string): "INDIVIDUAL" | "ORGANIZATION" {
+    if (EXPLICIT_CORPORATE_HINT.test(scenario)) {
+        return "ORGANIZATION";
+    }
+
+    if (INDIVIDUAL_OVERRIDE_HINT.test(scenario)) {
+        return "INDIVIDUAL";
+    }
+
+    if (ORG_ROLE_HINT.test(scenario)) {
+        return "ORGANIZATION";
+    }
+
+    return "INDIVIDUAL";
+}
+
+function isUnsanctionedProhibitionNode(draft: ParsedDraft, node: ParsedNode, effectiveText: string): boolean {
+    if (!PROHIBITION_NODE_HINT.test(effectiveText)) {
+        return false;
+    }
+
+    const isFrameworkLaw = /^\s*(?:Luật|Bộ luật)\b/imu.test(draft.content.slice(0, 600));
+
+    if (isFrameworkLaw) {
+        return false;
+    }
+
+    const parentArticle = findParentArticle(draft.nodes, node);
+    const articleBody = parentArticle
+        ? draft.content.slice(parentArticle.startOffset, parentArticle.endOffset).replace(/^[^\n]*\n?/, "")
+        : effectiveText;
+
+    return !ARTICLE_BODY_SANCTION_HINT.test(articleBody);
+}
+
+function getSubstantiveClauseNodes(draft: ParsedDraft): ParsedNode[] {
+    const result: ParsedNode[] = [];
+
+    for (const node of draft.nodes) {
+        if (node.level !== "CLAUSE" && node.level !== "POINT") {
+            continue;
+        }
+
+        const parentArticle = findParentArticle(draft.nodes, node);
+
+        if (parentArticle?.title && META_ARTICLE_TITLE.test(parentArticle.title)) {
+            continue;
+        }
+
+        result.push(node);
+
+        if (result.length >= 30) {
+            break;
+        }
+    }
+
+    return result;
+}
+
+function collectMatchedNodeInfo(
     draft: ParsedDraft,
+    trace: readonly DebugTraceStep[],
+    evaluatedNumericNodeIds: ReadonlySet<string>,
+): { matchedNodes: ParsedNode[]; excludedNodeIds: Set<string> } {
+    const excludedNodeIds = new Set<string>(evaluatedNumericNodeIds);
+    const matchedNodes: ParsedNode[] = [];
+    const matchedIds = new Set<string>();
+
+    for (const step of trace) {
+        const node = draft.nodes.find(
+            (candidate) =>
+                (candidate.level === "CLAUSE" || candidate.level === "POINT")
+                && (candidate.refLabel === step.provisionRef
+                    || (step.line >= candidate.startLine && step.line <= candidate.endLine)),
+        );
+
+        if (!node) {
+            continue;
+        }
+
+        excludedNodeIds.add(node.id);
+
+        if (
+            (step.status === "MATCHED" || step.status === "LOOPHOLE_HIT" || step.status === "UNENFORCEABLE_TERM")
+            && !matchedIds.has(node.id)
+        ) {
+            matchedIds.add(node.id);
+            matchedNodes.push(node);
+        }
+    }
+
+    return { matchedNodes, excludedNodeIds };
+}
+
+function hasPotentialMissedSecondaryBehavior(
+    scenario: string,
+    matchedNodes: readonly ParsedNode[],
+    draft: ParsedDraft,
+): boolean {
+    const hasStrongCompound = MULTI_ACTION_STRONG_HINT.test(scenario);
+    const hasCoordinating = MULTI_ACTION_COORDINATING_HINT.test(scenario) && !SINGLE_ACTION_DEFENSE_AND.test(scenario);
+
+    if (!hasStrongCompound && !hasCoordinating) {
+        return false;
+    }
+
+    const matchedText = matchedNodes
+        .map((node) => {
+            const parentArticle = findParentArticle(draft.nodes, node);
+
+            return `${parentArticle?.title ?? ""} ${node.text}`;
+        })
+        .join(" ");
+    const matchedDistinctive = new Set(tokenizeDistinctiveWords(matchedText));
+    const scenarioDistinctive = tokenizeDistinctiveWords(scenario);
+    const uncoveredCount = scenarioDistinctive.filter((token) => !matchedDistinctive.has(token)).length;
+
+    return uncoveredCount >= 2;
+}
+
+const DECISION_DIRECT_MATCH_MIN_NOUL = 0.78;
+const DECISION_DIRECT_MATCH_MIN_CONFIDENCE = 0.78;
+const DECISION_DIRECT_PROVISION_LIMIT = 8;
+
+function extractDirectDecisionNodes(
+    answers: Record<string, { type: string; noul?: number; confidence?: number }>,
+    candidates: readonly ParsedNode[],
+    maxCount: number,
+): ParsedNode[] {
+    const scored: { node: ParsedNode; noul: number }[] = [];
+    const limit = Math.min(candidates.length, DECISION_DIRECT_PROVISION_LIMIT);
+
+    for (let idx = 0; idx < limit; idx += 1) {
+        const ans = answers[`p${idx}`];
+
+        if (
+            ans
+            && ans.type === "noul"
+            && typeof ans.noul === "number"
+            && typeof ans.confidence === "number"
+            && ans.noul >= DECISION_DIRECT_MATCH_MIN_NOUL
+            && ans.confidence >= DECISION_DIRECT_MATCH_MIN_CONFIDENCE
+        ) {
+            scored.push({ node: candidates[idx], noul: ans.noul });
+        }
+    }
+
+    scored.sort((a, b) => b.noul - a.noul);
+
+    return scored.slice(0, maxCount).map((entry) => entry.node);
+}
+
+async function triageScenarioWithDecisionApi(
+    candidates: readonly ParsedNode[],
     scenario: string,
     options: { apiKey: string; apiBaseUrl?: string; fetcher?: typeof fetch },
-): Promise<{ shouldEscalate: boolean; decisionInputTokens: number; called: boolean }> {
-    const candidates = draft.nodes.filter((node) => node.level === "CLAUSE" || node.level === "POINT").slice(0, 20);
+): Promise<{ shouldEscalate: boolean; directNodes: ParsedNode[]; decisionInputTokens: number; called: boolean }> {
+    const limited = candidates.slice(0, 12);
 
-    if (candidates.length === 0) {
-        return { shouldEscalate: false, decisionInputTokens: 0, called: false };
+    if (limited.length === 0) {
+        return { shouldEscalate: false, directNodes: [], decisionInputTokens: 0, called: false };
     }
 
     try {
-        const listing = candidates.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 140)}`).join("\n");
+        const listing = limited.map((node, idx) => `- [P${idx}] ${node.refLabel}: ${node.text.slice(0, 140)}`).join("\n");
+        const questions: Record<string, { type: "noul"; instructions: string }> = {
+            matches_any: {
+                type: "noul",
+                instructions:
+                    "Does the SCENARIO clearly describe a violation, breach, or legal action that matches at least one provision in PROVISIONS (even using synonyms or paraphrasing), rather than being unrelated or exempt?",
+            },
+        };
+        const directLimit = Math.min(limited.length, DECISION_DIRECT_PROVISION_LIMIT);
+
+        for (let idx = 0; idx < directLimit; idx += 1) {
+            questions[`p${idx}`] = {
+                type: "noul",
+                instructions:
+                    `Does SCENARIO clearly describe a violation or legal action covered by [P${idx}] ${limited[idx].refLabel} (even using synonyms or paraphrasing)?`,
+            };
+        }
+
         const res = await callGeminiDecisions({
             apiKey: options.apiKey,
             apiBaseUrl: options.apiBaseUrl,
             input: `SCENARIO: ${scenario}\n\nPROVISIONS:\n${listing}`,
-            questions: {
-                matches_any: {
-                    type: "noul",
-                    instructions: "Does the SCENARIO describe a violation, breach, or legal action that matches at least one provision in PROVISIONS (even using different words/synonyms), rather than being completely unrelated?",
-                },
-            },
+            questions,
             fetcher: options.fetcher,
         });
         const ans = res.answers.matches_any;
-        const shouldEscalate = !(ans && ans.type === "noul" && ans.noul < 0.45 && ans.confidence >= 0.7);
+        const shouldEscalate = Boolean(
+            ans
+            && ans.type === "noul"
+            && ans.noul >= DECISION_ESCALATE_MIN_NOUL
+            && ans.confidence >= DECISION_ESCALATE_MIN_CONFIDENCE,
+        );
+        const directNodes = shouldEscalate
+            ? extractDirectDecisionNodes(res.answers, limited, 3)
+            : [];
 
         return {
             shouldEscalate,
+            directNodes,
             decisionInputTokens: res.usage.inputTokens,
             called: true,
         };
     } catch {
-        return { shouldEscalate: true, decisionInputTokens: 0, called: false };
+        return { shouldEscalate: false, directNodes: [], decisionInputTokens: 0, called: false };
+    }
+}
+
+async function triageMissedSecondaryViolationWithDecisionApi(
+    remainingCandidates: readonly ParsedNode[],
+    matchedNodes: readonly ParsedNode[],
+    scenario: string,
+    options: { apiKey: string; apiBaseUrl?: string; fetcher?: typeof fetch },
+): Promise<{ shouldEscalate: boolean; directNodes: ParsedNode[]; decisionInputTokens: number; called: boolean }> {
+    const limited = remainingCandidates.slice(0, 12);
+
+    if (limited.length === 0) {
+        return { shouldEscalate: false, directNodes: [], decisionInputTokens: 0, called: false };
+    }
+
+    try {
+        const alreadyListing = matchedNodes.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 140)}`).join("\n");
+        const otherListing = limited.map((node, idx) => `- [P${idx}] ${node.refLabel}: ${node.text.slice(0, 140)}`).join("\n");
+        const questions: Record<string, { type: "noul"; instructions: string }> = {
+            missed_secondary_violation: {
+                type: "noul",
+                instructions:
+                    "Does SCENARIO clearly describe an additional distinct violation or breach that is NOT already covered by ALREADY_MATCHED and clearly matches at least one provision in OTHER_PROVISIONS (even with synonyms or paraphrasing)? Answer NO if all breaches in SCENARIO are already covered by ALREADY_MATCHED or if OTHER_PROVISIONS only state unrelated obligations or different thresholds for the same violation.",
+            },
+        };
+        const directLimit = Math.min(limited.length, DECISION_DIRECT_PROVISION_LIMIT);
+
+        for (let idx = 0; idx < directLimit; idx += 1) {
+            questions[`p${idx}`] = {
+                type: "noul",
+                instructions:
+                    `Does SCENARIO clearly describe an additional distinct violation NOT already covered by ALREADY_MATCHED that matches [P${idx}] ${limited[idx].refLabel} (even using synonyms or paraphrasing)?`,
+            };
+        }
+
+        const res = await callGeminiDecisions({
+            apiKey: options.apiKey,
+            apiBaseUrl: options.apiBaseUrl,
+            input: `SCENARIO: ${scenario}\n\nALREADY_MATCHED:\n${alreadyListing}\n\nOTHER_PROVISIONS:\n${otherListing}`,
+            questions,
+            fetcher: options.fetcher,
+        });
+        const ans = res.answers.missed_secondary_violation;
+        const shouldEscalate = Boolean(
+            ans
+            && ans.type === "noul"
+            && ans.noul >= DECISION_ESCALATE_MIN_NOUL
+            && ans.confidence >= DECISION_ESCALATE_MIN_CONFIDENCE,
+        );
+        const directNodes = shouldEscalate
+            ? extractDirectDecisionNodes(res.answers, limited, 2)
+            : [];
+
+        return {
+            shouldEscalate,
+            directNodes,
+            decisionInputTokens: res.usage.inputTokens,
+            called: true,
+        };
+    } catch {
+        return { shouldEscalate: false, directNodes: [], decisionInputTokens: 0, called: false };
     }
 }
 
 async function mapScenarioToClausesWithAi(
-    draft: ParsedDraft,
+    candidates: readonly ParsedNode[],
     scenario: string,
     options: { apiKey: string; apiBaseUrl?: string; model: string; fetcher?: typeof fetch },
 ): Promise<{ nodes: ParsedNode[]; usage: DebugTokenUsage | null }> {
-    const candidates = draft.nodes.filter((node) => node.level === "CLAUSE" || node.level === "POINT").slice(0, 40);
+    const limited = candidates.slice(0, 30);
 
-    if (candidates.length === 0) {
+    if (limited.length === 0) {
         return { nodes: [], usage: null };
     }
 
     try {
-        const listing = candidates.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 220)}`).join("\n");
+        const listing = limited.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 200)}`).join("\n");
         const res = await callGeminiStructuredInteraction({
             apiKey: options.apiKey,
             apiBaseUrl: options.apiBaseUrl,
@@ -1957,31 +2336,72 @@ async function mapScenarioToClausesWithAi(
             systemInstruction: CLAUSE_MAPPER_SYSTEM_PROMPT,
             input: `Tình huống: ${scenario}\n\nCác điều khoản trong dự thảo:\n${listing}`,
             schema: CLAUSE_MAPPER_SCHEMA,
-            maxOutputTokens: 250,
+            maxOutputTokens: 160,
             fetcher: options.fetcher,
         });
 
-        const raw = res.data;
-
-        if (typeof raw !== "object" || raw === null) {
-            return { nodes: [], usage: res.usage };
-        }
-
-        const refs = (raw as { matchedProvisionRefs?: unknown }).matchedProvisionRefs;
-
-        if (!Array.isArray(refs)) {
-            return { nodes: [], usage: res.usage };
-        }
-
-        const refSet = new Set(refs.filter((item): item is string => typeof item === "string"));
-
         return {
-            nodes: candidates.filter((node) => refSet.has(node.refLabel)),
+            nodes: parseMappedCandidateNodes(res.data, limited, 3),
             usage: res.usage,
         };
     } catch {
         return { nodes: [], usage: null };
     }
+}
+
+async function mapSecondaryClausesWithAi(
+    remainingCandidates: readonly ParsedNode[],
+    matchedNodes: readonly ParsedNode[],
+    scenario: string,
+    options: { apiKey: string; apiBaseUrl?: string; model: string; fetcher?: typeof fetch },
+): Promise<{ nodes: ParsedNode[]; usage: DebugTokenUsage | null }> {
+    const limited = remainingCandidates.slice(0, 20);
+
+    if (limited.length === 0) {
+        return { nodes: [], usage: null };
+    }
+
+    try {
+        const alreadyListing = matchedNodes.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 160)}`).join("\n");
+        const otherListing = limited.map((node) => `- ${node.refLabel}: ${node.text.slice(0, 200)}`).join("\n");
+        const res = await callGeminiStructuredInteraction({
+            apiKey: options.apiKey,
+            apiBaseUrl: options.apiBaseUrl,
+            model: options.model,
+            systemInstruction: SECONDARY_MAPPER_SYSTEM_PROMPT,
+            input: `Tình huống: ${scenario}\n\nALREADY_MATCHED:\n${alreadyListing}\n\nOTHER_PROVISIONS:\n${otherListing}`,
+            schema: CLAUSE_MAPPER_SCHEMA,
+            maxOutputTokens: 140,
+            fetcher: options.fetcher,
+        });
+
+        return {
+            nodes: parseMappedCandidateNodes(res.data, limited, 2),
+            usage: res.usage,
+        };
+    } catch {
+        return { nodes: [], usage: null };
+    }
+}
+
+function parseMappedCandidateNodes(
+    raw: unknown,
+    candidates: readonly ParsedNode[],
+    maxCount: number,
+): ParsedNode[] {
+    if (typeof raw !== "object" || raw === null) {
+        return [];
+    }
+
+    const refs = (raw as { matchedProvisionRefs?: unknown }).matchedProvisionRefs;
+
+    if (!Array.isArray(refs)) {
+        return [];
+    }
+
+    const refSet = new Set(refs.filter((item): item is string => typeof item === "string"));
+
+    return candidates.filter((node) => refSet.has(node.refLabel)).slice(0, maxCount);
 }
 
 async function refineVerdictWithAi(

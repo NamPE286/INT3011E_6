@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { DebugSimulationResult } from "$lib/api/ide";
-    import { AlertTriangle, CheckCircle2, Gavel, Loader, Play, XCircle } from "@lucide/svelte";
+    import { AlertTriangle, CheckCircle2, Cpu, Gavel, Loader, Play, Quote, Scale, ShieldAlert, XCircle } from "@lucide/svelte";
 
     type Props = {
         result: DebugSimulationResult | null;
@@ -38,6 +38,44 @@
 
     let scenario = $state(SAMPLE_SCENARIOS[0].text);
     let useAi = $state(false);
+
+    let isAbstained = $derived(result?.verdict.outcome === "CONFLICT_AMBIGUOUS");
+
+    let sanctionItems = $derived.by(() => {
+        if (!result) {
+            return [] as { label: string; provisionRef: string | null }[];
+        }
+
+        const structured = result.verdict.nonMonetarySanctions ?? [];
+        const items: { label: string; provisionRef: string | null }[] = [];
+        const seen = new Set<string>();
+
+        for (const item of structured) {
+            const key = item.label.trim().toLowerCase();
+
+            if (!key || seen.has(key)) {
+                continue;
+            }
+
+            seen.add(key);
+            items.push({ label: item.label, provisionRef: item.provisionRef });
+        }
+
+        for (const label of result.verdict.additionalSanctions) {
+            const key = label.trim().toLowerCase();
+
+            if (!key || seen.has(key)) {
+                continue;
+            }
+
+            seen.add(key);
+            items.push({ label, provisionRef: null });
+        }
+
+        return items;
+    });
+
+    let citations = $derived(result?.verdict.citations ?? []);
 
     function submit(event: SubmitEvent): void {
         event.preventDefault();
@@ -95,7 +133,7 @@
 
             <label class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <input type="checkbox" bind:checked={useAi} class="size-3.5 accent-primary" />
-                <span>Lập luận Thẩm phán AI (chỉ workspace)</span>
+                <span>Lập luận Thẩm phán AI (ITD Decision Gate · chỉ workspace)</span>
             </label>
 
             <button
@@ -116,9 +154,21 @@
         {#if result}
             <div class="mt-3 flex flex-col gap-3">
                 <section class="rounded-[2px] border bg-background p-2.5">
-                    <div class="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        <Gavel class="size-3.5 text-primary" aria-hidden="true" />
-                        <span>Phán quyết của Thẩm phán</span>
+                    <div class="flex flex-wrap items-center justify-between gap-1.5">
+                        <div class="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                            <Gavel class="size-3.5 text-primary" aria-hidden="true" />
+                            <span>Phán quyết của Thẩm phán</span>
+                        </div>
+
+                        {#if isAbstained}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-[2px] border border-[var(--diag-ambiguity)]/50 bg-[var(--diag-ambiguity-bg)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--diag-ambiguity)]"
+                                title="Tòa từ chối suy đoán do xung đột quy phạm, mơ hồ hoặc thiếu dữ kiện định lượng"
+                            >
+                                <ShieldAlert class="size-3" aria-hidden="true" />
+                                <span>ABSTAINED</span>
+                            </span>
+                        {/if}
                     </div>
 
                     <div class={`mt-2 rounded-[2px] border px-2 py-1.5 font-mono text-[11px] font-semibold ${outcomeBadgeClass(result.verdict.outcome)}`}>
@@ -131,6 +181,52 @@
                         <p class="mt-1.5 font-mono text-[11px] text-[var(--diag-ok)]">
                             Mức phạt: {result.verdict.applicableFine.min.toLocaleString("vi-VN")} – {result.verdict.applicableFine.max.toLocaleString("vi-VN")}đ
                         </p>
+                    {/if}
+
+                    {#if sanctionItems.length > 0}
+                        <div class="mt-2 border-t pt-2">
+                            <p class="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase">
+                                <Scale class="size-3 text-primary" aria-hidden="true" />
+                                <span>Chế tài phi tiền tệ / bổ sung ({sanctionItems.length})</span>
+                            </p>
+                            <ul class="mt-1 flex flex-wrap gap-1">
+                                {#each sanctionItems as item (item.label)}
+                                    <li class="inline-flex items-center gap-1 rounded-[2px] border border-[var(--diag-loophole)]/35 bg-[var(--diag-loophole-bg)] px-1.5 py-0.5 text-[10px] text-foreground">
+                                        <span>{item.label}</span>
+                                        {#if item.provisionRef}
+                                            <span class="font-mono text-[9px] text-muted-foreground">({item.provisionRef})</span>
+                                        {/if}
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
+                    {/if}
+
+                    {#if citations.length > 0}
+                        <div class="mt-2 border-t pt-2">
+                            <div class="flex items-center justify-between gap-1">
+                                <p class="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase">
+                                    <Quote class="size-3 text-primary" aria-hidden="true" />
+                                    <span>Trích dẫn nguyên văn ({citations.length})</span>
+                                </p>
+                                <span class="font-mono text-[9px] text-[var(--diag-ok)]">Nguyên văn ✓</span>
+                            </div>
+                            <ul class="mt-1.5 flex flex-col gap-1.5">
+                                {#each citations as cit (`${cit.provisionRef}::${cit.verbatimQuote}`)}
+                                    <li class="rounded-[2px] border-l-2 border-primary/60 bg-muted/40 px-2 py-1 text-[11px]">
+                                        <div class="flex flex-wrap items-center gap-1.5 font-mono text-[10px] font-semibold text-foreground">
+                                            <span>{cit.provisionRef}</span>
+                                            {#if cit.sourceDocument}
+                                                <span class="rounded-[2px] border bg-background px-1 py-0 text-[9px] font-normal text-muted-foreground">
+                                                    {cit.sourceDocument}
+                                                </span>
+                                            {/if}
+                                        </div>
+                                        <p class="mt-0.5 leading-snug text-muted-foreground">“{cit.verbatimQuote}”</p>
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
                     {/if}
 
                     {#if result.verdict.judicialReasoning.length > 0}
@@ -147,6 +243,22 @@
                     <div class="mt-2 rounded-[2px] bg-muted/60 p-2 text-[11px]">
                         <span class="font-semibold text-foreground">Khuyến nghị vá luật: </span>
                         <span class="text-muted-foreground">{result.verdict.lawmakerAction}</span>
+                    </div>
+
+                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-2 font-mono text-[10px] text-muted-foreground">
+                        <span class="flex items-center gap-1">
+                            <Cpu class="size-3" aria-hidden="true" />
+                            <span>{result.method === "LEAN_PLUS_AI" ? "ITD Lean + AI" : "Lean 4 · 0 token"}</span>
+                            <span>· {result.durationMs} ms</span>
+                        </span>
+                        {#if result.tokenUsage}
+                            {@const decisionTok = result.tokenUsage.decisionInputTokens ?? 0}
+                            <span
+                                title={`Tổng token: ${result.tokenUsage.totalTokens} (in: ${result.tokenUsage.inputTokens}, out: ${result.tokenUsage.outputTokens}, gate: ${decisionTok}) · LLM calls: ${result.llmCalls ?? 0}`}
+                            >
+                                {result.tokenUsage.totalTokens.toLocaleString("vi-VN")} tok{#if result.tokenUsage.totalTokens > 0} ({result.tokenUsage.inputTokens}/{result.tokenUsage.outputTokens}{#if decisionTok > 0} · gate {decisionTok}{/if}){/if} · {result.llmCalls ?? 0} calls
+                            </span>
+                        {/if}
                     </div>
                 </section>
 
