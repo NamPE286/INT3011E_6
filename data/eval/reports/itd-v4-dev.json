@@ -1,0 +1,58 @@
+{
+  "armName": "Gemini 3.5 Flash-Lite + ITD Harness v4 (Tier 0+1 Deterministic)",
+  "harnessVersion": "v4",
+  "split": "dev",
+  "evaluatedAt": "2026-11-26T12:50:44.036Z",
+  "hardGates": {
+    "passed": true,
+    "schemaValidityRate": 1,
+    "citationHallucinationRate": 0,
+    "invalidInvertedBoundsCount": 0,
+    "workspaceOnlyViolationCount": 0,
+    "liveJudgeP95LatencyMs": 13,
+    "liveJudgeLatencyGatePassed": true,
+    "failureReasons": []
+  },
+  "loophole": {
+    "totalCases": 24,
+    "positiveCases": 15,
+    "negativeCases": 9,
+    "truePositives": 15,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "cleanNegativePassCount": 9,
+    "precision": 1,
+    "recall": 1,
+    "f1Score": 1,
+    "localizationRate": 1
+  },
+  "liveJudge": {
+    "totalCases": 42,
+    "verdictAccuracy": 1,
+    "outcomeAccuracy": 1,
+    "fineAccuracy": 1,
+    "nonMonetaryAccuracy": 1,
+    "defectRecall": 1,
+    "consistencyGroupsTotal": 4,
+    "consistencyGroupsPassed": 4,
+    "paraphraseConsistency": 1,
+    "abstentionAccuracy": 1,
+    "abstentionRecall": 1,
+    "abstentionPrecision": 1,
+    "p50LatencyMs": 5,
+    "p95LatencyMs": 13,
+    "avgLatencyMs": 6
+  },
+  "softScore": 100,
+  "cost": {
+    "totalInputTokens": 0,
+    "totalOutputTokens": 0,
+    "totalDecisionTokens": 0,
+    "totalTokens": 0,
+    "totalLlmCalls": 0,
+    "avgCallsPerRequest": 0,
+    "estimatedTotalCostUsd": 0,
+    "estimatedCostPerRequestUsd": 0
+  },
+  "devFailureLogs": []
+}

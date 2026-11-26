@@ -322,7 +322,7 @@ async function main(): Promise<void> {
     }
 
     if (modeArg === "harness" || modeArg === "both") {
-        console.log(`Running LIVE ${model} + ITD Harness v3 (API) on split=${splitArg}...`);
+        console.log(`Running LIVE ${model} + ITD Harness v4 (API) on split=${splitArg}...`);
         const hLh = await runWithConcurrency(loopholeAll, 2, 300, async (spec) => {
             const res = await runItdLoopholeDetector({
                 caseId: spec.caseId,
@@ -352,14 +352,14 @@ async function main(): Promise<void> {
             return { spec, rawOutput: res.output, usage: res.usage };
         });
         const harnessReport = evaluateSplit({
-            armName: `Live ${model} + ITD Harness v3 (API)`,
-            harnessVersion: "v3-live-api",
+            armName: `Live ${model} + ITD Harness v4 (API)`,
+            harnessVersion: "v4-live-api",
             split: splitArg,
             loopholePairs: hLh,
             judgePairs: hJg,
         });
         printSplitReport(harnessReport);
-        saved.liveHarnessV3 = harnessReport;
+        saved.liveHarnessV4 = harnessReport;
     }
 
     mkdirSync(dirname(outPath), { recursive: true });

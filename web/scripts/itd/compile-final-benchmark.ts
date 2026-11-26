@@ -65,41 +65,50 @@ async function main(): Promise<void> {
     const devV1 = readJsonIfExists<SplitEvalReport>(resolve(reportsDir, "itd-v1-dev.json"));
     const devV2 = readJsonIfExists<SplitEvalReport>(resolve(reportsDir, "itd-v2-dev.json"));
     const blindV2 = readJsonIfExists<SplitEvalReport>(resolve(reportsDir, "itd-v2-blind_test.json"));
+    const devV3 = readJsonIfExists<SplitEvalReport>(resolve(reportsDir, "itd-v3-dev.json"));
+    const blindV3 = readJsonIfExists<SplitEvalReport>(resolve(reportsDir, "itd-v3-blind_test.json"));
 
-    const devV3Det = await runHarnessOnSplit({
-        version: "v3",
-        armName: "Gemini 3.5 Flash-Lite + ITD Harness v3 (Tier 0+1 Deterministic)",
+    const devV4Det = await runHarnessOnSplit({
+        version: "v4",
+        armName: "Gemini 3.5 Flash-Lite + ITD Harness v4 (Tier 0+1 Deterministic)",
         split: "dev",
         useAi: false,
     });
-    const blindV3Det = await runHarnessOnSplit({
-        version: "v3",
-        armName: "Gemini 3.5 Flash-Lite + ITD Harness v3 (Tier 0+1 Deterministic)",
+    const blindV4Det = await runHarnessOnSplit({
+        version: "v4",
+        armName: "Gemini 3.5 Flash-Lite + ITD Harness v4 (Tier 0+1 Deterministic)",
         split: "blind_test",
         useAi: false,
     });
 
+    writeFileSync(resolve(reportsDir, "itd-v4-dev.json"), JSON.stringify(devV4Det, null, 2), "utf8");
+    writeFileSync(resolve(reportsDir, "itd-v4-blind_test.json"), JSON.stringify(blindV4Det, null, 2), "utf8");
+
     const liveDev = readJsonIfExists<{
         livePureFlashLite?: SplitEvalReport;
         liveHarnessV3?: SplitEvalReport;
+        liveHarnessV4?: SplitEvalReport;
         pureApiStats?: { retries: number; errorCount: number };
     }>(resolve(reportsDir, "itd-live-api-dev.json"));
     const liveBlind = readJsonIfExists<{
         livePureFlashLite?: SplitEvalReport;
         liveHarnessV3?: SplitEvalReport;
+        liveHarnessV4?: SplitEvalReport;
         pureApiStats?: { retries: number; errorCount: number };
     }>(resolve(reportsDir, "itd-live-api-blind_test.json"));
 
-    const paretoDeterministic = evaluateParetoAcceptanceGate({
-        candidateBlind: blindV3Det,
-        previousBestBlind: blindV0,
+    const previousBestBlind = blindV3 ?? blindV0;
+
+    const paretoDeterministicV4 = evaluateParetoAcceptanceGate({
+        candidateBlind: blindV4Det,
+        previousBestBlind,
         teacherBlind: blindTeacher,
     });
 
-    const paretoLiveApi = liveBlind?.liveHarnessV3
+    const paretoLiveApiV4 = liveBlind?.liveHarnessV4
         ? evaluateParetoAcceptanceGate({
-            candidateBlind: liveBlind.liveHarnessV3,
-            previousBestBlind: blindV0,
+            candidateBlind: liveBlind.liveHarnessV4,
+            previousBestBlind,
             teacherBlind: blindTeacher,
         })
         : null;
@@ -108,18 +117,24 @@ async function main(): Promise<void> {
         summary?: Record<string, unknown>;
     }>(resolve(reportsDir, "debug-court-benchmark.json"));
 
-    printSplitReport(blindTeacher);
-    printSplitReport(blindV3Det);
+    printSplitReport(devV4Det);
 
-    if (liveBlind?.liveHarnessV3) {
-        printSplitReport(liveBlind.liveHarnessV3);
+    if (liveDev?.liveHarnessV4) {
+        printSplitReport(liveDev.liveHarnessV4);
     }
 
-    console.log("\n=== PARETO ACCEPTANCE GATE (SEALED BLIND TEST) ===");
-    console.log("Deterministic v3:", JSON.stringify(paretoDeterministic));
+    printSplitReport(blindTeacher);
+    printSplitReport(blindV4Det);
 
-    if (paretoLiveApi) {
-        console.log("Live API v3 (Flash-Lite + Decision API):", JSON.stringify(paretoLiveApi));
+    if (liveBlind?.liveHarnessV4) {
+        printSplitReport(liveBlind.liveHarnessV4);
+    }
+
+    console.log("\n=== PARETO ACCEPTANCE GATE (SEALED BLIND TEST vs v3) ===");
+    console.log("Deterministic v4:", JSON.stringify(paretoDeterministicV4));
+
+    if (paretoLiveApiV4) {
+        console.log("Live API v4 (Flash-Lite + Decision API):", JSON.stringify(paretoLiveApiV4));
     }
 
     const unified = {
@@ -138,8 +153,10 @@ async function main(): Promise<void> {
             baselineV0: devV0,
             harnessV1: devV1,
             harnessV2: devV2,
-            harnessV3Deterministic: devV3Det,
+            harnessV3Deterministic: devV3,
             harnessV3LiveApi: liveDev?.liveHarnessV3 ?? null,
+            harnessV4Deterministic: devV4Det,
+            harnessV4LiveApi: liveDev?.liveHarnessV4 ?? null,
         },
         blindTest: {
             teacherRaw: blindTeacher,
@@ -147,12 +164,14 @@ async function main(): Promise<void> {
             studentRawLiveApiStats: liveBlind?.pureApiStats ?? null,
             baselineV0: blindV0,
             harnessV2: blindV2,
-            harnessV3Deterministic: blindV3Det,
+            harnessV3Deterministic: blindV3,
             harnessV3LiveApi: liveBlind?.liveHarnessV3 ?? null,
+            harnessV4Deterministic: blindV4Det,
+            harnessV4LiveApi: liveBlind?.liveHarnessV4 ?? null,
         },
         paretoAcceptanceGate: {
-            deterministicV3: paretoDeterministic,
-            liveApiV3: paretoLiveApi,
+            deterministicV4: paretoDeterministicV4,
+            liveApiV4: paretoLiveApiV4,
         },
     };
 

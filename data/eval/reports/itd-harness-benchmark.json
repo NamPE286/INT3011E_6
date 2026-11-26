@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T10:52:16.689Z",
+  "generatedAt": "2026-11-26T12:50:44.309Z",
   "datasetSpec": {
     "splitRatio": "60% Dev / 40% Blind Test (disjoint legal domains, anti-leakage sealed logs)",
     "devCases": {
@@ -26,8 +26,8 @@
         "coreTrafficAccuracy": "11/11",
         "extensionHardAccuracy": "5/5",
         "invalidInvertedFinesEmitted": 0,
-        "totalDurationMs": 53,
-        "avgMsPerCase": 3,
+        "totalDurationMs": 197,
+        "avgMsPerCase": 12,
         "tokensUsed": 0
       },
       "lexideDebugPlusAi": null,
@@ -66,7 +66,7 @@
       "armName": "Teacher Baseline: Gemini 4 Neon (xhigh) Raw",
       "harnessVersion": "teacher-raw",
       "split": "dev",
-      "evaluatedAt": "2026-11-26T10:52:16.409Z",
+      "evaluatedAt": "2026-11-26T12:50:43.590Z",
       "hardGates": {
         "passed": false,
         "schemaValidityRate": 1,
@@ -111,14 +111,14 @@
       },
       "softScore": 100,
       "cost": {
-        "totalInputTokens": 53228,
+        "totalInputTokens": 53268,
         "totalOutputTokens": 145335,
         "totalDecisionTokens": 0,
-        "totalTokens": 198563,
+        "totalTokens": 198603,
         "totalLlmCalls": 66,
         "avgCallsPerRequest": 1,
-        "estimatedTotalCostUsd": 2.339709,
-        "estimatedCostPerRequestUsd": 0.0354501
+        "estimatedTotalCostUsd": 2.339829,
+        "estimatedCostPerRequestUsd": 0.035452
       },
       "devFailureLogs": []
     },
@@ -126,7 +126,7 @@
       "armName": "Student Baseline: Gemini 3.5 Flash-Lite Raw (Captured Batch)",
       "harnessVersion": "student-raw-captured",
       "split": "dev",
-      "evaluatedAt": "2026-11-26T10:52:16.413Z",
+      "evaluatedAt": "2026-11-26T12:50:43.602Z",
       "hardGates": {
         "passed": true,
         "schemaValidityRate": 1,
@@ -169,14 +169,14 @@
       },
       "softScore": 73.41,
       "cost": {
-        "totalInputTokens": 53228,
+        "totalInputTokens": 53268,
         "totalOutputTokens": 7053,
         "totalDecisionTokens": 0,
-        "totalTokens": 60281,
+        "totalTokens": 60321,
         "totalLlmCalls": 66,
         "avgCallsPerRequest": 1,
-        "estimatedTotalCostUsd": 0.033601,
-        "estimatedCostPerRequestUsd": 0.0005091
+        "estimatedTotalCostUsd": 0.033613,
+        "estimatedCostPerRequestUsd": 0.0005093
       },
       "devFailureLogs": [
         {
@@ -1570,17 +1570,17 @@
       ]
     },
     "harnessV3Deterministic": {
-      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v3 (Tier 0+1 Deterministic)",
+      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v3",
       "harnessVersion": "v3",
       "split": "dev",
-      "evaluatedAt": "2026-11-26T10:52:16.583Z",
+      "evaluatedAt": "2026-11-26T10:28:25.402Z",
       "hardGates": {
         "passed": true,
         "schemaValidityRate": 1,
         "citationHallucinationRate": 0,
         "invalidInvertedBoundsCount": 0,
         "workspaceOnlyViolationCount": 0,
-        "liveJudgeP95LatencyMs": 4,
+        "liveJudgeP95LatencyMs": 2,
         "liveJudgeLatencyGatePassed": true,
         "failureReasons": []
       },
@@ -1610,9 +1610,9 @@
         "abstentionAccuracy": 1,
         "abstentionRecall": 1,
         "abstentionPrecision": 1,
-        "p50LatencyMs": 2,
-        "p95LatencyMs": 4,
-        "avgLatencyMs": 2
+        "p50LatencyMs": 1,
+        "p95LatencyMs": 2,
+        "avgLatencyMs": 1
       },
       "softScore": 99.17,
       "cost": {
@@ -1684,6 +1684,122 @@
         "estimatedCostPerRequestUsd": 0.0000083
       },
       "devFailureLogs": []
+    },
+    "harnessV4Deterministic": {
+      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v4 (Tier 0+1 Deterministic)",
+      "harnessVersion": "v4",
+      "split": "dev",
+      "evaluatedAt": "2026-11-26T12:50:44.036Z",
+      "hardGates": {
+        "passed": true,
+        "schemaValidityRate": 1,
+        "citationHallucinationRate": 0,
+        "invalidInvertedBoundsCount": 0,
+        "workspaceOnlyViolationCount": 0,
+        "liveJudgeP95LatencyMs": 13,
+        "liveJudgeLatencyGatePassed": true,
+        "failureReasons": []
+      },
+      "loophole": {
+        "totalCases": 24,
+        "positiveCases": 15,
+        "negativeCases": 9,
+        "truePositives": 15,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "cleanNegativePassCount": 9,
+        "precision": 1,
+        "recall": 1,
+        "f1Score": 1,
+        "localizationRate": 1
+      },
+      "liveJudge": {
+        "totalCases": 42,
+        "verdictAccuracy": 1,
+        "outcomeAccuracy": 1,
+        "fineAccuracy": 1,
+        "nonMonetaryAccuracy": 1,
+        "defectRecall": 1,
+        "consistencyGroupsTotal": 4,
+        "consistencyGroupsPassed": 4,
+        "paraphraseConsistency": 1,
+        "abstentionAccuracy": 1,
+        "abstentionRecall": 1,
+        "abstentionPrecision": 1,
+        "p50LatencyMs": 5,
+        "p95LatencyMs": 13,
+        "avgLatencyMs": 6
+      },
+      "softScore": 100,
+      "cost": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "totalDecisionTokens": 0,
+        "totalTokens": 0,
+        "totalLlmCalls": 0,
+        "avgCallsPerRequest": 0,
+        "estimatedTotalCostUsd": 0,
+        "estimatedCostPerRequestUsd": 0
+      },
+      "devFailureLogs": []
+    },
+    "harnessV4LiveApi": {
+      "armName": "Live gemini-3.5-flash-lite + ITD Harness v4 (API)",
+      "harnessVersion": "v4-live-api",
+      "split": "dev",
+      "evaluatedAt": "2026-11-26T12:50:10.920Z",
+      "hardGates": {
+        "passed": true,
+        "schemaValidityRate": 1,
+        "citationHallucinationRate": 0,
+        "invalidInvertedBoundsCount": 0,
+        "workspaceOnlyViolationCount": 0,
+        "liveJudgeP95LatencyMs": 17,
+        "liveJudgeLatencyGatePassed": true,
+        "failureReasons": []
+      },
+      "loophole": {
+        "totalCases": 24,
+        "positiveCases": 15,
+        "negativeCases": 9,
+        "truePositives": 15,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "cleanNegativePassCount": 9,
+        "precision": 1,
+        "recall": 1,
+        "f1Score": 1,
+        "localizationRate": 1
+      },
+      "liveJudge": {
+        "totalCases": 42,
+        "verdictAccuracy": 1,
+        "outcomeAccuracy": 1,
+        "fineAccuracy": 1,
+        "nonMonetaryAccuracy": 1,
+        "defectRecall": 1,
+        "consistencyGroupsTotal": 4,
+        "consistencyGroupsPassed": 4,
+        "paraphraseConsistency": 1,
+        "abstentionAccuracy": 1,
+        "abstentionRecall": 1,
+        "abstentionPrecision": 1,
+        "p50LatencyMs": 5,
+        "p95LatencyMs": 17,
+        "avgLatencyMs": 6
+      },
+      "softScore": 100,
+      "cost": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "totalDecisionTokens": 5483,
+        "totalTokens": 5483,
+        "totalLlmCalls": 9,
+        "avgCallsPerRequest": 0.136,
+        "estimatedTotalCostUsd": 0.000548,
+        "estimatedCostPerRequestUsd": 0.0000083
+      },
+      "devFailureLogs": []
     }
   },
   "blindTest": {
@@ -1691,7 +1807,7 @@
       "armName": "Teacher Baseline: Gemini 4 Neon (xhigh) Raw",
       "harnessVersion": "teacher-raw",
       "split": "blind_test",
-      "evaluatedAt": "2026-11-26T10:52:16.416Z",
+      "evaluatedAt": "2026-11-26T12:50:43.610Z",
       "hardGates": {
         "passed": false,
         "schemaValidityRate": 1,
@@ -1736,14 +1852,14 @@
       },
       "softScore": 100,
       "cost": {
-        "totalInputTokens": 35637,
+        "totalInputTokens": 35673,
         "totalOutputTokens": 70040,
         "totalDecisionTokens": 0,
-        "totalTokens": 105677,
+        "totalTokens": 105713,
         "totalLlmCalls": 44,
         "avgCallsPerRequest": 1,
-        "estimatedTotalCostUsd": 1.157511,
-        "estimatedCostPerRequestUsd": 0.0263071
+        "estimatedTotalCostUsd": 1.157619,
+        "estimatedCostPerRequestUsd": 0.0263095
       },
       "devFailureLogs": []
     },
@@ -1929,17 +2045,17 @@
       "devFailureLogs": []
     },
     "harnessV3Deterministic": {
-      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v3 (Tier 0+1 Deterministic)",
+      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v3",
       "harnessVersion": "v3",
       "split": "blind_test",
-      "evaluatedAt": "2026-11-26T10:52:16.687Z",
+      "evaluatedAt": "2026-11-26T10:28:25.512Z",
       "hardGates": {
         "passed": true,
         "schemaValidityRate": 1,
         "citationHallucinationRate": 0,
         "invalidInvertedBoundsCount": 0,
         "workspaceOnlyViolationCount": 0,
-        "liveJudgeP95LatencyMs": 4,
+        "liveJudgeP95LatencyMs": 2,
         "liveJudgeLatencyGatePassed": true,
         "failureReasons": []
       },
@@ -1970,8 +2086,8 @@
         "abstentionRecall": 1,
         "abstentionPrecision": 1,
         "p50LatencyMs": 1,
-        "p95LatencyMs": 4,
-        "avgLatencyMs": 2
+        "p95LatencyMs": 2,
+        "avgLatencyMs": 1
       },
       "softScore": 96.79,
       "cost": {
@@ -2043,10 +2159,126 @@
         "estimatedCostPerRequestUsd": 0.0000087
       },
       "devFailureLogs": []
+    },
+    "harnessV4Deterministic": {
+      "armName": "Gemini 3.5 Flash-Lite + ITD Harness v4 (Tier 0+1 Deterministic)",
+      "harnessVersion": "v4",
+      "split": "blind_test",
+      "evaluatedAt": "2026-11-26T12:50:44.307Z",
+      "hardGates": {
+        "passed": true,
+        "schemaValidityRate": 1,
+        "citationHallucinationRate": 0,
+        "invalidInvertedBoundsCount": 0,
+        "workspaceOnlyViolationCount": 0,
+        "liveJudgeP95LatencyMs": 8,
+        "liveJudgeLatencyGatePassed": true,
+        "failureReasons": []
+      },
+      "loophole": {
+        "totalCases": 16,
+        "positiveCases": 10,
+        "negativeCases": 6,
+        "truePositives": 10,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "cleanNegativePassCount": 6,
+        "precision": 1,
+        "recall": 1,
+        "f1Score": 1,
+        "localizationRate": 1
+      },
+      "liveJudge": {
+        "totalCases": 28,
+        "verdictAccuracy": 0.8929,
+        "outcomeAccuracy": 0.9286,
+        "fineAccuracy": 0.8824,
+        "nonMonetaryAccuracy": 1,
+        "defectRecall": 1,
+        "consistencyGroupsTotal": 3,
+        "consistencyGroupsPassed": 3,
+        "paraphraseConsistency": 1,
+        "abstentionAccuracy": 1,
+        "abstentionRecall": 1,
+        "abstentionPrecision": 1,
+        "p50LatencyMs": 5,
+        "p95LatencyMs": 8,
+        "avgLatencyMs": 5
+      },
+      "softScore": 96.79,
+      "cost": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "totalDecisionTokens": 0,
+        "totalTokens": 0,
+        "totalLlmCalls": 0,
+        "avgCallsPerRequest": 0,
+        "estimatedTotalCostUsd": 0,
+        "estimatedCostPerRequestUsd": 0
+      },
+      "devFailureLogs": []
+    },
+    "harnessV4LiveApi": {
+      "armName": "Live gemini-3.5-flash-lite + ITD Harness v4 (API)",
+      "harnessVersion": "v4-live-api",
+      "split": "blind_test",
+      "evaluatedAt": "2026-11-26T12:50:43.469Z",
+      "hardGates": {
+        "passed": true,
+        "schemaValidityRate": 1,
+        "citationHallucinationRate": 0,
+        "invalidInvertedBoundsCount": 0,
+        "workspaceOnlyViolationCount": 0,
+        "liveJudgeP95LatencyMs": 254,
+        "liveJudgeLatencyGatePassed": true,
+        "failureReasons": []
+      },
+      "loophole": {
+        "totalCases": 16,
+        "positiveCases": 10,
+        "negativeCases": 6,
+        "truePositives": 10,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "cleanNegativePassCount": 6,
+        "precision": 1,
+        "recall": 1,
+        "f1Score": 1,
+        "localizationRate": 1
+      },
+      "liveJudge": {
+        "totalCases": 28,
+        "verdictAccuracy": 0.8929,
+        "outcomeAccuracy": 0.9286,
+        "fineAccuracy": 0.8824,
+        "nonMonetaryAccuracy": 1,
+        "defectRecall": 1,
+        "consistencyGroupsTotal": 3,
+        "consistencyGroupsPassed": 3,
+        "paraphraseConsistency": 1,
+        "abstentionAccuracy": 1,
+        "abstentionRecall": 1,
+        "abstentionPrecision": 1,
+        "p50LatencyMs": 5,
+        "p95LatencyMs": 254,
+        "avgLatencyMs": 31
+      },
+      "softScore": 96.79,
+      "cost": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "totalDecisionTokens": 4983,
+        "totalTokens": 4983,
+        "totalLlmCalls": 9,
+        "avgCallsPerRequest": 0.205,
+        "estimatedTotalCostUsd": 0.000498,
+        "estimatedCostPerRequestUsd": 0.0000113
+      },
+      "devFailureLogs": []
     }
   },
   "paretoAcceptanceGate": {
-    "deterministicV3": {
+    "deterministicV4": {
       "accepted": true,
       "hardGatesPassed": true,
       "softScoreRatioVsTeacher": 0.9679,
@@ -2054,11 +2286,11 @@
       "heldOutNonRegression": true,
       "reasons": []
     },
-    "liveApiV3": {
+    "liveApiV4": {
       "accepted": true,
       "hardGatesPassed": true,
       "softScoreRatioVsTeacher": 0.9679,
-      "costReductionFactorVsTeacher": 3023.8,
+      "costReductionFactorVsTeacher": 2328.3,
       "heldOutNonRegression": true,
       "reasons": []
     }

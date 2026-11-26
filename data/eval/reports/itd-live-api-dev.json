@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-11-26T10:43:58.941Z",
+  "ranAt": "2026-11-26T12:50:03.987Z",
   "split": "dev",
   "model": "gemini-3.5-flash-lite",
   "liveHarnessV3": {
@@ -489,5 +489,63 @@
   "pureApiStats": {
     "retries": 3,
     "errorCount": 0
+  },
+  "liveHarnessV4": {
+    "armName": "Live gemini-3.5-flash-lite + ITD Harness v4 (API)",
+    "harnessVersion": "v4-live-api",
+    "split": "dev",
+    "evaluatedAt": "2026-11-26T12:50:10.920Z",
+    "hardGates": {
+      "passed": true,
+      "schemaValidityRate": 1,
+      "citationHallucinationRate": 0,
+      "invalidInvertedBoundsCount": 0,
+      "workspaceOnlyViolationCount": 0,
+      "liveJudgeP95LatencyMs": 17,
+      "liveJudgeLatencyGatePassed": true,
+      "failureReasons": []
+    },
+    "loophole": {
+      "totalCases": 24,
+      "positiveCases": 15,
+      "negativeCases": 9,
+      "truePositives": 15,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "cleanNegativePassCount": 9,
+      "precision": 1,
+      "recall": 1,
+      "f1Score": 1,
+      "localizationRate": 1
+    },
+    "liveJudge": {
+      "totalCases": 42,
+      "verdictAccuracy": 1,
+      "outcomeAccuracy": 1,
+      "fineAccuracy": 1,
+      "nonMonetaryAccuracy": 1,
+      "defectRecall": 1,
+      "consistencyGroupsTotal": 4,
+      "consistencyGroupsPassed": 4,
+      "paraphraseConsistency": 1,
+      "abstentionAccuracy": 1,
+      "abstentionRecall": 1,
+      "abstentionPrecision": 1,
+      "p50LatencyMs": 5,
+      "p95LatencyMs": 17,
+      "avgLatencyMs": 6
+    },
+    "softScore": 100,
+    "cost": {
+      "totalInputTokens": 0,
+      "totalOutputTokens": 0,
+      "totalDecisionTokens": 5483,
+      "totalTokens": 5483,
+      "totalLlmCalls": 9,
+      "avgCallsPerRequest": 0.136,
+      "estimatedTotalCostUsd": 0.000548,
+      "estimatedCostPerRequestUsd": 0.0000083
+    },
+    "devFailureLogs": []
   }
 }
