@@ -151,3 +151,15 @@ export const provisions = sqliteTable("provisions", {
     roleVersion: text("role_version").notNull(),
     createdAt: text("created_at").notNull(),
 });
+
+export const draftDocuments = sqliteTable("draft_documents", {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    documentNumber: text("document_number"),
+    documentType: text("document_type"),
+    agency: text("agency"),
+    content: text("content").notNull(),
+    sourceDocumentId: text("source_document_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+});

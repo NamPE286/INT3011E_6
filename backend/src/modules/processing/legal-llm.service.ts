@@ -8,10 +8,10 @@ import {
     type TranscribedBlock,
 } from "./legal-types";
 
-export const DEFAULT_OPENAI_MODEL = "gpt-5.4";
+export const DEFAULT_OPENAI_MODEL = "gemini-3.5-flash-lite";
 export const PROMPT_VERSION = "pdf-blocks-v3";
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1/interactions";
 const MAX_OUTPUT_TOKENS = 32_000;
 const READ_QUALITIES: readonly ReadQuality[] = ["GOOD", "PARTIAL", "UNREADABLE"];
 
@@ -112,41 +112,33 @@ export async function transcribeChunk(input: TranscribeChunkInput): Promise<Chun
 
     const fetcher = input.fetcher ?? fetch;
     const pageCount = input.pageEnd - input.pageStart + 1;
-    const response = await fetcher(OPENAI_RESPONSES_URL, {
+    const response = await fetcher(GEMINI_INTERACTIONS_URL, {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${input.apiKey}`,
+            "x-goog-api-key": input.apiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
             model: input.model,
-            max_output_tokens: MAX_OUTPUT_TOKENS,
-            text: {
-                format: {
-                    type: "json_schema",
-                    name: "legal_pdf_blocks",
-                    strict: true,
-                    schema: TRANSCRIPTION_SCHEMA,
-                },
+            system_instruction: SYSTEM_PROMPT,
+            store: false,
+            generation_config: {
+                max_output_tokens: MAX_OUTPUT_TOKENS,
+            },
+            response_format: {
+                type: "text",
+                mime_type: "application/json",
+                schema: TRANSCRIPTION_SCHEMA,
             },
             input: [
                 {
-                    role: "system",
-                    content: SYSTEM_PROMPT,
+                    type: "text",
+                    text: `This PDF file has ${pageCount} page(s) (pages-${input.pageStart}-${input.pageEnd}.pdf). Transcribe all of them.`,
                 },
                 {
-                    role: "user",
-                    content: [
-                        {
-                            type: "input_text",
-                            text: `This PDF file has ${pageCount} page(s). Transcribe all of them.`,
-                        },
-                        {
-                            type: "input_file",
-                            filename: `pages-${input.pageStart}-${input.pageEnd}.pdf`,
-                            file_data: `data:application/pdf;base64,${encodeBase64(input.chunkPdf)}`,
-                        },
-                    ],
+                    type: "document",
+                    data: encodeBase64(input.chunkPdf),
+                    mime_type: "application/pdf",
                 },
             ],
         }),
@@ -198,22 +190,30 @@ function readOutputText(body: unknown): string {
         throw new InvalidTranscriptionError(`LLM output is incomplete (${reason})`);
     }
 
-    const outputItems = Array.isArray(body.output) ? body.output : [];
+    const steps = Array.isArray(body.steps) ? body.steps : [];
 
-    for (const item of outputItems) {
-        if (!isRecord(item) || item.type !== "message" || !Array.isArray(item.content)) {
+    for (let i = steps.length - 1; i >= 0; i -= 1) {
+        const step = steps[i];
+
+        if (!isRecord(step) || step.type !== "model_output" || !Array.isArray(step.content)) {
             continue;
         }
 
-        for (const part of item.content) {
-            if (isRecord(part) && part.type === "refusal") {
-                throw new InvalidTranscriptionError("LLM refused to transcribe the pages");
-            }
+        const texts: string[] = [];
 
-            if (isRecord(part) && part.type === "output_text" && typeof part.text === "string") {
-                return part.text;
+        for (const part of step.content) {
+            if (isRecord(part) && part.type === "text" && typeof part.text === "string") {
+                texts.push(part.text);
             }
         }
+
+        if (texts.length > 0) {
+            return texts.join("");
+        }
+    }
+
+    if (typeof body.output_text === "string" && body.output_text.trim()) {
+        return body.output_text;
     }
 
     throw new InvalidTranscriptionError("LLM response has no output text");

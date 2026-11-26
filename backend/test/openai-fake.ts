@@ -7,18 +7,19 @@ export type FakeChunk = {
 
 export type FakeReply = FakeChunk | Response | string;
 
-/** Fake OpenAI Responses API keyed by the chunk filename ("pages-1-2.pdf"); page numbers are chunk-relative. */
+/** Fake Gemini Interactions API keyed by the chunk range ("1-2"); page numbers are chunk-relative. */
 export function createFakeOpenAi(replies: Record<string, FakeReply | FakeReply[]>) {
     const calls: string[] = [];
 
     const fetcher = (async (_url: unknown, init?: RequestInit) => {
         const body = JSON.parse(String(init?.body)) as {
-            input: { content: string | { type: string; filename?: string }[] }[];
+            input: { type?: string; text?: string }[];
         };
-        const filePart = body.input
-            .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
-            .find((part) => part.type === "input_file");
-        const range = String(filePart?.filename).replace("pages-", "").replace(".pdf", "");
+        const textPart = Array.isArray(body.input)
+            ? body.input.find((part) => part.type === "text" && typeof part.text === "string")?.text ?? ""
+            : "";
+        const rangeMatch = /pages-(\d+-\d+)\.pdf/.exec(textPart);
+        const range = rangeMatch?.[1] ?? "1-1";
         calls.push(range);
 
         const scripted = replies[range];
@@ -36,7 +37,7 @@ export function createFakeOpenAi(replies: Record<string, FakeReply | FakeReply[]
 
         return Response.json({
             status: "completed",
-            output: [{ type: "message", content: [{ type: "output_text", text: outputText }] }],
+            steps: [{ type: "model_output", content: [{ type: "text", text: outputText }] }],
         });
     }) as unknown as typeof fetch;
 

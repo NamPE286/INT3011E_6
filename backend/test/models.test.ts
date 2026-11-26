@@ -5,17 +5,17 @@ import { createTestD1Database } from "./d1-test-db";
 import { createMockEnv, withEnv } from "./mocks";
 
 describe("resolveModel", () => {
-    it("offers GPT 6 Luna next to the default model", () => {
-        expect(SELECTABLE_MODELS.map((model) => model.id)).toContain("gpt-6-luna");
+    it("offers Gemini 4 Hydrogen next to the default model", () => {
+        expect(SELECTABLE_MODELS.map((model) => model.id)).toContain("gemini-4-hydrogen");
     });
 
     it("uses the requested model when it is selectable", () => {
-        expect(resolveModel("gpt-6-luna", "gpt-5.4")).toEqual({ ok: true, model: "gpt-6-luna" });
+        expect(resolveModel("gemini-4-hydrogen", "gemini-3.5-flash-lite")).toEqual({ ok: true, model: "gemini-4-hydrogen" });
     });
 
     it("falls back to the configured model, then to the built-in default", () => {
         expect(resolveModel(undefined, "custom-model")).toEqual({ ok: true, model: "custom-model" });
-        expect(resolveModel("  ", undefined)).toEqual({ ok: true, model: "gpt-5.4" });
+        expect(resolveModel("  ", undefined)).toEqual({ ok: true, model: "gemini-3.5-flash-lite" });
     });
 
     it("rejects a model that is not selectable", () => {
@@ -30,8 +30,8 @@ describe("model switcher API", () => {
         const body = (await response.json()) as { default: string; models: { id: string }[] };
 
         expect(response.status).toBe(200);
-        expect(body.default).toBe("gpt-5.4");
-        expect(body.models.map((model) => model.id)).toContain("gpt-6-luna");
+        expect(body.default).toBe("gemini-3.5-flash-lite");
+        expect(body.models.map((model) => model.id)).toContain("gemini-4-hydrogen");
     });
 
     it("rejects an unknown model on /api/ask", async () => {

@@ -21,6 +21,7 @@ import { authModule } from "./modules/auth/auth.route";
 import { workspaceModule } from "./modules/workspaces/workspace.route";
 import { manualModule } from "./modules/manual/manual.route";
 import { analysisModule } from "./modules/analysis/analysis.route";
+import { ideModule } from "./modules/ide/ide.route";
 
 export const app = new Elysia({ aot: false })
     .use(
@@ -50,6 +51,7 @@ export const app = new Elysia({ aot: false })
     .use(graphModule)
     .use(askModule)
     .use(modelsModule)
+    .use(ideModule)
     .use(dummyModule)
     .use(mcpModule)
     .onError(({ code, error, set }) => {

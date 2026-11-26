@@ -8,6 +8,8 @@ export interface ProcessingQueueMessage {
 
 export interface Env {
     DB: D1Database;
+    GEMINI_API_KEY?: string;
+    GEMINI_MODEL?: string;
     OPENAI_API_KEY?: string;
     OPENAI_MODEL?: string;
     PDF_CHUNK_PAGES?: string;

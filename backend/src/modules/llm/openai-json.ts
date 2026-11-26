@@ -1,4 +1,5 @@
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1/interactions";
+const GEMINI_DECISIONS_URL = "https://generativelanguage.googleapis.com/v1beta/decisions";
 
 export type StructuredJsonRequest = {
     apiKey: string;
@@ -20,32 +21,30 @@ export class InvalidModelOutputError extends Error {
 }
 
 /**
- * One strict-JSON-schema call to the OpenAI Responses API. The parsed value is still untrusted:
- * callers must validate every field against their own data before using it.
+ * One strict-JSON-schema call to the Gemini Interactions API (v1/interactions).
+ * The parsed value is still untrusted: callers must validate every field before using it.
  */
 export async function requestStructuredJson(request: StructuredJsonRequest): Promise<unknown> {
     const fetcher = request.fetcher ?? fetch;
-    const response = await fetcher(OPENAI_RESPONSES_URL, {
+    const response = await fetcher(GEMINI_INTERACTIONS_URL, {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${request.apiKey}`,
+            "x-goog-api-key": request.apiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
             model: request.model,
-            max_output_tokens: request.maxOutputTokens,
-            text: {
-                format: {
-                    type: "json_schema",
-                    name: request.schemaName,
-                    strict: true,
-                    schema: request.schema,
-                },
+            system_instruction: request.systemPrompt,
+            input: request.userText,
+            store: false,
+            generation_config: {
+                max_output_tokens: request.maxOutputTokens,
             },
-            input: [
-                { role: "system", content: request.systemPrompt },
-                { role: "user", content: [{ type: "input_text", text: request.userText }] },
-            ],
+            response_format: {
+                type: "text",
+                mime_type: "application/json",
+                schema: request.schema,
+            },
         }),
     });
 
@@ -60,6 +59,35 @@ export async function requestStructuredJson(request: StructuredJsonRequest): Pro
     } catch {
         throw new InvalidModelOutputError("LLM output is not valid JSON");
     }
+}
+
+export async function requestDecisions(request: {
+    apiKey: string;
+    input: string;
+    questions: Record<string, unknown>;
+    fetcher?: typeof fetch;
+}): Promise<Record<string, unknown>> {
+    const fetcher = request.fetcher ?? fetch;
+    const response = await fetcher(GEMINI_DECISIONS_URL, {
+        method: "POST",
+        headers: {
+            "x-goog-api-key": request.apiKey,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            model: "gemini-decision-1",
+            input: request.input,
+            questions: request.questions,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Decisions HTTP ${response.status}: ${await readProviderMessage(response)}`);
+    }
+
+    const body = (await response.json()) as unknown;
+
+    return isRecord(body) ? body : {};
 }
 
 async function readProviderMessage(response: Response): Promise<string> {
@@ -81,26 +109,34 @@ function readOutputText(body: unknown): string {
         throw new InvalidModelOutputError("LLM response is not an object");
     }
 
-    if (body.status === "incomplete") {
-        throw new InvalidModelOutputError("LLM output is incomplete");
+    if (body.status === "incomplete" || body.status === "failed") {
+        throw new InvalidModelOutputError(`LLM output status: ${String(body.status)}`);
     }
 
-    const outputItems = Array.isArray(body.output) ? body.output : [];
+    const steps = Array.isArray(body.steps) ? body.steps : [];
 
-    for (const item of outputItems) {
-        if (!isRecord(item) || item.type !== "message" || !Array.isArray(item.content)) {
+    for (let i = steps.length - 1; i >= 0; i -= 1) {
+        const step = steps[i];
+
+        if (!isRecord(step) || step.type !== "model_output" || !Array.isArray(step.content)) {
             continue;
         }
 
-        for (const part of item.content) {
-            if (isRecord(part) && part.type === "refusal") {
-                throw new InvalidModelOutputError("LLM refused the request");
-            }
+        const texts: string[] = [];
 
-            if (isRecord(part) && part.type === "output_text" && typeof part.text === "string") {
-                return part.text;
+        for (const part of step.content) {
+            if (isRecord(part) && part.type === "text" && typeof part.text === "string") {
+                texts.push(part.text);
             }
         }
+
+        if (texts.length > 0) {
+            return texts.join("");
+        }
+    }
+
+    if (typeof body.output_text === "string" && body.output_text.trim()) {
+        return body.output_text;
     }
 
     throw new InvalidModelOutputError("LLM response has no output text");
