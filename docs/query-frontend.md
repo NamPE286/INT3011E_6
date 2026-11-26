@@ -46,6 +46,8 @@ Tài liệu kỹ thuật cho toàn bộ API và giao diện web của **Soạn L
 | `GET` | `/api/documents?q=&document_type=&agency=&limit=` | Tìm văn bản `ACCEPTED` trong Workspace theo số hiệu, tên, từ khóa (không dùng LLM). |
 | `GET` | `/api/documents/:documentId` | Metadata, danh sách provision theo thứ tự đọc và `amendments` tác động vào văn bản. |
 | `GET` | `/api/documents/:documentId/relations` | Cạnh `ACCEPTED`, candidate chưa xác minh, `frontier` và phạm vi dữ liệu. |
+| `GET` | `/api/documents/:documentId/dependents` | Văn bản đang tác động vào văn bản này (kể cả `CANDIDATE`); `deletable` là `true` khi là node lá. |
+| `DELETE` | `/api/documents/:documentId` | Xóa văn bản node lá cùng provision, quan hệ đi ra, rule, job và tệp trên R2 (`409` kèm `dependents` nếu còn văn bản khác tác động vào nó). |
 | `GET` | `/api/violations`, `/api/violations/:id`, `/rules?as_of=`, `/history` | Tìm hành vi, xem khung phạt theo mốc ngày `as_of` và chuỗi lịch sử theo `RuleLineage`. |
 | `POST` | `/api/ask` | Hỏi đáp AI có căn cứ (`ANSWERED`/`AMBIGUOUS`/`UNCERTAIN`/`NO_ANSWER`) kèm `claims` dẫn chiếu bắt buộc tới `evidence` và `provisionId`. |
 

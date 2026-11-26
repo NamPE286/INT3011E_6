@@ -1,6 +1,6 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { listAllProvisionRelations, listProvisionRelationsByIds } from "../changes/change.repository";
-import type { ProvisionRelation, ProvisionRelationType } from "../changes/change.types";
+import { DOCUMENT_EXPANSION_METHOD, type ProvisionRelation, type ProvisionRelationType } from "../changes/change.types";
 import { listProvisions, type StoredProvision } from "../provisions/provision.repository";
 import { extractDocumentRelationCandidates } from "./document-graph.extractor";
 import {
@@ -229,7 +229,8 @@ export function deriveAcceptedRelations(
     }
 
     for (const relation of provisionRelations) {
-        if (relation.verificationStatus !== "ACCEPTED" || relation.fromDocumentId === relation.toDocumentId) {
+        // A whole-document replacement or repeal already has its FULL document relation; its clause edges add nothing partial.
+        if (relation.verificationStatus !== "ACCEPTED" || relation.fromDocumentId === relation.toDocumentId || relation.method === DOCUMENT_EXPANSION_METHOD) {
             continue;
         }
 

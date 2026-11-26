@@ -1,5 +1,6 @@
 <script lang="ts">
     import { amendmentsByProvision, articleOutline, buildProvisionTree } from "$lib/api/documents";
+    import DeleteDocumentButton from "$lib/components/DeleteDocumentButton.svelte";
     import DocumentActions from "$lib/components/DocumentActions.svelte";
     import ProvisionTree from "$lib/components/ProvisionTree.svelte";
     import RelationsPanel from "$lib/components/RelationsPanel.svelte";
@@ -41,13 +42,17 @@
     </nav>
 
     <header class="flex flex-col gap-3 rounded-2xl border bg-card p-5 sm:p-6">
-        <div class="flex flex-wrap gap-2">
-            {#if document.metadata?.documentType}
-                <Badge>{document.metadata.documentType}</Badge>
-            {/if}
-            {#if document.metadata?.agency}
-                <Badge variant="outline">{document.metadata.agency}</Badge>
-            {/if}
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex flex-wrap gap-2">
+                {#if document.metadata?.documentType}
+                    <Badge>{document.metadata.documentType}</Badge>
+                {/if}
+                {#if document.metadata?.agency}
+                    <Badge variant="outline">{document.metadata.agency}</Badge>
+                {/if}
+            </div>
+
+            <DeleteDocumentButton documentId={document.id} {heading} dependents={data.dependents} />
         </div>
 
         <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{heading}</h1>

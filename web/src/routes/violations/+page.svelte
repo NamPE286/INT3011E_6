@@ -1,5 +1,6 @@
 <script lang="ts">
     import SearchForm from "$lib/components/SearchForm.svelte";
+    import ViolationSubject from "$lib/components/ViolationSubject.svelte";
     import { ChevronRight, Sparkles } from "@lucide/svelte";
 
     let { data } = $props();
@@ -53,8 +54,16 @@
                             href={`/violations/${encodeURIComponent(violation.id)}`}
                             class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-muted/60 focus-visible:outline-2 focus-visible:-outline-offset-2"
                         >
-                            <span class="flex min-w-0 flex-1 flex-col gap-1">
+                            <span class="flex min-w-0 flex-1 flex-col gap-1.5">
                                 <span class="font-medium">{violation.canonicalName}</span>
+                                {#if violation.contexts.length > 0}
+                                    <span class="flex flex-col gap-1 text-sm">
+                                        <span class="sr-only">Chủ thể vi phạm:</span>
+                                        {#each violation.contexts as context, index (index)}
+                                            <ViolationSubject {context} />
+                                        {/each}
+                                    </span>
+                                {/if}
                                 {#if otherAliases(violation).length > 0}
                                     <span class="text-sm text-muted-foreground">Còn được diễn đạt: {otherAliases(violation).join("; ")}</span>
                                 {/if}

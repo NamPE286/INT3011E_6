@@ -8,6 +8,7 @@ import {
     type InstructionStatus,
     type ProvisionRelation,
     type ProvisionRelationType,
+    type ProvisionUnit,
     type RelationVerification,
     type TargetScope,
 } from "./change.types";
@@ -194,23 +195,28 @@ export async function listProvisionRelationsByIds(db: D1Database, ids: string[])
     return result.results.map(toRelation);
 }
 
-export async function listProvisionIdsOf(db: D1Database, documentIds: string[]): Promise<Map<string, Set<string>>> {
-    const byDocument = new Map<string, Set<string>>();
+/** Every provision of the target documents in reading order, with the article/clause address of each unit. */
+export async function listProvisionUnitsOf(db: D1Database, documentIds: string[]): Promise<Map<string, ProvisionUnit[]>> {
+    const byDocument = new Map<string, ProvisionUnit[]>();
 
     if (documentIds.length === 0) {
         return byDocument;
     }
 
     const result = await db
-        .prepare("SELECT id, document_id FROM provisions WHERE document_id IN (SELECT value FROM json_each(?))")
+        .prepare(
+            `SELECT id, document_id, parent_id, level, article_no, paragraph_no FROM provisions
+             WHERE document_id IN (SELECT value FROM json_each(?)) ORDER BY document_id, ordinal`
+        )
         .bind(JSON.stringify(documentIds))
-        .all<{ id: string; document_id: string }>();
+        .all<{ id: string; document_id: string; parent_id: string | null; level: string; article_no: string | null; paragraph_no: string | null }>();
 
     for (const row of result.results) {
-        const ids = byDocument.get(row.document_id) ?? new Set<string>();
+        const units = byDocument.get(row.document_id) ?? [];
+        const locator = row.article_no ? { article: row.article_no, clause: row.level === "CLAUSE" ? row.paragraph_no : null, point: null } : null;
 
-        ids.add(row.id);
-        byDocument.set(row.document_id, ids);
+        units.push({ id: row.id, level: row.level, parentId: row.parent_id, locator });
+        byDocument.set(row.document_id, units);
     }
 
     return byDocument;

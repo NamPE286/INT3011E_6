@@ -131,6 +131,15 @@ describe("resolveCandidate", () => {
 
         expect(resolveCandidate(cited, corpus).status).toBe("CONFLICT");
     });
+
+    it("accepts a cited issue date one day off as a citation slip and says so", () => {
+        const corpus = buildCorpusIndex([metadata("target", "100/2019/NĐ-CP", "Nghị định", "2019-12-30")]);
+        const cited = { ...amendment, rawTargetCitation: "Nghị định số 100/2019/NĐ-CP ngày 31 tháng 12 năm 2019 của Chính phủ" };
+        const resolution = resolveCandidate(cited, corpus);
+
+        expect(resolution).toMatchObject({ status: "ACCEPTED", resolvedTargetDocumentId: "target" });
+        expect(resolution.reason).toContain("citation slip");
+    });
 });
 
 describe("document metadata helpers", () => {

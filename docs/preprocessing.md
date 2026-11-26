@@ -49,7 +49,7 @@ Trang `/admin/review/[jobId]` hiển thị checklist và nút chạy lại các 
 3. **Resolve** (`resolveCandidate`): khớp số hiệu chuẩn hóa với corpus.
    - không có số hiệu hoặc không có trong corpus → `UNRESOLVED` (frontier cần thu thập);
    - nhiều văn bản cùng số → `AMBIGUOUS`; trỏ về chính nó → `REJECTED`;
-   - loại văn bản hoặc ngày ban hành trong citation mâu thuẫn → `CONFLICT`;
+   - loại văn bản hoặc ngày ban hành trong citation mâu thuẫn → `CONFLICT`; ngày trích dẫn lệch ngày ban hành không quá 7 ngày (văn bản gốc ghi nhầm, ví dụ 123/2021 dẫn 100/2019 là "ngày 31 tháng 12 năm 2019" trong khi ban hành ngày 30) được coi là nhầm khi trích dẫn, không chặn cạnh, và lý do resolve ghi lại độ lệch;
    - type `UNKNOWN` hoặc không so được loại văn bản → `CANDIDATE`;
    - số hiệu + loại văn bản khớp đúng một văn bản và action đọc từ câu chữ pháp lý → `ACCEPTED`.
 4. **Cạnh** (`document_relations`): mỗi `(from, to, type, scope)` là một cạnh, evidence là toàn bộ candidate `ACCEPTED` cùng khóa (`EXPLICIT_LEGAL_TEXT`). Quan hệ ngược (incoming) suy từ cùng cạnh, không lưu cạnh trùng.
@@ -74,7 +74,12 @@ Giới hạn hiện tại: chưa tự thu thập văn bản ở frontier (FR-02 
 3. **ProvisionRelation** (`provision_relations`): cạnh first-class từ provision chứa lệnh → provision bị tác động (`AMENDS / SUPPLEMENTS / REPLACES / REPEALS / CORRECTS`), giữ locator, insertion locator, nội dung mới, evidence, ngày hiệu lực, method/version. `verification_status` = `ACCEPTED` khi văn bản đích đã xác minh, `CANDIDATE` khi mới khớp số hiệu.
 4. **Bổ sung document graph**: ProvisionRelation `ACCEPTED` giữa hai văn bản được tổng hợp thành cạnh `document_relations` scope `PARTIAL` (`STRUCTURED_DERIVATION`, method `PROVISION_RELATION`) với `evidence_provision_relation_ids`; cạnh từ câu chữ và cạnh suy ra được giữ riêng.
 
-Instruction tác động toàn văn bản (ví dụ "Nghị định số 46/2016/NĐ-CP hết hiệu lực") có `target_scope = DOCUMENT` và không lan truyền xuống từng provision.
+Đồ thị provision luôn ở cấp khoản, kể cả khi instruction tác động lên cả đơn vị lớn hơn:
+
+- Instruction tác động toàn văn bản (ví dụ "Nghị định số 46/2016/NĐ-CP hết hiệu lực") có `target_scope = DOCUMENT`. Nếu là thay thế hoặc bãi bỏ, nó tạo một cạnh `REPLACES`/`REPEALS` tới từng khoản của văn bản bị tác động (Điều không có khoản thì tới chính Điều đó), `method = RULE_INSTRUCTION_DOCUMENT`. Các cạnh này chỉ để hiển thị: lịch sử rule và đồ thị văn bản vẫn đọc quan hệ `FULLY_REPLACES`/`FULLY_REPEALS` cấp văn bản, nên không sinh thêm quan hệ một phần. Sửa đổi một số điều ở cấp văn bản không được mở rộng.
+- Sửa đổi, thay thế hoặc bãi bỏ cả một Điều ("Bãi bỏ Điều 5, Điều 6", "Sửa đổi Điều 6 như sau") tạo cạnh tới từng khoản của Điều đó, `method = RULE_INSTRUCTION_ARTICLE`; Điều không có khoản giữ cạnh tới chính Điều. Thay cụm từ hoặc đính chính trong một Điều không được mở rộng.
+
+Instruction chỉ dẫn nhập cho các instruction con (ví dụ "Sửa đổi, bổ sung một số điểm, khoản của Điều 6 như sau:" rồi tới các điểm a, b, c đều là instruction) có `target_scope = SUB_INSTRUCTIONS`: địa chỉ của nó chỉ làm ngữ cảnh cho instruction con và không tạo cạnh lên cả Điều, nếu không mọi rule của Điều 6 sẽ bị coi là bị sửa đổi.
 
 | Method | Path | Mô tả |
 | --- | --- | --- |

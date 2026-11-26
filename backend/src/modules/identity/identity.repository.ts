@@ -30,11 +30,18 @@ export type StoredIdentityDecision = {
     model: string | null;
 };
 
+/** Who commits the violation in one of its lineages: the subject and vehicles read from the rule text. */
+export type ViolationContext = {
+    subject: string | null;
+    vehicles: string[];
+};
+
 export type ViolationSummary = {
     id: string;
     canonicalName: string;
     signatureKey: string | null;
     aliases: string[];
+    contexts: ViolationContext[];
 };
 
 type ViolationRow = {
@@ -237,15 +244,51 @@ async function attachAliases(db: D1Database, rows: ViolationRow[]): Promise<Viol
         return [];
     }
 
-    const aliases = await db
-        .prepare("SELECT traffic_violation_id, alias FROM violation_aliases WHERE traffic_violation_id IN (SELECT value FROM json_each(?)) ORDER BY alias")
-        .bind(JSON.stringify(rows.map((row) => row.id)))
-        .all<{ traffic_violation_id: string; alias: string }>();
+    const ids = JSON.stringify(rows.map((row) => row.id));
+    const [aliases, lineages] = await Promise.all([
+        db
+            .prepare("SELECT traffic_violation_id, alias FROM violation_aliases WHERE traffic_violation_id IN (SELECT value FROM json_each(?)) ORDER BY alias")
+            .bind(ids)
+            .all<{ traffic_violation_id: string; alias: string }>(),
+        db
+            .prepare("SELECT traffic_violation_id, context_ir FROM rule_lineages WHERE traffic_violation_id IN (SELECT value FROM json_each(?)) ORDER BY id")
+            .bind(ids)
+            .all<{ traffic_violation_id: string; context_ir: string }>(),
+    ]);
 
     return rows.map((row) => ({
         id: row.id,
         canonicalName: row.canonical_name,
         signatureKey: row.signature_key,
         aliases: aliases.results.filter((alias) => alias.traffic_violation_id === row.id).map((alias) => alias.alias),
+        contexts: distinctContexts(lineages.results.filter((lineage) => lineage.traffic_violation_id === row.id).map((lineage) => lineage.context_ir)),
     }));
+}
+
+function distinctContexts(contextJsons: string[]): ViolationContext[] {
+    const contexts = new Map<string, ViolationContext>();
+
+    for (const contextJson of contextJsons) {
+        const context = parseContext(contextJson);
+        const key = JSON.stringify(context);
+
+        if (!contexts.has(key)) {
+            contexts.set(key, context);
+        }
+    }
+
+    return [...contexts.values()];
+}
+
+function parseContext(contextJson: string): ViolationContext {
+    const parsed: unknown = JSON.parse(contextJson);
+
+    if (typeof parsed !== "object" || parsed === null) {
+        return { subject: null, vehicles: [] };
+    }
+
+    const subject = "subject" in parsed && typeof parsed.subject === "string" ? parsed.subject : null;
+    const vehicles = "vehicles" in parsed && Array.isArray(parsed.vehicles) ? parsed.vehicles.filter((vehicle): vehicle is string => typeof vehicle === "string") : [];
+
+    return { subject, vehicles };
 }

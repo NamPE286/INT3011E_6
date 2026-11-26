@@ -1,10 +1,13 @@
-"""Renders each fake decree JSON in this folder to a PDF with the same wording, one PDF page per "pages" entry.
+"""Renders each decree JSON in this folder (or in the folders given) to a PDF with the same wording, one PDF page per "pages" entry.
 
     python3 data/fake-law/generate_pdfs.py
+    python3 data/fake-law/generate_pdfs.py backend/test/fixtures/synthetic-law
 
-Needs reportlab and the DejaVu Sans font (Vietnamese diacritics).
+Needs reportlab and the DejaVu Sans font (Vietnamese diacritics); set FAKE_LAW_FONT to use another TTF.
 """
 import json
+import os
+import sys
 from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
@@ -14,7 +17,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import simpleSplit
 
 FOLDER = Path(__file__).parent
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+FONT_PATH = os.environ.get("FAKE_LAW_FONT", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 MARGIN = 56
 FONT_SIZE = 11
 LINE_HEIGHT = 16
@@ -62,5 +65,8 @@ def render(source: Path) -> None:
 if __name__ == "__main__":
     pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
 
-    for source in sorted(FOLDER.glob("*.json")):
-        render(source)
+    folders = [Path(arg) for arg in sys.argv[1:]] or [FOLDER]
+
+    for folder in folders:
+        for source in sorted(folder.glob("*.json")):
+            render(source)

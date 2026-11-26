@@ -9,6 +9,16 @@ import {
 } from "./analysis";
 import { parseAskAnswer, type AskAnswer } from "./ask";
 import {
+    parseDocumentDependents,
+    parseDocumentRelations,
+    parseDocumentSearch,
+    parseDocumentView,
+    type DocumentDependents,
+    type DocumentRelations,
+    type DocumentSearch,
+    type DocumentView,
+} from "./documents";
+import {
     parseAnalysisResult,
     parseDebugSimulationResult,
     parseDraftListResponse,
@@ -20,7 +30,6 @@ import {
     type DraftWithAnalysis,
     type WorkspaceContext,
 } from "./ide";
-import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { parseRelationGraph, type RelationGraph } from "./graph";
 import { invalidResponse, requestJson, resolveBackendUrl } from "./http";
 import { parseModelOptions, type ModelOptions } from "./models";
@@ -154,6 +163,15 @@ export async function acceptJobDocument(fetcher: Fetcher, jobId: string): Promis
     const init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "accept" }) };
 
     await requestJson(getBackendUrl(), `/api/jobs/${encodeURIComponent(jobId)}/review`, init, fetcher);
+}
+
+export function getDocumentDependents(fetcher: Fetcher, documentId: string): Promise<DocumentDependents> {
+    return getParsed(fetcher, `/api/documents/${encodeURIComponent(documentId)}/dependents`, parseDocumentDependents);
+}
+
+/** Deletes a leaf document with its relations; the backend refuses (409) while another document acts on it. */
+export async function deleteDocument(fetcher: Fetcher, documentId: string): Promise<void> {
+    await requestJson(getBackendUrl(), `/api/documents/${encodeURIComponent(documentId)}`, { method: "DELETE" }, fetcher);
 }
 
 export function getDocumentAudit(documentId: string, fetcher: Fetcher = fetch): Promise<LogicAuditReport> {

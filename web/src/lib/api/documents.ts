@@ -357,3 +357,35 @@ function readCounts(value: unknown): Record<string, number> {
 
     return counts;
 }
+
+export type DependentDocument = {
+    documentId: string;
+    documentNumber: string | null;
+    title: string | null;
+};
+
+/** The documents acting on one document; it can be deleted only when there are none (a leaf of the graph). */
+export type DocumentDependents = {
+    deletable: boolean;
+    dependents: DependentDocument[];
+};
+
+export function parseDocumentDependents(value: unknown): DocumentDependents | null {
+    if (!isRecord(value) || !Array.isArray(value.dependents)) {
+        return null;
+    }
+
+    const dependents = readRows(value, "dependents", parseDependent);
+
+    return { deletable: dependents.length === 0 && value.deletable === true, dependents };
+}
+
+function parseDependent(row: Record<string, unknown>): DependentDocument | null {
+    const documentId = readString(row, "documentId");
+
+    if (!documentId) {
+        return null;
+    }
+
+    return { documentId, documentNumber: readString(row, "documentNumber"), title: readString(row, "title") };
+}

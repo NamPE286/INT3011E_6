@@ -1,14 +1,17 @@
 import { resolveCandidate, type CorpusIndex } from "../documents/document-graph.resolver";
 import { formatLocator, locatorToProvisionId, parentLocator, type ProvisionLocator } from "./change.locator";
 import {
+    ARTICLE_EXPANSION_METHOD,
     CHANGE_EXTRACTOR_VERSION,
     CHANGE_METHOD,
+    DOCUMENT_EXPANSION_METHOD,
     type ChangeInstruction,
     type ChangeInstructionDraft,
     type ChangeOperation,
     type InstructionStatus,
     type ProvisionRelation,
     type ProvisionRelationType,
+    type ProvisionUnit,
     type RelationVerification,
 } from "./change.types";
 
@@ -18,6 +21,15 @@ export type DocumentResolution = {
     verification: RelationVerification | null;
     reason: string;
 };
+
+/** The stored text of a target document, indexed for linking addresses and expanding whole units to clauses. */
+export type TargetProvisions = {
+    ids: ReadonlySet<string>;
+    /** The clauses of each article in reading order; an article without clauses stands for itself. */
+    unitsByArticle: ReadonlyMap<string, LocatedUnit[]>;
+};
+
+type LocatedUnit = ProvisionUnit & { locator: ProvisionLocator };
 
 export type ResolvedChanges = {
     instructions: ChangeInstruction[];
@@ -32,6 +44,35 @@ const RELATION_TYPE_BY_OPERATION: Record<ChangeOperation, ProvisionRelationType>
     CORRECT: "CORRECTS",
     SUBSTITUTE_TEXT: "AMENDS",
 };
+
+/** Operations that end a whole document when it is the target: every clause of it is replaced or repealed. */
+const WHOLE_DOCUMENT_ENDINGS = new Set<ChangeOperation>(["REPLACE", "REPEAL"]);
+
+/** Operations that change every clause of an article named without a clause ("Sửa đổi Điều 6 như sau"). */
+const WHOLE_ARTICLE_CHANGES = new Set<ChangeOperation>(["AMEND", "REPLACE", "REPEAL"]);
+
+export function indexTargetProvisions(units: ProvisionUnit[]): TargetProvisions {
+    const located = units.filter((unit): unit is LocatedUnit => unit.locator !== null);
+    const articles = located.filter((unit) => unit.level === "ARTICLE");
+    const articleIds = new Set(articles.map((article) => article.id));
+    const clausesByArticle = new Map<string, LocatedUnit[]>();
+
+    for (const unit of located) {
+        if (unit.level !== "CLAUSE" || !unit.parentId || !articleIds.has(unit.parentId)) {
+            continue;
+        }
+
+        const clauses = clausesByArticle.get(unit.parentId) ?? [];
+
+        clauses.push(unit);
+        clausesByArticle.set(unit.parentId, clauses);
+    }
+
+    return {
+        ids: new Set(units.map((unit) => unit.id)),
+        unitsByArticle: new Map(articles.map((article) => [article.id, clausesByArticle.get(article.id) ?? [article]])),
+    };
+}
 
 /** Which stored document an instruction acts on, using the same identity rules as the document graph. */
 export function resolveTargetDocument(draft: ChangeInstructionDraft, corpus: CorpusIndex): DocumentResolution {
@@ -72,17 +113,33 @@ export function resolveTargetDocument(draft: ChangeInstructionDraft, corpus: Cor
  * Resolves each instruction's addresses to provisions of the target document (FR-07). An address that
  * is missing from the stored text stays unresolved instead of being linked to something nearby; a
  * SUPPLEMENT that adds a new unit links to its enclosing provision and keeps the insertion locator.
+ * Whole units are shown at clause level: replacing or repealing a whole document links to every clause of
+ * it, and changing a whole article links to every clause of that article.
  */
 export function resolveInstruction(
     draft: ChangeInstructionDraft,
     document: DocumentResolution,
-    targetProvisionIds: ReadonlySet<string>,
+    targets: TargetProvisions,
     effectiveFrom: string | null,
 ): { instruction: ChangeInstruction; relations: ProvisionRelation[] } {
     const base = { ...draft, targetDocumentId: document.targetDocumentId, effectiveFrom };
 
     if (!document.targetDocumentId || !document.verification) {
         return { instruction: { ...base, resolutionStatus: document.status, resolutionReason: document.reason }, relations: [] };
+    }
+
+    if (draft.targetScope === "SUB_INSTRUCTIONS") {
+        const reason = "Introduces the instructions nested under it; they carry the provision-level edges.";
+
+        return { instruction: { ...base, resolutionStatus: document.status, resolutionReason: reason }, relations: [] };
+    }
+
+    if (draft.targetScope === "DOCUMENT" && WHOLE_DOCUMENT_ENDINGS.has(draft.operation) && document.targetDocumentId !== draft.sourceDocumentId) {
+        const units = [...targets.unitsByArticle.values()].flat();
+        const relations = units.map((unit) => buildRelation(draft, document, RELATION_TYPE_BY_OPERATION[draft.operation], unit.id, unit.locator, null, effectiveFrom, DOCUMENT_EXPANSION_METHOD));
+        const reason = `Instruction ends the whole document; shown on its ${relations.length} clause(s), with the document relation as evidence.`;
+
+        return { instruction: { ...base, resolutionStatus: document.status, resolutionReason: reason }, relations };
     }
 
     if (draft.targetScope !== "PROVISIONS") {
@@ -97,10 +154,10 @@ export function resolveInstruction(
     const missing: string[] = [];
 
     for (const locator of draft.targetLocators) {
-        const relation = linkLocator(draft, document, locator, targetProvisionIds, effectiveFrom);
+        const linked = linkLocator(draft, document, locator, targets, effectiveFrom);
 
-        if (relation) {
-            relations.push(relation);
+        if (linked.length > 0) {
+            relations.push(...linked);
         } else {
             missing.push(formatLocator(locator));
         }
@@ -116,35 +173,39 @@ function linkLocator(
     draft: ChangeInstructionDraft,
     document: DocumentResolution,
     locator: ProvisionLocator,
-    targetProvisionIds: ReadonlySet<string>,
+    targets: TargetProvisions,
     effectiveFrom: string | null,
-): ProvisionRelation | null {
+): ProvisionRelation[] {
     const targetDocumentId = document.targetDocumentId ?? "";
     const provisionId = locatorToProvisionId(targetDocumentId, locator);
-    const exists = targetProvisionIds.has(provisionId);
     const relationType = RELATION_TYPE_BY_OPERATION[draft.operation];
+    const articleClauses = locator.clause === null && locator.point === null ? (targets.unitsByArticle.get(provisionId) ?? []) : [];
 
-    if (exists) {
-        return buildRelation(draft, document, relationType, provisionId, locator, null, effectiveFrom);
+    if (WHOLE_ARTICLE_CHANGES.has(draft.operation) && articleClauses.some((unit) => unit.level === "CLAUSE")) {
+        return articleClauses.map((unit) => buildRelation(draft, document, relationType, unit.id, unit.locator, null, effectiveFrom, ARTICLE_EXPANSION_METHOD));
+    }
+
+    if (targets.ids.has(provisionId)) {
+        return [buildRelation(draft, document, relationType, provisionId, locator, null, effectiveFrom)];
     }
 
     if (draft.operation !== "SUPPLEMENT") {
-        return null;
+        return [];
     }
 
     const container = parentLocator(locator);
 
     if (!container) {
-        return buildRelation(draft, document, relationType, null, locator, locator, effectiveFrom);
+        return [buildRelation(draft, document, relationType, null, locator, locator, effectiveFrom)];
     }
 
     const containerId = locatorToProvisionId(targetDocumentId, container);
 
-    if (!targetProvisionIds.has(containerId)) {
-        return null;
+    if (!targets.ids.has(containerId)) {
+        return [];
     }
 
-    return buildRelation(draft, document, relationType, containerId, container, locator, effectiveFrom);
+    return [buildRelation(draft, document, relationType, containerId, container, locator, effectiveFrom)];
 }
 
 function buildRelation(
@@ -155,6 +216,7 @@ function buildRelation(
     targetLocator: ProvisionLocator,
     insertionLocator: ProvisionLocator | null,
     effectiveFrom: string | null,
+    method: string = CHANGE_METHOD,
 ): ProvisionRelation {
     const target = toProvisionId ?? `${document.targetDocumentId}:${formatLocator(targetLocator)}`;
 
@@ -173,7 +235,7 @@ function buildRelation(
         evidenceLevel: "EXPLICIT_LEGAL_TEXT",
         evidenceText: draft.rawText,
         effectiveFrom,
-        method: CHANGE_METHOD,
+        method,
         extractorVersion: CHANGE_EXTRACTOR_VERSION,
     };
 }

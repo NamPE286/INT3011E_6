@@ -49,7 +49,7 @@ Còn thiếu so với tiêu chí nghiệm thu:
 Nhánh `claude/feat/relation-graph` (chưa push):
 
 - Đối chiếu SRS: [docs/srs-coverage.md](docs/srs-coverage.md), kèm 4 lỗi phát hiện (D1–D4); lỗi nặng nhất là upload trùng PDF làm mất toàn bộ quan hệ (D3).
-- Luật giả `data/fake-law` (2 nghị định, có PDF) và `backend/test/fake-law-e2e.test.ts`: chạy upload → queue → preprocessing → truy vấn không cần OpenAI. Lỗi đã biết là các test `it.failing`.
+- Hai nghị định bịa `backend/test/fixtures/synthetic-law` (có PDF) và `backend/test/fake-law-e2e.test.ts`: chạy upload → queue → preprocessing → truy vấn không cần OpenAI. Lỗi đã biết là các test `it.failing`.
 - `GET /api/graph` và trang `/graph` có bộ lọc; xem [docs/query-frontend.md](docs/query-frontend.md).
 
 ## Deploy web, đo đạc và failed case Legal AI (09/11/2026)

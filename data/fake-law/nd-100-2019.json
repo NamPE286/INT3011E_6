@@ -1,0 +1,49 @@
+{
+    "id": "nd-100-2019",
+    "description": "Trích Nghị định 100/2019/NĐ-CP (văn bản thật, bản gốc chưa hợp nhất): đèn tín hiệu và nồng độ cồn (ô tô, mô tô); mô tô: mũ bảo hiểm, quá tốc độ, chở 02 người, dùng điện thoại, đi ngược chiều, lạng lách; tước GPLX; Điều 84 thay thế 46/2016. Nguồn: luatvietnam.vn, đối chiếu 16–17/11/2026.",
+    "pages": [
+        [
+            { "kind": "text", "text": "CHÍNH PHỦ" },
+            { "kind": "text", "text": "Số: 100/2019/NĐ-CP" },
+            { "kind": "text", "text": "Hà Nội, ngày 30 tháng 12 năm 2019" },
+            { "kind": "title", "text": "NGHỊ ĐỊNH" },
+            { "kind": "title", "text": "Quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt" },
+            { "kind": "text", "text": "Căn cứ Luật Xử lý vi phạm hành chính ngày 20 tháng 6 năm 2012;" },
+            { "kind": "article", "number": "5", "title": "Xử phạt người điều khiển xe ô tô và các loại xe tương tự xe ô tô vi phạm quy tắc giao thông đường bộ" },
+            { "kind": "clause", "number": "5", "text": "Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "a", "text": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;" },
+            { "kind": "clause", "number": "6", "text": "Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "c", "text": "Điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn nhưng chưa vượt quá 50 miligam/100 mililít máu hoặc chưa vượt quá 0,25 miligam/1 lít khí thở." },
+            { "kind": "clause", "number": "11", "text": "Ngoài việc bị phạt tiền, người điều khiển xe thực hiện hành vi vi phạm còn bị áp dụng các hình thức xử phạt bổ sung sau đây:" },
+            { "kind": "point", "number": "b", "text": "Thực hiện hành vi quy định tại điểm đ khoản 2; điểm h, điểm i khoản 3; khoản 4; điểm a, điểm b, điểm d, điểm đ, điểm g, điểm h, điểm i khoản 5 Điều này bị tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng;" },
+            { "kind": "point", "number": "e", "text": "Thực hiện hành vi quy định tại điểm c khoản 6 Điều này bị tước quyền sử dụng Giấy phép lái xe từ 10 tháng đến 12 tháng;" }
+        ],
+        [
+            { "kind": "article", "number": "6", "title": "Xử phạt người điều khiển xe mô tô, xe gắn máy (kể cả xe máy điện), các loại xe tương tự xe mô tô và các loại xe tương tự xe gắn máy vi phạm quy tắc giao thông đường bộ" },
+            { "kind": "clause", "number": "2", "text": "Phạt tiền từ 200.000 đồng đến 300.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "c", "text": "Điều khiển xe chạy quá tốc độ quy định từ 05 km/h đến dưới 10 km/h;" },
+            { "kind": "point", "number": "i", "text": "Không đội “mũ bảo hiểm cho người đi mô tô, xe máy” hoặc đội “mũ bảo hiểm cho người đi mô tô, xe máy” không cài quai đúng quy cách khi điều khiển xe tham gia giao thông trên đường bộ;" },
+            { "kind": "point", "number": "l", "text": "Chở theo 02 người trên xe, trừ trường hợp chở người bệnh đi cấp cứu, trẻ em dưới 14 tuổi, áp giải người có hành vi vi phạm pháp luật;" },
+            { "kind": "clause", "number": "3", "text": "Phạt tiền từ 400.000 đồng đến 600.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "m", "text": "Chạy trong hầm đường bộ không sử dụng đèn chiếu sáng gần." },
+            { "kind": "clause", "number": "4", "text": "Phạt tiền từ 600.000 đồng đến 1.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "a", "text": "Điều khiển xe chạy quá tốc độ quy định từ 10 km/h đến 20 km/h;" },
+            { "kind": "point", "number": "e", "text": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;" },
+            { "kind": "point", "number": "h", "text": "Người đang điều khiển xe sử dụng ô (dù), điện thoại di động, thiết bị âm thanh, trừ thiết bị trợ thính." },
+            { "kind": "clause", "number": "5", "text": "Phạt tiền từ 1.000.000 đồng đến 2.000.000 đồng đối với người điều khiển xe thực hiện hành vi đi ngược chiều của đường một chiều, đi ngược chiều trên đường có biển “Cấm đi ngược chiều”, trừ hành vi vi phạm quy định tại điểm b khoản 6 Điều này và các trường hợp xe ưu tiên đang đi làm nhiệm vụ khẩn cấp theo quy định." },
+            { "kind": "clause", "number": "6", "text": "Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "c", "text": "Điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn nhưng chưa vượt quá 50 miligam/100 mililít máu hoặc chưa vượt quá 0,25 miligam/1 lít khí thở." },
+            { "kind": "clause", "number": "8", "text": "Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây:" },
+            { "kind": "point", "number": "b", "text": "Điều khiển xe lạng lách hoặc đánh võng trên đường bộ trong, ngoài đô thị;" },
+            { "kind": "clause", "number": "10", "text": "Ngoài việc bị phạt tiền, người điều khiển xe thực hiện hành vi vi phạm còn bị áp dụng các hình thức xử phạt bổ sung sau đây:" },
+            { "kind": "point", "number": "b", "text": "Thực hiện hành vi quy định tại điểm b, điểm e, điểm i khoản 3; điểm đ, điểm e, điểm g, điểm h khoản 4; khoản 5 Điều này bị tước quyền sử dụng Giấy phép lái xe từ 01 tháng đến 03 tháng;" },
+            { "kind": "point", "number": "đ", "text": "Thực hiện hành vi quy định tại điểm c khoản 6 Điều này bị tước quyền sử dụng Giấy phép lái xe từ 10 tháng đến 12 tháng;" }
+        ],
+        [
+            { "kind": "article", "number": "84", "title": "Hiệu lực thi hành" },
+            { "kind": "clause", "number": "1", "text": "Nghị định này có hiệu lực thi hành từ ngày 01 tháng 01 năm 2020." },
+            { "kind": "clause", "number": "2", "text": "Nghị định này thay thế Nghị định số 46/2016/NĐ-CP ngày 26 tháng 5 năm 2016 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực giao thông đường bộ và đường sắt." },
+            { "kind": "closing", "text": "TM. CHÍNH PHỦ THỦ TƯỚNG" }
+        ]
+    ]
+}

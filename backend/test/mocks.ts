@@ -42,6 +42,12 @@ export function createMockEnv(overrides: Partial<Env> = {}): MockEnvironment {
                 },
             } as unknown as R2ObjectBody;
         },
+        async list(options?: { prefix?: string }) {
+            const prefix = options?.prefix ?? "";
+            const objects = [...r2Store.keys()].filter((key) => key.startsWith(prefix)).map((key) => ({ key }));
+
+            return { objects, truncated: false, delimitedPrefixes: [] };
+        },
         async delete(keys: string | string[]) {
             for (const key of Array.isArray(keys) ? keys : [keys]) {
                 r2Store.delete(key);
