@@ -8,6 +8,18 @@ import {
     type WorkspaceAuditOverview,
 } from "./analysis";
 import { parseAskAnswer, type AskAnswer } from "./ask";
+import {
+    parseAnalysisResult,
+    parseDebugSimulationResult,
+    parseDraftListResponse,
+    parseDraftWithAnalysis,
+    parseWorkspaceContext,
+    type AnalysisResult,
+    type DebugSimulationResult,
+    type DraftListResponse,
+    type DraftWithAnalysis,
+    type WorkspaceContext,
+} from "./ide";
 import { parseDocumentRelations, parseDocumentSearch, parseDocumentView, type DocumentRelations, type DocumentSearch, type DocumentView } from "./documents";
 import { parseRelationGraph, type RelationGraph } from "./graph";
 import { invalidResponse, requestJson, resolveBackendUrl } from "./http";
@@ -158,4 +170,280 @@ export function getDocumentImpact(documentId: string, maxDepth = 3, fetcher: Fet
 
 export function getWorkspaceAuditOverviewApi(fetcher: Fetcher = fetch): Promise<WorkspaceAuditOverview> {
     return getParsed(fetcher, "/api/workspace/audit-summary", parseWorkspaceAuditOverview);
+}
+
+export function listIdeDrafts(fetcher: Fetcher): Promise<DraftListResponse> {
+    return getParsed(fetcher, "/api/ide/drafts", parseDraftListResponse);
+}
+
+export function getIdeDraft(fetcher: Fetcher, id: string): Promise<DraftWithAnalysis> {
+    return getParsed(fetcher, `/api/ide/drafts/${encodeURIComponent(id)}`, parseDraftWithAnalysis);
+}
+
+export async function createIdeDraft(
+    fetcher: Fetcher,
+    payload: {
+        title?: string;
+        documentNumber?: string | null;
+        documentType?: string | null;
+        agency?: string | null;
+        content?: string;
+        templateId?: string;
+        sourceDocumentId?: string;
+    },
+): Promise<DraftWithAnalysis> {
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/drafts",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        },
+        fetcher,
+    );
+    const parsed = parseDraftWithAnalysis(body);
+
+    if (parsed === null) {
+        throw invalidResponse();
+    }
+
+    return parsed;
+}
+
+export async function updateIdeDraft(
+    fetcher: Fetcher,
+    id: string,
+    payload: {
+        title?: string;
+        documentNumber?: string | null;
+        content?: string;
+    },
+): Promise<DraftWithAnalysis> {
+    const body = await requestJson(
+        getBackendUrl(),
+        `/api/ide/drafts/${encodeURIComponent(id)}`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        },
+        fetcher,
+    );
+    const parsed = parseDraftWithAnalysis(body);
+
+    if (parsed === null) {
+        throw invalidResponse();
+    }
+
+    return parsed;
+}
+
+export async function deleteIdeDraft(fetcher: Fetcher, id: string): Promise<void> {
+    await requestJson(getBackendUrl(), `/api/ide/drafts/${encodeURIComponent(id)}`, { method: "DELETE" }, fetcher);
+}
+
+export async function analyzeIdeDraft(
+    fetcher: Fetcher,
+    payload: { content: string; includeAi?: boolean; model?: string | null },
+): Promise<AnalysisResult> {
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/analyze",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                content: payload.content,
+                includeAi: payload.includeAi ?? false,
+                model: payload.model || undefined,
+            }),
+        },
+        fetcher,
+    );
+    const parsed = parseAnalysisResult(body);
+
+    if (parsed === null) {
+        throw invalidResponse();
+    }
+
+    return parsed;
+}
+
+export function getIdeWorkspaceContext(fetcher: Fetcher): Promise<WorkspaceContext> {
+    return getParsed(fetcher, "/api/ide/workspace-context", parseWorkspaceContext);
+}
+
+export async function runIdeDebug(
+    fetcher: Fetcher,
+    payload: {
+        content: string;
+        scenario: string;
+        ambiguityOverrides?: Record<string, boolean>;
+        useAi?: boolean;
+        model?: string | null;
+    },
+): Promise<DebugSimulationResult> {
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/debug",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                content: payload.content,
+                scenario: payload.scenario,
+                ambiguityOverrides: payload.ambiguityOverrides,
+                useAi: payload.useAi ?? false,
+                model: payload.model || undefined,
+            }),
+        },
+        fetcher,
+    );
+    const parsed = parseDebugSimulationResult(body);
+
+    if (parsed === null) {
+        throw invalidResponse();
+    }
+
+    return parsed;
+}
+
+export type ImportedLibraryItem = {
+    id: string;
+    title: string;
+    documentNumber: string;
+    provisionCount?: number;
+    termCount: number;
+};
+
+export type LibraryImportPayload = {
+    title: string;
+    documentNumber: string;
+    documentType?: string | null;
+    agency?: string | null;
+    content: string;
+};
+
+export async function importLibraryLaw(
+    fetcher: Fetcher,
+    payload: LibraryImportPayload,
+): Promise<ImportedLibraryItem> {
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/library/import",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        },
+        fetcher,
+    );
+
+    if (typeof body !== "object" || body === null || !("imported" in body)) {
+        throw invalidResponse();
+    }
+
+    return (body as { imported: ImportedLibraryItem }).imported;
+}
+
+export async function importLibraryBatch(
+    fetcher: Fetcher,
+    laws: readonly LibraryImportPayload[],
+): Promise<{ items: ImportedLibraryItem[]; count: number }> {
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/library/import",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ laws }),
+        },
+        fetcher,
+    );
+
+    if (typeof body !== "object" || body === null || !("items" in body) || !Array.isArray((body as { items: unknown }).items)) {
+        throw invalidResponse();
+    }
+
+    const parsed = body as { items: ImportedLibraryItem[]; count?: number };
+
+    return {
+        items: parsed.items,
+        count: typeof parsed.count === "number" ? parsed.count : parsed.items.length,
+    };
+}
+
+export async function importLibraryZip(
+    fetcher: Fetcher,
+    file: File,
+): Promise<{ items: ImportedLibraryItem[]; count: number; skipped: string[] }> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const body = await requestJson(
+        getBackendUrl(),
+        "/api/ide/library/import-zip",
+        {
+            method: "POST",
+            body: formData,
+        },
+        fetcher,
+    );
+
+    if (typeof body !== "object" || body === null || !("items" in body) || !Array.isArray((body as { items: unknown }).items)) {
+        throw invalidResponse();
+    }
+
+    const parsed = body as { items: ImportedLibraryItem[]; count?: number; skipped?: string[] };
+
+    return {
+        items: parsed.items,
+        count: typeof parsed.count === "number" ? parsed.count : parsed.items.length,
+        skipped: Array.isArray(parsed.skipped) ? parsed.skipped : [],
+    };
+}
+
+export function getSampleLibraryZipUrl(): string {
+    return `${getBackendUrl()}/api/ide/library/sample-zip`;
+}
+
+export async function deleteLibraryLaw(fetcher: Fetcher, id: string): Promise<void> {
+    await requestJson(getBackendUrl(), `/api/ide/library/${encodeURIComponent(id)}`, { method: "DELETE" }, fetcher);
+}
+
+export type ExportDocumentPayload = {
+    title: string;
+    documentNumber?: string | null;
+    documentType?: string | null;
+    agency?: string | null;
+    content: string;
+};
+
+export async function exportIdeDocx(fetcher: Fetcher, payload: ExportDocumentPayload): Promise<Blob> {
+    const response = await fetcher(`${getBackendUrl()}/api/ide/export/docx`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Xuất DOCX thất bại (${response.status})`);
+    }
+
+    return response.blob();
+}
+
+export async function exportIdePrintHtml(fetcher: Fetcher, payload: ExportDocumentPayload): Promise<string> {
+    const response = await fetcher(`${getBackendUrl()}/api/ide/export/html`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Xuất bản in thất bại (${response.status})`);
+    }
+
+    return response.text();
 }

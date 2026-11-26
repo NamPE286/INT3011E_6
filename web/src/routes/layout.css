@@ -6,125 +6,240 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	/* Civic legal palette: warm paper background, navy ink and primary, amber accent for highlights. */
-	--background: oklch(0.985 0.006 85);
-	--foreground: oklch(0.24 0.045 262);
-	--card: oklch(0.997 0.003 85);
-	--card-foreground: oklch(0.24 0.045 262);
-	--popover: oklch(0.997 0.003 85);
-	--popover-foreground: oklch(0.24 0.045 262);
-	--primary: oklch(0.33 0.085 262);
-	--primary-foreground: oklch(0.985 0.006 85);
-	--secondary: oklch(0.955 0.012 85);
-	--secondary-foreground: oklch(0.28 0.06 262);
-	--muted: oklch(0.955 0.012 85);
-	--muted-foreground: oklch(0.47 0.03 262);
-	--accent: oklch(0.93 0.06 80);
-	--accent-foreground: oklch(0.36 0.08 60);
-	--destructive: oklch(0.55 0.2 27);
-	--border: oklch(0.9 0.014 85);
-	--input: oklch(0.9 0.014 85);
-	--ring: oklch(0.55 0.13 262);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
-	--radius: 0.625rem;
-	--sidebar: oklch(0.97 0.01 85);
-	--sidebar-foreground: oklch(0.24 0.045 262);
-	--sidebar-primary: oklch(0.33 0.085 262);
-	--sidebar-primary-foreground: oklch(0.985 0.006 85);
-	--sidebar-accent: oklch(0.93 0.06 80);
-	--sidebar-accent-foreground: oklch(0.36 0.08 60);
-	--sidebar-border: oklch(0.9 0.014 85);
-	--sidebar-ring: oklch(0.55 0.13 262);
+    /* VS Code Light Modern */
+    --background: #ffffff;
+    --foreground: #3b3b3b;
+    --card: #f8f8f8;
+    --card-foreground: #3b3b3b;
+    --popover: #f3f3f3;
+    --popover-foreground: #3b3b3b;
+    --primary: #0078d4;
+    --primary-foreground: #ffffff;
+    --secondary: #ededed;
+    --secondary-foreground: #3b3b3b;
+    --muted: #f3f3f3;
+    --muted-foreground: #6e7681;
+    --accent: #e4e6f1;
+    --accent-foreground: #1f1f1f;
+    --destructive: #e51400;
+    --border: #e5e5e5;
+    --input: #cecece;
+    --ring: #0078d4;
+    --chart-1: #0078d4;
+    --chart-2: #267f99;
+    --chart-3: #098658;
+    --chart-4: #af00db;
+    --chart-5: #a31515;
+    --radius: 0.25rem;
+    --sidebar: #f8f8f8;
+    --sidebar-foreground: #3b3b3b;
+    --sidebar-primary: #0078d4;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e4e6f1;
+    --sidebar-accent-foreground: #1f1f1f;
+    --sidebar-border: #e5e5e5;
+    --sidebar-ring: #0078d4;
+
+    /* VS Code Light Modern Surfaces & Syntax */
+    --ide-chrome: #f8f8f8;
+    --ide-panel: #f8f8f8;
+    --ide-editor: #ffffff;
+    --ide-gutter: #ffffff;
+    --ide-active-line: #f3f3f3;
+    --ide-statusbar: #007acc;
+    --ide-statusbar-fg: #ffffff;
+    --ide-widget-bg: #f3f3f3;
+    --ide-widget-border: #c8c8c8;
+    --ide-widget-selected: #0060c0;
+    --ide-widget-selected-fg: #ffffff;
+    --diag-loophole: #bf8803;
+    --diag-loophole-bg: rgba(191, 136, 3, 0.14);
+    --diag-ambiguity: #1a85ff;
+    --diag-ambiguity-bg: rgba(26, 133, 255, 0.14);
+    --diag-logic: #e51400;
+    --diag-logic-bg: rgba(229, 20, 0, 0.12);
+    --diag-ok: #388a34;
+    --diag-ok-bg: rgba(56, 138, 52, 0.14);
+    --syn-chapter: #af00db;
+    --syn-article: #0000ff;
+    --syn-index: #267f99;
+    --syn-number: #098658;
+    --syn-quote: #a31515;
 }
 
 .dark {
-	--background: oklch(0.19 0.03 262);
-	--foreground: oklch(0.95 0.01 85);
-	--card: oklch(0.23 0.035 262);
-	--card-foreground: oklch(0.95 0.01 85);
-	--popover: oklch(0.23 0.035 262);
-	--popover-foreground: oklch(0.95 0.01 85);
-	--primary: oklch(0.86 0.1 80);
-	--primary-foreground: oklch(0.22 0.04 262);
-	--secondary: oklch(0.28 0.035 262);
-	--secondary-foreground: oklch(0.95 0.01 85);
-	--muted: oklch(0.28 0.035 262);
-	--muted-foreground: oklch(0.75 0.02 262);
-	--accent: oklch(0.35 0.06 70);
-	--accent-foreground: oklch(0.93 0.06 80);
-	--destructive: oklch(0.7 0.18 25);
-	--border: oklch(1 0 0 / 12%);
-	--input: oklch(1 0 0 / 16%);
-	--ring: oklch(0.7 0.1 262);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
-	--sidebar: oklch(0.23 0.035 262);
-	--sidebar-foreground: oklch(0.95 0.01 85);
-	--sidebar-primary: oklch(0.86 0.1 80);
-	--sidebar-primary-foreground: oklch(0.22 0.04 262);
-	--sidebar-accent: oklch(0.35 0.06 70);
-	--sidebar-accent-foreground: oklch(0.93 0.06 80);
-	--sidebar-border: oklch(1 0 0 / 12%);
-	--sidebar-ring: oklch(0.7 0.1 262);
+    /* VS Code Dark Modern */
+    --background: #1f1f1f;
+    --foreground: #cccccc;
+    --card: #181818;
+    --card-foreground: #cccccc;
+    --popover: #252526;
+    --popover-foreground: #cccccc;
+    --primary: #0078d4;
+    --primary-foreground: #ffffff;
+    --secondary: #2b2b2b;
+    --secondary-foreground: #cccccc;
+    --muted: #252526;
+    --muted-foreground: #8b949e;
+    --accent: #37373d;
+    --accent-foreground: #ffffff;
+    --destructive: #f14c4c;
+    --border: #2b2b2b;
+    --input: #3c3c3c;
+    --ring: #0078d4;
+    --chart-1: #569cd6;
+    --chart-2: #4ec9b0;
+    --chart-3: #b5cea8;
+    --chart-4: #c586c0;
+    --chart-5: #ce9178;
+    --sidebar: #181818;
+    --sidebar-foreground: #cccccc;
+    --sidebar-primary: #0078d4;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #37373d;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #2b2b2b;
+    --sidebar-ring: #0078d4;
+
+    /* VS Code Dark Modern Surfaces & Syntax */
+    --ide-chrome: #181818;
+    --ide-panel: #181818;
+    --ide-editor: #1f1f1f;
+    --ide-gutter: #1f1f1f;
+    --ide-active-line: #282828;
+    --ide-statusbar: #007acc;
+    --ide-statusbar-fg: #ffffff;
+    --ide-widget-bg: #252526;
+    --ide-widget-border: #454545;
+    --ide-widget-selected: #04395e;
+    --ide-widget-selected-fg: #ffffff;
+    --diag-loophole: #cca700;
+    --diag-loophole-bg: rgba(204, 167, 0, 0.16);
+    --diag-ambiguity: #3794ff;
+    --diag-ambiguity-bg: rgba(55, 148, 255, 0.16);
+    --diag-logic: #f14c4c;
+    --diag-logic-bg: rgba(241, 76, 76, 0.18);
+    --diag-ok: #89d185;
+    --diag-ok-bg: rgba(137, 209, 133, 0.15);
+    --syn-chapter: #c586c0;
+    --syn-article: #569cd6;
+    --syn-index: #4ec9b0;
+    --syn-number: #b5cea8;
+    --syn-quote: #ce9178;
 }
 
 @theme inline {
-	--font-sans: 'Inter Variable', sans-serif;
-	--color-sidebar-ring: var(--sidebar-ring);
-	--color-sidebar-border: var(--sidebar-border);
-	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-	--color-sidebar-accent: var(--sidebar-accent);
-	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-	--color-sidebar-primary: var(--sidebar-primary);
-	--color-sidebar-foreground: var(--sidebar-foreground);
-	--color-sidebar: var(--sidebar);
-	--color-chart-5: var(--chart-5);
-	--color-chart-4: var(--chart-4);
-	--color-chart-3: var(--chart-3);
-	--color-chart-2: var(--chart-2);
-	--color-chart-1: var(--chart-1);
-	--color-ring: var(--ring);
-	--color-input: var(--input);
-	--color-border: var(--border);
-	--color-destructive: var(--destructive);
-	--color-accent-foreground: var(--accent-foreground);
-	--color-accent: var(--accent);
-	--color-muted-foreground: var(--muted-foreground);
-	--color-muted: var(--muted);
-	--color-secondary-foreground: var(--secondary-foreground);
-	--color-secondary: var(--secondary);
-	--color-primary-foreground: var(--primary-foreground);
-	--color-primary: var(--primary);
-	--color-popover-foreground: var(--popover-foreground);
-	--color-popover: var(--popover);
-	--color-card-foreground: var(--card-foreground);
-	--color-card: var(--card);
-	--color-foreground: var(--foreground);
-	--color-background: var(--background);
-	--radius-sm: calc(var(--radius) * 0.6);
-	--radius-md: calc(var(--radius) * 0.8);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) * 1.4);
-	--radius-2xl: calc(var(--radius) * 1.8);
-	--radius-3xl: calc(var(--radius) * 2.2);
-	--radius-4xl: calc(var(--radius) * 2.6);
+    --font-sans: 'Inter Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
-	* {
-		@apply border-border outline-ring/50;
-	}
-	body {
-		@apply bg-background text-foreground;
-	}
-	html {
-		@apply font-sans;
-	}
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+    html {
+        @apply font-sans;
+    }
+}
+
+.squiggle-loophole {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--diag-loophole);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    background-color: var(--diag-loophole-bg);
+    border-radius: 2px;
+}
+
+.squiggle-ambiguity {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--diag-ambiguity);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    background-color: var(--diag-ambiguity-bg);
+    border-radius: 2px;
+}
+
+.squiggle-logic {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--diag-logic);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    background-color: var(--diag-logic-bg);
+    border-radius: 2px;
+}
+
+.term-defined {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--syn-index);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+}
+
+.ide-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.ide-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ide-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+}
+
+.ide-scroll::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+}
+
+.ide-editor-text {
+    font-kerning: none;
+    font-variant-ligatures: none;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }

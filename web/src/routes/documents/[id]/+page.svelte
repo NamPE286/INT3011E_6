@@ -30,8 +30,14 @@
 </svelte:head>
 
 <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-    <nav aria-label="Đường dẫn">
+    <nav aria-label="Đường dẫn" class="flex flex-wrap items-center justify-between gap-2">
         <a href="/documents" class="text-sm text-muted-foreground underline-offset-4 hover:underline">← Văn bản pháp luật</a>
+        <a
+            href={`/?importDoc=${encodeURIComponent(document.id)}`}
+            class="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+            Mở trong LexIDE
+        </a>
     </nav>
 
     <header class="flex flex-col gap-3 rounded-2xl border bg-card p-5 sm:p-6">
