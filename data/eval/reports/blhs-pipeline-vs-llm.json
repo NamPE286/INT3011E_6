@@ -1,0 +1,835 @@
+{
+  "ranAt": "2026-11-25T17:07:09.766Z",
+  "decisionProbe": {
+    "decisionApiHealthy": true,
+    "decisionProbeTokens": 118
+  },
+  "corpus": {
+    "filesCount": 4,
+    "totalPdfPages": 500,
+    "totalExcerptChars": 73918,
+    "blhs2015Chars": 19227,
+    "blhs2015Units": 107
+  },
+  "arm1PipelineAsIs": {
+    "model": "gemini-3.5-flash-lite",
+    "tier0": {
+      "tokens": 0,
+      "durationMs": 94,
+      "blhs2015DiagnosticsCount": 63,
+      "blhs2015CountsByCode": {
+        "LP002": 1,
+        "LP005": 1,
+        "LG005": 35,
+        "LG009": 1,
+        "LG013": 1,
+        "AM001": 11,
+        "LG003": 6,
+        "AM003": 7
+      },
+      "blhs2015DiagnosticsSample": [
+        {
+          "code": "LP002",
+          "severity": "error",
+          "provisionRef": "Điều 1",
+          "line": 15,
+          "title": "Quy định về vi phạm nhưng thiếu chế tài xử lý",
+          "excerpt": "Điều 1. Nhiệm vụ của Bộ luật hình sự\nBộ luật hình sự có nhiệm vụ bảo vệ chủ quyề",
+          "source": "STATIC"
+        },
+        {
+          "code": "LP005",
+          "severity": "warning",
+          "provisionRef": "Điều 1",
+          "line": 15,
+          "title": "Văn bản sửa đổi/bãi bỏ thiếu điều khoản chuyển tiếp",
+          "excerpt": "Điều 1",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 9",
+          "line": 18,
+          "title": "Nhảy cóc đánh số: Điều 1 → Điều 9",
+          "excerpt": "Điều 9",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG009",
+          "severity": "error",
+          "provisionRef": "Phần Căn cứ",
+          "line": 19,
+          "title": "Căn cứ sai thứ bậc pháp lý (vào tính chất và mức độ nguy hiểm cho xã hội của hành vi phạ)",
+          "excerpt": "Căn cứ vào tính chất và mức độ nguy hiểm cho xã hội của hành vi phạm tội được quy định trong Bộ luật này, tội phạm được ",
+          "source": "CORPUS"
+        },
+        {
+          "code": "LG013",
+          "severity": "info",
+          "provisionRef": "Phần Căn cứ",
+          "line": 19,
+          "title": "Dòng Căn cứ thiếu dấu chấm phẩy (;) cuối dòng",
+          "excerpt": "Căn cứ vào tính chất và mức độ nguy hiểm cho xã hội của hành vi phạm tội được quy định trong Bộ luật này, tội phạm được ",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 1 Điều 9",
+          "line": 20,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 2 Điều 9",
+          "line": 21,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 3 Điều 9",
+          "line": 22,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 9",
+          "line": 23,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 40",
+          "line": 25,
+          "title": "Nhảy cóc đánh số: Điều 9 → Điều 40",
+          "excerpt": "Điều 40",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 1 Điều 40",
+          "line": 26,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 1 Điều 40",
+          "line": 26,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 51",
+          "line": 33,
+          "title": "Nhảy cóc đánh số: Điều 40 → Điều 51",
+          "excerpt": "Điều 51",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 55",
+          "line": 45,
+          "title": "Nhảy cóc đánh số: Điều 52 → Điều 55",
+          "excerpt": "Điều 55",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 65",
+          "line": 51,
+          "title": "Nhảy cóc đánh số: Điều 56 → Điều 65",
+          "excerpt": "Điều 65",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 5 Điều 65",
+          "line": 53,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 5",
+          "excerpt": "Khoản 5 Điều 65",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 109",
+          "line": 55,
+          "title": "Nhảy cóc đánh số: Điều 65 → Điều 109",
+          "excerpt": "Điều 109",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 114",
+          "line": 61,
+          "title": "Nhảy cóc đánh số: Điều 110 → Điều 114",
+          "excerpt": "Điều 114",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 134",
+          "line": 64,
+          "title": "Nhảy cóc đánh số: Điều 114 → Điều 134",
+          "excerpt": "Điều 134",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 1 Điều 135",
+          "line": 68,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 192",
+          "line": 70,
+          "title": "Nhảy cóc đánh số: Điều 135 → Điều 192",
+          "excerpt": "Điều 192",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Khoản 1 Điều 192",
+          "line": 71,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Điều 193",
+          "excerpt": "điều 193",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 192",
+          "line": 72,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 192",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 192",
+          "line": 72,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Điểm b Khoản 5 Điều 192",
+          "line": 75,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Khoản 2 Điều 192",
+          "excerpt": "khoản 2 Điều này",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Điểm c Khoản 5 Điều 192",
+          "line": 76,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Khoản 3 Điều 192",
+          "excerpt": "khoản 3 Điều này",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điểm đ Khoản 5 Điều 192",
+          "line": 77,
+          "title": "Nhảy cóc thứ tự điểm: c) → đ)",
+          "excerpt": "đ)",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Điểm đ Khoản 5 Điều 192",
+          "line": 77,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 194",
+          "line": 79,
+          "title": "Nhảy cóc đánh số: Điều 192 → Điều 194",
+          "excerpt": "Điều 194",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 194",
+          "line": 81,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 194",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Khoản 5 Điều 194",
+          "line": 82,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Điểm b Khoản 6 Điều 194",
+          "line": 85,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Khoản 2 Điều 194",
+          "excerpt": "khoản 2 Điều này",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Điểm c Khoản 6 Điều 194",
+          "line": 86,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Khoản 3 Điều 194",
+          "excerpt": "khoản 3 Điều này",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điểm e Khoản 6 Điều 194",
+          "line": 88,
+          "title": "Nhảy cóc thứ tự điểm: d) → e)",
+          "excerpt": "e)",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Điểm e Khoản 6 Điều 194",
+          "line": 88,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 224",
+          "line": 90,
+          "title": "Nhảy cóc đánh số: Điều 194 → Điều 224",
+          "excerpt": "Điều 224",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Điều 224",
+          "line": 90,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 235",
+          "line": 96,
+          "title": "Nhảy cóc đánh số: Điều 225 → Điều 235",
+          "excerpt": "Điều 235",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 3 Điều 235",
+          "line": 99,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 235",
+          "line": 100,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 248",
+          "line": 106,
+          "title": "Nhảy cóc đánh số: Điều 235 → Điều 248",
+          "excerpt": "Điều 248",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 248",
+          "line": 108,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 248",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 250",
+          "line": 112,
+          "title": "Nhảy cóc đánh số: Điều 248 → Điều 250",
+          "excerpt": "Điều 250",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 250",
+          "line": 114,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 250",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 251",
+          "line": 119,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 251",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 281",
+          "line": 122,
+          "title": "Nhảy cóc đánh số: Điều 251 → Điều 281",
+          "excerpt": "Điều 281",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 292",
+          "line": 125,
+          "title": "Nhảy cóc đánh số: Điều 281 → Điều 292",
+          "excerpt": "Điều 292",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 298",
+          "line": 129,
+          "title": "Nhảy cóc đánh số: Điều 292 → Điều 298",
+          "excerpt": "Điều 298",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Điều 298",
+          "line": 129,
+          "title": "Ngôn từ định tính mơ hồ: \"nghiêm trọng\"",
+          "excerpt": "nghiêm trọng",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 298",
+          "line": 132,
+          "title": "Nhảy cóc đánh số: Khoản 1 → Khoản 4",
+          "excerpt": "Khoản 4 Điều 298",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG003",
+          "severity": "error",
+          "provisionRef": "Khoản 4 Điều 298",
+          "line": 132,
+          "title": "Dẫn chiếu nội bộ không tồn tại: Khoản 3 Điều 298",
+          "excerpt": "khoản 3 Điều này",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM001",
+          "severity": "warning",
+          "provisionRef": "Khoản 4 Điều 298",
+          "line": 132,
+          "title": "Ngôn từ định tính mơ hồ: \"kịp thời\"",
+          "excerpt": "kịp thời",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 303",
+          "line": 137,
+          "title": "Nhảy cóc đánh số: Điều 299 → Điều 303",
+          "excerpt": "Điều 303",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điểm đ Khoản 2 Điều 303",
+          "line": 141,
+          "title": "Nhảy cóc thứ tự điểm: c) → đ)",
+          "excerpt": "đ)",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 326",
+          "line": 152,
+          "title": "Nhảy cóc đánh số: Điều 305 → Điều 326",
+          "excerpt": "Điều 326",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 353",
+          "line": 164,
+          "title": "Nhảy cóc đánh số: Điều 326 → Điều 353",
+          "excerpt": "Điều 353",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Khoản 5 Điều 353",
+          "line": 168,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "AM003",
+          "severity": "warning",
+          "provisionRef": "Khoản 5 Điều 354",
+          "line": 174,
+          "title": "Chế tài tùy nghi ('có thể bị...')",
+          "excerpt": "có thể bị phạt",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 359",
+          "line": 176,
+          "title": "Nhảy cóc đánh số: Điều 354 → Điều 359",
+          "excerpt": "Điều 359",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 389",
+          "line": 182,
+          "title": "Nhảy cóc đánh số: Điều 359 → Điều 389",
+          "excerpt": "Điều 389",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 398",
+          "line": 186,
+          "title": "Nhảy cóc đánh số: Điều 389 → Điều 398",
+          "excerpt": "Điều 398",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 421",
+          "line": 189,
+          "title": "Nhảy cóc đánh số: Điều 398 → Điều 421",
+          "excerpt": "Điều 421",
+          "source": "STATIC"
+        },
+        {
+          "code": "LG005",
+          "severity": "warning",
+          "provisionRef": "Điều 426",
+          "line": 192,
+          "title": "Nhảy cóc đánh số: Điều 421 → Điều 426",
+          "excerpt": "Điều 426",
+          "source": "STATIC"
+        }
+      ],
+      "law2017CountsByCode": {
+        "LG012": 4,
+        "LP005": 1,
+        "LG003": 12,
+        "LG005": 6
+      },
+      "law2025CountsByCode": {
+        "LG012": 1,
+        "LG003": 20,
+        "LG005": 13,
+        "AM003": 7
+      },
+      "relationGraph": {
+        "totalDocuments": 4,
+        "totalEdges": 19,
+        "violationCount": 2,
+        "edges": [
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined",
+          "undefined -[undefined]-> undefined"
+        ]
+      },
+      "behaviorHistory": {
+        "totalBehaviors": 21,
+        "withHistoryCount": 7
+      }
+    },
+    "defaultSingleCall": {
+      "durationMs": 8023,
+      "actualAiTokens": 1590,
+      "tokenBreakdown": {
+        "decisionInputTokens": 1590,
+        "extractInputTokens": 0,
+        "extractOutputTokens": 0,
+        "totalTokens": 1590,
+        "filteredByDecision": 7,
+        "escalatedToExtract": 5,
+        "cachedUnits": 0
+      },
+      "aiStatus": {
+        "used": false,
+        "model": "gemini-3.5-flash-lite",
+        "error": "Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+      },
+      "totalDiagnostics": 63
+    },
+    "fullDocumentDrain": {
+      "durationMs": 68437,
+      "totalUnits": 107,
+      "filteredByDecision": 37,
+      "escalatedToExtract": 70,
+      "extractedFactsCount": 0,
+      "derivedDiagnosticsFromLlm": [],
+      "totalTokens": 14315,
+      "drainErrors": [
+        "offset 12: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 24: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 36: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 48: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 60: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 72: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 84: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}",
+        "offset 96: Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+      ]
+    },
+    "incremental1ClauseEdit": {
+      "durationMs": 2046,
+      "actualAiTokens": 1590,
+      "tokenBreakdown": {
+        "decisionInputTokens": 1590,
+        "extractInputTokens": 0,
+        "extractOutputTokens": 0,
+        "totalTokens": 1590,
+        "filteredByDecision": 7,
+        "escalatedToExtract": 5,
+        "cachedUnits": 0
+      }
+    }
+  },
+  "arm2PureLlm": {
+    "sameModelLite": {
+      "run1": {
+        "model": "gemini-3.5-flash-lite",
+        "issues": [],
+        "matchedGroundTruth": [],
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0
+        },
+        "durationMs": 42223,
+        "error": "Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+      },
+      "run2": {
+        "model": "gemini-3.5-flash-lite",
+        "issues": [],
+        "matchedGroundTruth": [],
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0
+        },
+        "durationMs": 42291,
+        "error": "Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.5-flash-lite is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+      }
+    },
+    "strongerModel36Flash": {
+      "taskABugDetection": {
+        "model": "gemini-3.6-flash",
+        "issues": [],
+        "matchedGroundTruth": [],
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0
+        },
+        "durationMs": 38939,
+        "error": "Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-3.6-flash is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+      },
+      "taskBRelationGraph": {
+        "durationMs": 53804,
+        "usage": {
+          "inputTokens": 3507,
+          "outputTokens": 801,
+          "totalTokens": 6008
+        },
+        "relationsCount": 11,
+        "relations": [
+          {
+            "fromDoc": "100/2015/QH13",
+            "toDoc": "15/1999/QH10",
+            "type": "REPEALS",
+            "detail": "Bộ luật hình sự số 15/1999/QH10 hết hiệu lực thi hành kể từ ngày Bộ luật này có hiệu lực thi hành."
+          },
+          {
+            "fromDoc": "100/2015/QH13",
+            "toDoc": "37/2009/QH12",
+            "type": "REPEALS",
+            "detail": "Luật số 37/2009/QH12 sửa đổi, bổ sung một số điều của Bộ luật hình sự hết hiệu lực thi hành kể từ ngày Bộ luật này có hiệu lực thi hành."
+          },
+          {
+            "fromDoc": "12/2017/QH14",
+            "toDoc": "100/2015/QH13",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Bộ luật Hình sự số 100/2015/QH13."
+          },
+          {
+            "fromDoc": "02/2018/NQ-HĐTP",
+            "toDoc": "Luật Tổ chức Tòa án nhân dân ngày 24 tháng 11 năm 2014",
+            "type": "BASED_ON",
+            "detail": "Căn cứ Luật Tổ chức Tòa án nhân dân ngày 24 tháng 11 năm 2014."
+          },
+          {
+            "fromDoc": "02/2018/NQ-HĐTP",
+            "toDoc": "100/2015/QH13",
+            "type": "IMPLEMENTS",
+            "detail": "Hướng dẫn áp dụng Điều 65 của Bộ luật Hình sự số 100/2015/QH13."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "203/2025/QH15",
+            "type": "BASED_ON",
+            "detail": "Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam đã được sửa đổi, bổ sung một số điều theo Nghị quyết số 203/2025/QH15."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "100/2015/QH13",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Bộ luật Hình sự số 100/2015/QH13."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "41/2019/QH14",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Luật Thi hành án hình sự số 41/2019/QH14."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "30/2018/QH14",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Luật Đặc xá số 30/2018/QH14."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "53/2024/QH15",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Luật Phòng, chống mua bán người số 53/2024/QH15."
+          },
+          {
+            "fromDoc": "86/2025/QH15",
+            "toDoc": "37/2018/QH14",
+            "type": "AMENDS",
+            "detail": "Sửa đổi, bổ sung một số điều của Luật Công an nhân dân số 37/2018/QH14."
+          }
+        ],
+        "error": null
+      },
+      "taskCBehaviorHistory": {
+        "durationMs": 38800,
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0
+        },
+        "changesCount": 0,
+        "changes": [],
+        "error": "Gemini API lỗi (429): {\"error\":{\"message\":\"Rate limit exceeded for model gemini-3.6-flash (limit: 20 requests per day on Free Tier). Please retry in 14h52m50s or upgrade your tier at https://ai.dev/rate"
+      }
+    }
+  },
+  "scaleProjection500Pages": {
+    "measuredCharsPerPage": 2189.1,
+    "measuredCharsPerToken": 19227,
+    "estimated500PagesChars": 1094550,
+    "estimated500PagesInputTokens": 57,
+    "pureLlm10EditsTokens": 570,
+    "pipelineTier0Tokens": 0
+  },
+  "totalTokensUsedThisBenchmark": 22031,
+  "budgetCap": 500000
+}

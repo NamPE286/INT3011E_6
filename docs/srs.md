@@ -1,7 +1,7 @@
 # SRS — Soạn Luật Studio: Nền tảng Soạn thảo Luật, Soát Logic Luật & Phân tích Phạm vi Tác động
 
-**Version:** 1.0  
-**Product:** Soạn Luật Studio (Legislative Drafting, Logic Auditing & Impact Scope Analysis)  
+**Version:** 2.0  
+**Product:** Soạn Luật Studio & LexIDE (Local-First Legislative Drafting, Neuro-Symbolic Logic Auditing & Impact Scope Analysis)  
 **MVP Reference Corpus:** Quy định xử phạt vi phạm hành chính giao thông đường bộ Việt Nam (NĐ 100/2019, NĐ 123/2021, NĐ 168/2024, TT 73/2024, Dự thảo 2026)  
 **Project type:** Legal AI / Engineering + R&D  
 **Base foundation:** Legal Document Change Detection & Behavior-Centric Sanction Knowledge Graph

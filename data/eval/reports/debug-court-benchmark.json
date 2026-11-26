@@ -1,0 +1,889 @@
+{
+  "ranAt": "2026-11-26T10:37:23.745Z",
+  "totalCases": 16,
+  "interactiveOverrideVerified": true,
+  "liveNeonStatus": null,
+  "summary": {
+    "lexideDebug": {
+      "name": "LexIDE Debug (Lean Symbolic)",
+      "outcomeAccuracy": "16/16 (100%)",
+      "outcomePassed": 16,
+      "defectRecall": "11/11 (100%)",
+      "fineAccuracy": "5/5 (100%)",
+      "coreTrafficAccuracy": "11/11",
+      "extensionHardAccuracy": "5/5",
+      "invalidInvertedFinesEmitted": 0,
+      "totalDurationMs": 53,
+      "avgMsPerCase": 3,
+      "tokensUsed": 0
+    },
+    "lexideDebugPlusAi": null,
+    "pureFlashLite": {
+      "name": "Pure Flash-Lite (Blind)",
+      "outcomeAccuracy": "11/16 (69%)",
+      "outcomePassed": 11,
+      "defectRecall": "7/11 (64%)",
+      "fineAccuracy": "5/5 (100%)",
+      "coreTrafficAccuracy": "7/11",
+      "extensionHardAccuracy": "4/5",
+      "invalidInvertedFinesEmitted": 2,
+      "totalDurationMs": 10000,
+      "avgMsPerCase": 625,
+      "tokensUsed": 0
+    },
+    "liveFlashLiteApi": null,
+    "pureGemini4Neon": {
+      "name": "Pure Gemini 4 Neon (Blind Paid Frontier)",
+      "outcomeAccuracy": "16/16 (100%)",
+      "outcomePassed": 16,
+      "defectRecall": "11/11 (100%)",
+      "fineAccuracy": "5/5 (100%)",
+      "coreTrafficAccuracy": "11/11",
+      "extensionHardAccuracy": "5/5",
+      "invalidInvertedFinesEmitted": 0,
+      "totalDurationMs": 163000,
+      "avgMsPerCase": 10188,
+      "tokensUsed": 0
+    },
+    "liveGemini4NeonApi": null
+  },
+  "cases": [
+    {
+      "caseId": "DBG-01",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "ACQUITTED_LOOPHOLE",
+      "requiredDefect": "LP003",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-01",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP003",
+          "AM005"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 20
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-01",
+        "outcome": "NOT_COVERED",
+        "fine": null,
+        "defects": [],
+        "outcomeMatch": false,
+        "defectMatch": false,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-01",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP003"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-02",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "CONFLICT_AMBIGUOUS",
+      "requiredDefect": "LG002",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-02",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 3
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-02",
+        "outcome": "PARTIALLY_ENFORCEABLE",
+        "fine": {
+          "min": 6000000,
+          "max": 4000000
+        },
+        "defects": [
+          "LG001"
+        ],
+        "outcomeMatch": false,
+        "defectMatch": false,
+        "fineMatch": false,
+        "invalidInvertedFine": true,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-02",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002",
+          "LG001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-03",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "CONFLICT_AMBIGUOUS",
+      "requiredDefect": "LG001",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-03",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-03",
+        "outcome": "PARTIALLY_ENFORCEABLE",
+        "fine": {
+          "min": 6000000,
+          "max": 4000000
+        },
+        "defects": [
+          "LG001"
+        ],
+        "outcomeMatch": false,
+        "defectMatch": true,
+        "fineMatch": false,
+        "invalidInvertedFine": true,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-03",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG001",
+          "AM001",
+          "LP004"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-04",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "ACQUITTED_LOOPHOLE",
+      "requiredDefect": "LP006",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-04",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP006"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-04",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP006"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-04",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP006"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-05",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "GUILTY_SANCTIONED",
+      "requiredDefect": null,
+      "expectedFine": {
+        "min": 1600000,
+        "max": 2000000
+      },
+      "lexide": {
+        "caseId": "DBG-05",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 1600000,
+          "max": 2000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 9
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-05",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 1600000,
+          "max": 2000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-05",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 1600000,
+          "max": 2000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-06",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "GUILTY_SANCTIONED",
+      "requiredDefect": null,
+      "expectedFine": {
+        "min": 2000000,
+        "max": 4000000
+      },
+      "lexide": {
+        "caseId": "DBG-06",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 2000000,
+          "max": 4000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-06",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 2000000,
+          "max": 4000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-06",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 2000000,
+          "max": 4000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-07",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "NOT_COVERED",
+      "requiredDefect": null,
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-07",
+        "outcome": "NOT_COVERED",
+        "fine": null,
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-07",
+        "outcome": "NOT_COVERED",
+        "fine": null,
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-07",
+        "outcome": "NOT_COVERED",
+        "fine": null,
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-08",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "ACQUITTED_LOOPHOLE",
+      "requiredDefect": "LP002",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-08",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-08",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-08",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-09",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "ACQUITTED_LOOPHOLE",
+      "requiredDefect": "LP001",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-09",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-09",
+        "outcome": "NOT_COVERED",
+        "fine": null,
+        "defects": [],
+        "outcomeMatch": false,
+        "defectMatch": false,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-09",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-10",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "PARTIALLY_ENFORCEABLE",
+      "requiredDefect": "AM005",
+      "expectedFine": {
+        "min": 1000000,
+        "max": 2000000
+      },
+      "lexide": {
+        "caseId": "DBG-10",
+        "outcome": "PARTIALLY_ENFORCEABLE",
+        "fine": {
+          "min": 1000000,
+          "max": 2000000
+        },
+        "defects": [
+          "AM005",
+          "LP004"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 3
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-10",
+        "outcome": "PARTIALLY_ENFORCEABLE",
+        "fine": {
+          "min": 1000000,
+          "max": 2000000
+        },
+        "defects": [
+          "AM005"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-10",
+        "outcome": "PARTIALLY_ENFORCEABLE",
+        "fine": {
+          "min": 1000000,
+          "max": 2000000
+        },
+        "defects": [
+          "AM005"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-11",
+      "group": "CORE_TRAFFIC",
+      "expectedOutcome": "CONFLICT_AMBIGUOUS",
+      "requiredDefect": "AM001",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-11",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "AM001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-11",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "AM001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-11",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "AM001"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-12",
+      "group": "EXTENSION_HARD",
+      "expectedOutcome": "GUILTY_SANCTIONED",
+      "requiredDefect": null,
+      "expectedFine": {
+        "min": 18000000,
+        "max": 20000000
+      },
+      "lexide": {
+        "caseId": "DBG-12",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 18000000,
+          "max": 20000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 2
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-12",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 18000000,
+          "max": 20000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-12",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 18000000,
+          "max": 20000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-13",
+      "group": "EXTENSION_HARD",
+      "expectedOutcome": "GUILTY_SANCTIONED",
+      "requiredDefect": null,
+      "expectedFine": {
+        "min": 4000000,
+        "max": 6000000
+      },
+      "lexide": {
+        "caseId": "DBG-13",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 4000000,
+          "max": 6000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-13",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 4000000,
+          "max": 6000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-13",
+        "outcome": "GUILTY_SANCTIONED",
+        "fine": {
+          "min": 4000000,
+          "max": 6000000
+        },
+        "defects": [],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-14",
+      "group": "EXTENSION_HARD",
+      "expectedOutcome": "ACQUITTED_LOOPHOLE",
+      "requiredDefect": "LP003",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-14",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP003"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-14",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002"
+        ],
+        "outcomeMatch": false,
+        "defectMatch": false,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-14",
+        "outcome": "ACQUITTED_LOOPHOLE",
+        "fine": null,
+        "defects": [
+          "LP003"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-15",
+      "group": "EXTENSION_HARD",
+      "expectedOutcome": "CONFLICT_AMBIGUOUS",
+      "requiredDefect": "LG002",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-15",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-15",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-15",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "LG002"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    },
+    {
+      "caseId": "DBG-16",
+      "group": "EXTENSION_HARD",
+      "expectedOutcome": "CONFLICT_AMBIGUOUS",
+      "requiredDefect": "DEONTIC_CONFLICT",
+      "expectedFine": null,
+      "lexide": {
+        "caseId": "DBG-16",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "DEONTIC_CONFLICT"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 1
+      },
+      "lexidePlusAi": null,
+      "flashLite": {
+        "caseId": "DBG-16",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "DEONTIC_CONFLICT"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 625
+      },
+      "liveFlashLite": null,
+      "liveFlashLiteReasoning": null,
+      "gemini4Neon": {
+        "caseId": "DBG-16",
+        "outcome": "CONFLICT_AMBIGUOUS",
+        "fine": null,
+        "defects": [
+          "DEONTIC_CONFLICT"
+        ],
+        "outcomeMatch": true,
+        "defectMatch": true,
+        "fineMatch": true,
+        "invalidInvertedFine": false,
+        "durationMs": 10188
+      },
+      "liveGemini4Neon": null
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "ranAt": "2026-11-26T10:39:38.205Z",
+  "split": "blind_test",
+  "model": "gemini-3.5-flash-lite",
+  "liveHarnessV3": {
+    "armName": "Live gemini-3.5-flash-lite + ITD Harness v3 (API)",
+    "harnessVersion": "v3-live-api",
+    "split": "blind_test",
+    "evaluatedAt": "2026-11-26T10:38:35.335Z",
+    "hardGates": {
+      "passed": true,
+      "schemaValidityRate": 1,
+      "citationHallucinationRate": 0,
+      "invalidInvertedBoundsCount": 0,
+      "workspaceOnlyViolationCount": 0,
+      "liveJudgeP95LatencyMs": 23,
+      "liveJudgeLatencyGatePassed": true,
+      "failureReasons": []
+    },
+    "loophole": {
+      "totalCases": 16,
+      "positiveCases": 10,
+      "negativeCases": 6,
+      "truePositives": 10,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "cleanNegativePassCount": 6,
+      "precision": 1,
+      "recall": 1,
+      "f1Score": 1,
+      "localizationRate": 1
+    },
+    "liveJudge": {
+      "totalCases": 28,
+      "verdictAccuracy": 0.8929,
+      "outcomeAccuracy": 0.9286,
+      "fineAccuracy": 0.8824,
+      "nonMonetaryAccuracy": 1,
+      "defectRecall": 1,
+      "consistencyGroupsTotal": 3,
+      "consistencyGroupsPassed": 3,
+      "paraphraseConsistency": 1,
+      "abstentionAccuracy": 1,
+      "abstentionRecall": 1,
+      "abstentionPrecision": 1,
+      "p50LatencyMs": 4,
+      "p95LatencyMs": 23,
+      "avgLatencyMs": 5
+    },
+    "softScore": 96.79,
+    "cost": {
+      "totalInputTokens": 0,
+      "totalOutputTokens": 0,
+      "totalDecisionTokens": 3841,
+      "totalTokens": 3841,
+      "totalLlmCalls": 6,
+      "avgCallsPerRequest": 0.136,
+      "estimatedTotalCostUsd": 0.000384,
+      "estimatedCostPerRequestUsd": 0.0000087
+    },
+    "devFailureLogs": []
+  },
+  "livePureFlashLite": {
+    "armName": "Live Pure gemini-3.5-flash-lite (API Raw)",
+    "harnessVersion": "live-student-raw",
+    "split": "blind_test",
+    "evaluatedAt": "2026-11-26T10:43:58.891Z",
+    "hardGates": {
+      "passed": false,
+      "schemaValidityRate": 1,
+      "citationHallucinationRate": 0,
+      "invalidInvertedBoundsCount": 0,
+      "workspaceOnlyViolationCount": 40,
+      "liveJudgeP95LatencyMs": 7812,
+      "liveJudgeLatencyGatePassed": false,
+      "failureReasons": [
+        "workspaceOnly violations: 40",
+        "Live Judge P95 latency 7812ms > 2500ms"
+      ]
+    },
+    "loophole": {
+      "totalCases": 16,
+      "positiveCases": 10,
+      "negativeCases": 6,
+      "truePositives": 9,
+      "falsePositives": 13,
+      "falseNegatives": 1,
+      "cleanNegativePassCount": 1,
+      "precision": 0.4091,
+      "recall": 0.9,
+      "f1Score": 0.5625,
+      "localizationRate": 0.9
+    },
+    "liveJudge": {
+      "totalCases": 28,
+      "verdictAccuracy": 0.75,
+      "outcomeAccuracy": 0.75,
+      "fineAccuracy": 1,
+      "nonMonetaryAccuracy": 1,
+      "defectRecall": 0,
+      "consistencyGroupsTotal": 3,
+      "consistencyGroupsPassed": 3,
+      "paraphraseConsistency": 1,
+      "abstentionAccuracy": 0.8214,
+      "abstentionRecall": 0.2,
+      "abstentionPrecision": 0.5,
+      "p50LatencyMs": 1947,
+      "p95LatencyMs": 7812,
+      "avgLatencyMs": 3218
+    },
+    "softScore": 65.4,
+    "cost": {
+      "totalInputTokens": 27831,
+      "totalOutputTokens": 12593,
+      "totalDecisionTokens": 0,
+      "totalTokens": 40424,
+      "totalLlmCalls": 44,
+      "avgCallsPerRequest": 1,
+      "estimatedTotalCostUsd": 0.039832,
+      "estimatedCostPerRequestUsd": 0.0009053
+    },
+    "devFailureLogs": []
+  },
+  "pureApiStats": {
+    "retries": 0,
+    "errorCount": 0
+  }
+}

@@ -1,6 +1,6 @@
-# Đối chiếu SRS v1.0 với mã nguồn
+# Đối chiếu SRS v2.0 với mã nguồn
 
-Cập nhật ngày 25/11/2026 trên cơ sở **SRS v1.0** (Soạn Luật Studio — App soạn thảo luật kèm chức năng soát logic luật và phân tích phạm vi tác động). Căn cứ: kiểm tra mã nguồn `backend/` và `web/`, chạy test (`backend`: 324 test pass across 36 files + `tsc --noEmit`; `web`: 92 test pass across 14 files + `svelte-check` 0 errors + `bun run build`).
+Cập nhật ngày 26/11/2026 trên cơ sở **SRS v2.0** (Soạn Luật Studio & LexIDE — Local-First Legislative Drafting, Neuro-Symbolic Logic Auditing & Impact Scope Analysis).
 
 **Kết luận:** Các trụ cột cốt lõi của bài toán **Soạn thảo luật + Soát logic luật + Phân tích phạm vi tác động** đã được triển khai end-to-end (Better Auth, đa Workspace cô lập, bàn soạn thảo Chương/Mục/Điều/Khoản/Điểm, bộ máy soát logic 16 quy tắc tất định, bộ máy phân tích phạm vi tác động trực tiếp & dây chuyền đa tầng, lược đồ 2 chế độ, pipeline AI đọc PDF + 6 bước tiền xử lý và trợ lý AI dẫn nguồn). Các phần còn mở nằm ở nâng cao hệ thống: acquisition tự động từ VBPL (FR-02), bảo vệ auth cho các endpoint `/api/uploads`/`/api/jobs*`, chỉ mục FTS5 (FR-19), nhập nhiều phần/phụ lục trong một job và bộ đánh giá held-out (#29).
 
@@ -36,6 +36,11 @@ Ký hiệu: ✅ đạt · 🟡 một phần · ❌ chưa có.
 | FR-23 Soát logic luật | ✅ | `backend/src/modules/analysis/logic-audit.ts`, `GET /api/documents/:id/audit`, `GET /api/workspace/audit-summary`, `LogicAuditPanel.svelte`, tích hợp trong `/drafting` (nhảy thẳng về điều khoản lỗi) và `/audit`. Đủ 16 quy tắc tất định thuộc 5 nhóm. |
 | FR-24 Phân tích phạm vi tác động | ✅ | `backend/src/modules/analysis/impact-scope.ts`, `GET /api/documents/:id/impact?max_depth=1..5`, `ImpactScopePanel.svelte`, tích hợp trong `/drafting` và `/audit`: tác động trực tiếp tầng 1, lan truyền dây chuyền đa tầng (BFS), điều khoản bị tác động, biến động chế tài, nhóm đối tượng, `unresolvedFrontier` và danh mục khuyến nghị đồng bộ hóa. |
 | FR-25 Lược đồ tác động 2 chế độ | ✅ | `/graph` + `GET /api/graph`: Chế độ 1 (Biến động mức xử lý) & Chế độ 2 (Ảnh hưởng văn bản/điều khoản), hợp nhất cạnh AI + thủ công và hỗ trợ nối/xóa cạnh thủ công. |
+| FR-26 LexIDE Local-First IDE | ✅ | `/` (`web/src/routes/+page.svelte`): khởi đầu Workspace trống, chọn thư mục máy hoặc nạp bộ dự thảo mẫu 10 tệp (`sample-workspace.ts`), chạy 100% cục bộ trên trình duyệt. |
+| FR-27 Neuro-Symbolic & Lean 4 | ✅ | `analyzer.ts`, `lean-compiler.ts`, `llm-neurosymbolic.ts`: Tầng 0 tất định (0 token) + Lean 4 + Gemini Decisions/Interactions API có Anti-Hallucination Gate. |
+| FR-28 Tự động đẩy số & Sửa bằng AI | ✅ | `ide-numbering.ts` + `ide-intellisense.ts` + `LawEditor.svelte` tự động đẩy số `Điều`/`Khoản`/`Điểm`; `llm-fix.ts` cung cấp nút **Sửa bằng AI** trên mọi lỗi ở Problems, Inspector và Hover Tooltip. |
+| FR-29 Lược đồ, Hành vi & Token Bar | ✅ | Icon chỉ báo hành vi gọn (`✦` / `⚖ N`) bấm để mở & highlight trong `BehaviorsPanel.svelte`; `IdeStatusBar.svelte` hiển thị Token Usage phiên làm việc. |
+| FR-30 Run & Debug & Xuất DOCX/PDF | ✅ | `debug.ts` (Tòa án giả lập `F5`) và `export.ts` (DOCX/PDF Times New Roman chuẩn Nghị định 30/2020/NĐ-CP) chạy cục bộ. |
 
 ## Non-functional và hệ thống
 

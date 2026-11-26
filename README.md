@@ -4,8 +4,9 @@ Nền tảng **soạn thảo văn bản quy phạm pháp luật** dành cho nhà
 
 1. **Soát logic luật tự động (16 quy tắc tất định thuộc 5 nhóm):** kiểm tra kết cấu Chương/Mục/Điều/Khoản/Điểm, thứ tự hiệu lực theo thời gian, sửa đổi văn bản đã bãi bỏ/thay thế toàn bộ, chu trình mâu thuẫn, dẫn chiếu nội/ngoại văn bản bị treo, khung phạt đảo ngược/trừ điểm GPLX vượt chuẩn và nguy cơ xung đột quy phạm ngầm.
 2. **Phân tích phạm vi tác động (trực tiếp & dây chuyền đa tầng):** xác định văn bản và Điều/Khoản/Điểm chịu tác động trực tiếp (tầng 1), lan truyền dây chuyền sang thông tư hướng dẫn/văn bản căn cứ (tầng 2–5), biến động khung xử phạt, nhóm đối tượng chịu tác động, khoảng trống đối chiếu (frontier) và danh mục văn bản cần sửa đổi đồng bộ.
+3. **LexIDE — Môi trường soạn thảo & kiểm định pháp luật ([chi tiết](docs/lexide.md) · [slide báo cáo đồ án](docs/project-defense-slides.md)):** giao diện VS Code Dark/Light Modern, khởi đầu với **Workspace trống** (hỗ trợ chọn thư mục trên máy hoặc **Nạp bộ dự thảo mẫu 10 tệp**), **Neuro-Symbolic Pipeline v4.1** (Gemini Interactions + Decisions API + Lean 4 tối ưu token), **tự động đẩy số** `Điều`/`Khoản`/`Điểm`, nút **Sửa bằng AI** cho toàn bộ lỗi, Hover dẫn chiếu thuật ngữ, icon chỉ báo hành vi bấm để mở & highlight trong tab Hành vi, Tòa án giả lập (Run & Debug), Lược đồ quan hệ và **Token Usage** trên Status Bar.
 
-Repository bao gồm: **Bàn soạn thảo cấu trúc (`/drafting`)**, **Trung tâm Soát Logic & Phạm vi Tác động (`/audit`)**, **Lược đồ tác động 2 chế độ (`/graph`)**, xác thực Better Auth & đa không gian làm việc độc lập (`/workspaces`), luồng nhập PDF văn bản hiện hành bằng LLM ([chi tiết](docs/pdf-upload-api.md)), pipeline tiền xử lý 6 bước ([chi tiết](docs/preprocessing.md)), MCP server nội bộ cho vocabulary ([chi tiết](docs/mcp-server.md)), tra cứu lịch sử `as-of` và trợ lý AI rà soát có dẫn chiếu nguồn ([chi tiết](docs/query-frontend.md)). Đặc tả đầy đủ xem tại [SRS v1.0](docs/srs.md).
+Repository bao gồm: **LexIDE (`/`)**, **Bàn soạn thảo cấu trúc (`/drafting`)**, **Trung tâm Soát Logic & Phạm vi Tác động (`/audit`)**, **Lược đồ tác động 2 chế độ (`/graph`)**, xác thực Better Auth & đa không gian làm việc độc lập (`/workspaces`), luồng nhập PDF văn bản hiện hành bằng LLM ([chi tiết](docs/pdf-upload-api.md)), pipeline tiền xử lý 6 bước ([chi tiết](docs/preprocessing.md)), MCP server nội bộ cho vocabulary ([chi tiết](docs/mcp-server.md)), tra cứu lịch sử `as-of` và trợ lý AI rà soát có dẫn chiếu nguồn ([chi tiết](docs/query-frontend.md)). Đặc tả đầy đủ xem tại [SRS v1.0](docs/srs.md).
 
 ## Overview
 
@@ -77,7 +78,7 @@ cp backend/.dev.vars.example backend/.dev.vars
 cp web/.env.example web/.env
 ```
 
-Không commit các file `.env` và `.dev.vars`. Wrangler đọc secret local (`OPENAI_API_KEY`, `INTERNAL_MCP_TOKEN`, `INTERNAL_MCP_WRITE_TOKEN`) từ `backend/.dev.vars`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
+Không commit các file `.env` và `.dev.vars`. Wrangler đọc secret local (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `INTERNAL_MCP_TOKEN`, `INTERNAL_MCP_WRITE_TOKEN`) từ `backend/.dev.vars`. Frontend đọc `PUBLIC_BACKEND_URL`, mặc định trong file mẫu là `http://localhost:8787`.
 
 ### 2. Khởi tạo cơ sở dữ liệu local
 
@@ -218,7 +219,7 @@ Cloudflare Worker (Elysia API)
 ```text
 .
 ├── backend/
-│   ├── migrations/             # 15 migration D1 (tới 0014_create_auth_and_workspaces.sql)
+│   ├── migrations/             # 16 migration D1 (tới 0015_create_draft_documents.sql)
 │   ├── src/
 │   │   ├── modules/
 │   │   │   ├── analysis/       # Soát logic luật (logic-audit.ts) & Phạm vi tác động (impact-scope.ts)
@@ -226,6 +227,7 @@ Cloudflare Worker (Elysia API)
 │   │   │   ├── workspaces/     # Multi-workspace isolation & seed dữ liệu lập pháp mẫu
 │   │   │   ├── manual/         # Soạn thảo thủ công văn bản, Điều/Khoản/Điểm và cạnh đồ thị
 │   │   │   ├── graph/          # Lược đồ 2 chế độ (sanction_change & document_influence)
+│   │   │   ├── ide/            # LexIDE + Lean 4 + Debug + Library
 │   │   │   └── upload, processing, provisions, documents, changes, violations, identity, history, ask, mcp
 │   │   ├── plugins/            # Context Cloudflare và auth session helper
 │   │   ├── app.ts              # Khai báo ứng dụng Elysia

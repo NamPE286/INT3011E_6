@@ -1,0 +1,178 @@
+{
+  "ranAt": "2026-11-25T18:58:35.495Z",
+  "totalTokensUsed": 45582,
+  "budgetCap": 500000,
+  "zalo902020": {
+    "coldMs": 76270,
+    "coldTokens": 18889,
+    "warmMs": 14636,
+    "warmTokens": 6746,
+    "leanRefutedCount": 14,
+    "lg017Count": 0,
+    "aiDerivedCount": 12,
+    "aiDiagnostics": [
+      {
+        "code": "LG002",
+        "ref": "Khoản 3 Điều 5",
+        "title": "Chồng chéo phân hoạch liên-điều (%)",
+        "counterexample": "x = 80 % thỏa mãn cả hoàn thành nhiệm vụ và hoàn thành tốt nhiệm vụ"
+      },
+      {
+        "code": "LG002",
+        "ref": "Khoản 4 Điều 5",
+        "title": "Chồng chéo phân hoạch liên-điều (%)",
+        "counterexample": "x = 100 % thỏa mãn cả hoàn thành nhiệm vụ và hoàn thành tốt nhiệm vụ"
+      },
+      {
+        "code": "LP003",
+        "ref": "Khoản 3 Điều 6",
+        "title": "Khoảng trống liên-điều tại khoảng (50, 70) %",
+        "counterexample": "x = 60 % (khoảng (50, 70) %) không thuộc khung nào"
+      },
+      {
+        "code": "LP003",
+        "ref": "Khoản 2 Điều 7",
+        "title": "Khoảng trống liên-điều tại khoảng (20, 50) %",
+        "counterexample": "x = 35 % (khoảng (20, 50) %) không thuộc khung nào"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm c Khoản 2 Điều 9",
+        "title": "Chồng chéo phân hoạch liên-điều (%)",
+        "counterexample": "x = 80 % thỏa mãn cả hoan_thanh và hoan_thanh_tot"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm d Khoản 2 Điều 9",
+        "title": "Chồng chéo phân hoạch liên-điều (%)",
+        "counterexample": "x = 100 % thỏa mãn cả hoan_thanh và hoan_thanh_tot"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm c Khoản 2 Điều 10",
+        "title": "Khoảng trống liên-điều tại khoảng (50, 70) %",
+        "counterexample": "x = 60 % (khoảng (50, 70) %) không thuộc khung nào"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm b Khoản 1 Điều 11",
+        "title": "Khoảng trống liên-điều tại khoảng (20, 50) %",
+        "counterexample": "x = 35 % (khoảng (20, 50) %) không thuộc khung nào"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm b Khoản 1 Điều 12",
+        "title": "Khoảng trống phân loại [0%, 50%) (vien_chuc__tieu_chi_vuot_muc)",
+        "counterexample": "x = 25% (khoảng [0%, 50%) chưa có mức xử lý tương ứng)"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm c Khoản 2 Điều 12",
+        "title": "Khoảng trống phân loại [0%, 50%) (vien_chuc_quan_ly__chi_tieu_vuot_muc)",
+        "counterexample": "x = 25% (khoảng [0%, 50%) chưa có mức xử lý tương ứng)"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm d Khoản 2 Điều 12",
+        "title": "Khoảng trống phân loại [0%, 100%) (vien_chuc_quan_ly__don_vi_hoan_thanh)",
+        "counterexample": "x = 50% (khoảng [0%, 100%) chưa có mức xử lý tương ứng)"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm d Khoản 2 Điều 12",
+        "title": "Khoảng trống phân loại [0%, 70%) (vien_chuc_quan_ly__don_vi_tot_tro_len)",
+        "counterexample": "x = 50% (khoảng [0%, 100%) chưa có mức xử lý tương ứng)"
+      }
+    ],
+    "aiError": null
+  },
+  "blhs2015": {
+    "coldMs": 108583,
+    "coldTokens": 19947,
+    "leanRefutedCount": 24,
+    "aiDerivedCount": 13,
+    "aiDiagnostics": [
+      {
+        "code": "LP003",
+        "ref": "Khoản 1 Điều 135",
+        "title": "Khoảng trống liên-điều tại khoảng (30, 31) %"
+      },
+      {
+        "code": "LG016",
+        "ref": "Khoản 3 Điều 235",
+        "title": "Nghịch lý khung hình phạt: Khoản 3 Điều 235 nặng hơn Khoản 1 nhưng chế tài lại nhẹ hơn"
+      },
+      {
+        "code": "LG015",
+        "ref": "Khoản 1 Điều 298",
+        "title": "Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 224"
+      },
+      {
+        "code": "LG015",
+        "ref": "Khoản 4 Điều 298",
+        "title": "Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 225"
+      },
+      {
+        "code": "LG015",
+        "ref": "Khoản 4 Điều 298",
+        "title": "Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 281"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm đ Khoản 2 Điều 303",
+        "title": "Chồng chéo phân hoạch liên-điều (%)"
+      },
+      {
+        "code": "LG016",
+        "ref": "Điểm b Khoản 2 Điều 305",
+        "title": "Khoảng trống định lượng giữa các mốc lượng thuốc nổ"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm a Khoản 3 Điều 305",
+        "title": "Khoảng trống liên-điều tại khoảng (30, 31) kg"
+      },
+      {
+        "code": "LP003",
+        "ref": "Điểm a Khoản 3 Điều 305",
+        "title": "Khoảng trống liên-điều tại khoảng (3000, 3001) cái"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm b Khoản 1 Điều 326",
+        "title": "Chồng chéo hoặc mâu thuẫn khoảng định lượng sách, báo in"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm c Khoản 2 Điều 326",
+        "title": "Chồng chéo phân hoạch liên-điều (đơn vị)"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm c Khoản 2 Điều 359",
+        "title": "Chồng chéo ranh giới số lượng giấy tờ giả"
+      },
+      {
+        "code": "LG002",
+        "ref": "Điểm a Khoản 3 Điều 359",
+        "title": "Chồng chéo phân hoạch liên-điều (giấy tờ giả)"
+      },
+      {
+        "code": "LG008",
+        "ref": "Khoản 1 Điều 389",
+        "title": "Dẫn chiếu sai số Điều so với tên tội danh/mô tả (Điều 299 (tội chế tạo, tàng trữ, vận chuyển, )"
+      },
+      {
+        "code": "LG008",
+        "ref": "Khoản 1 Điều 389",
+        "title": "Dẫn chiếu trùng lặp Điều 299 trong cùng điều khoản"
+      },
+      {
+        "code": "LG015",
+        "ref": "Khoản 1 Điều 398",
+        "title": "Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 135"
+      }
+    ],
+    "aiError": null
+  }
+}

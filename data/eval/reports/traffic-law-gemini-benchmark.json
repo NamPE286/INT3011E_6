@@ -1,0 +1,62 @@
+{
+  "ranAt": "2026-11-25T16:25:46.229Z",
+  "corpus": {
+    "files": 7,
+    "totalChars": 8384
+  },
+  "tier0Deterministic": {
+    "tokens": 0,
+    "durationMs": 21,
+    "diagnosticsCount": 8,
+    "diagnosticCodes": [
+      "LG011",
+      "LG010",
+      "LP005",
+      "LP001",
+      "LP006",
+      "LP003",
+      "LG003",
+      "LP004"
+    ],
+    "leanProved": 6,
+    "leanRefuted": 3,
+    "relationNodes": 7,
+    "relationEdges": 17,
+    "relationViolations": 4,
+    "behaviorGroups": 15,
+    "behaviorsWithHistory": 3
+  },
+  "tier12GeminiFreeTier": {
+    "model": "gemini-4-hydrogen",
+    "decisionModel": "gemini-decision-1",
+    "durationMs": 1579,
+    "actualAiTokens": 738,
+    "naiveFullTokens": 760,
+    "savedPercent": 3,
+    "tokenBreakdown": {
+      "decisionInputTokens": 738,
+      "extractInputTokens": 0,
+      "extractOutputTokens": 0,
+      "totalTokens": 738,
+      "filteredByDecision": 3,
+      "escalatedToExtract": 3,
+      "cachedUnits": 0
+    },
+    "aiError": "Gemini API lỗi (503): {\"error\":{\"message\":\"gemini-4-hydrogen is currently experiencing high demand, spikes in demand are usually temporary. Please try again later.\",\"code\":\"service_unavailable\"}}"
+  },
+  "incrementalEditRun": {
+    "durationMs": 8885,
+    "actualAiTokens": 860,
+    "tokenBreakdown": {
+      "decisionInputTokens": 860,
+      "extractInputTokens": 0,
+      "extractOutputTokens": 0,
+      "totalTokens": 860,
+      "filteredByDecision": 4,
+      "escalatedToExtract": 3,
+      "cachedUnits": 0
+    }
+  },
+  "totalTokensUsed": 1598,
+  "budgetCap": 500000
+}

@@ -1,0 +1,70 @@
+{
+  "armName": "Gemini 3.5 Flash-Lite + ITD Harness v2",
+  "harnessVersion": "v2",
+  "split": "dev",
+  "evaluatedAt": "2026-11-26T10:26:01.017Z",
+  "hardGates": {
+    "passed": true,
+    "schemaValidityRate": 1,
+    "citationHallucinationRate": 0,
+    "invalidInvertedBoundsCount": 0,
+    "workspaceOnlyViolationCount": 0,
+    "liveJudgeP95LatencyMs": 3,
+    "liveJudgeLatencyGatePassed": true,
+    "failureReasons": []
+  },
+  "loophole": {
+    "totalCases": 24,
+    "positiveCases": 15,
+    "negativeCases": 9,
+    "truePositives": 15,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "cleanNegativePassCount": 9,
+    "precision": 1,
+    "recall": 1,
+    "f1Score": 1,
+    "localizationRate": 1
+  },
+  "liveJudge": {
+    "totalCases": 42,
+    "verdictAccuracy": 0.9762,
+    "outcomeAccuracy": 0.9762,
+    "fineAccuracy": 0.9615,
+    "nonMonetaryAccuracy": 1,
+    "defectRecall": 0.9167,
+    "consistencyGroupsTotal": 4,
+    "consistencyGroupsPassed": 4,
+    "paraphraseConsistency": 1,
+    "abstentionAccuracy": 1,
+    "abstentionRecall": 1,
+    "abstentionPrecision": 1,
+    "p50LatencyMs": 1,
+    "p95LatencyMs": 3,
+    "avgLatencyMs": 1
+  },
+  "softScore": 98.45,
+  "cost": {
+    "totalInputTokens": 0,
+    "totalOutputTokens": 0,
+    "totalDecisionTokens": 0,
+    "totalTokens": 0,
+    "totalLlmCalls": 0,
+    "avgCallsPerRequest": 0,
+    "estimatedTotalCostUsd": 0,
+    "estimatedCostPerRequestUsd": 0
+  },
+  "devFailureLogs": [
+    {
+      "task": "LIVE_JUDGE",
+      "caseId": "JG-DEV-EX03",
+      "domain": "drone_safety",
+      "tag": "NESTED_EXCEPTION_TEMPORAL",
+      "expected": "GUILTY_SANCTIONED fine={\"min\":10000000,\"max\":15000000} abst=false",
+      "actual": "NOT_COVERED fine=null abst=false defs=[]",
+      "reason": "outcome NOT_COVERED != GUILTY_SANCTIONED | fine null != {\"min\":10000000,\"max\":15000000}",
+      "citationsChecked": 1,
+      "hallucinatedCitations": 0
+    }
+  ]
+}

@@ -53,7 +53,7 @@ Tài liệu kỹ thuật cho toàn bộ API và giao diện web của **Soạn L
 
 | Route | Nội dung |
 | --- | --- |
-| `/` | Trang chủ Soạn Luật Studio: giới thiệu 3 trụ cột (Soạn thảo cấu trúc, Soát logic luật, Phân tích phạm vi tác động), thống kê Workspace hiện tại và lối vào nhanh. |
+| `/` | **LexIDE (Local-First Lawmaker IDE — [chi tiết](lexide.md)):** môi trường soạn thảo văn bản quy phạm pháp luật kiểu VS Code chạy 100% cục bộ trên trình duyệt (khởi đầu với Workspace trống, chọn thư mục máy hoặc nạp bộ dự thảo mẫu 10 tệp), tự động đẩy số `Điều`/`Khoản`/`Điểm`, kiểm định Tầng 0 + Lean 4 + Neuro-Symbolic Pipeline v4.1, nút **Sửa bằng AI** cho mọi lỗi, Lược đồ quan hệ, Tab Hành vi (bấm icon chỉ báo để mở & highlight), Run & Debug, xuất DOCX/PDF và hiển thị Token Usage tại Status Bar. |
 | `/drafting?document=` | **Bàn soạn thảo cấu trúc:** chọn/tạo/xóa dự thảo, sửa metadata & ngày hiệu lực inline, chèn/sửa/xóa Chương/Mục/Điều/Khoản/Điểm, chuyển đổi 4 tab **Soạn thảo · Soát logic (live) · Phạm vi tác động (live) · Xem trước**. Bấm "Sửa điều khoản" trên lỗi logic sẽ nhảy thẳng về đúng điều khoản lỗi để chỉnh sửa. |
 | `/audit?document=&tab=` | **Trung tâm Soát Logic & Phạm vi Tác động:** KPI toàn Workspace, danh sách văn bản kèm điểm nhất quán `0–100`, bộ lọc lỗi theo mức độ/nhóm quy tắc, cấu hình độ sâu lan truyền `1–5` tầng và danh mục khuyến nghị đồng bộ hóa. |
 | `/graph?document=` | **Lược đồ tác động 2 chế độ:** chuyển đổi Chế độ 1 (Biến động mức xử lý hành vi) và Chế độ 2 (Ảnh hưởng văn bản & điều khoản), lọc theo loại cạnh/văn bản trọng tâm và bảng nối/xóa cạnh thủ công. |

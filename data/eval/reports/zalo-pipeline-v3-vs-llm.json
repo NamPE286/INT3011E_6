@@ -1,0 +1,92 @@
+{
+  "ranAt": "2026-11-25T17:56:29.742Z",
+  "totalTokensUsed": 20989,
+  "budgetCap": 500000,
+  "suite1Blhs2015": {
+    "durationMs": 8317,
+    "actualAiTokens": 3736,
+    "lg016Detected": [
+      "Khoản 3 Điều 235"
+    ],
+    "lg015Detected": [
+      "Khoản 4 Điều 298: Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 225",
+      "Khoản 1 Điều 398: Nghi ngờ dẫn chiếu sai ngữ nghĩa điều luật: Điều 135"
+    ],
+    "lg008Detected": [
+      "Khoản 1 Điều 389",
+      "Khoản 1 Điều 389"
+    ]
+  },
+  "suite2CleanZalo902020": {
+    "chars": 34207,
+    "pipelineV3": {
+      "durationMs": 102,
+      "tokens": 0,
+      "errors": 0,
+      "warnings": 1
+    },
+    "pureLlm": {
+      "model": "gemini-3.5-flash-lite",
+      "issues": [
+        {
+          "article": "Điều 16",
+          "clause": "Khoản 3",
+          "category": "dẫn chiếu gãy/vòng lặp/bãi bỏ/sai tên/sai ngữ nghĩa",
+          "description": "Điều 43 Luật Viên chức hiện hành không có các khoản 1, 2 và 3 quy định về thẩm quyền đánh giá chất lượng viên chức, việc dẫn chiếu này là dẫn chiếu sai hoặc gãy."
+        }
+      ],
+      "usage": {
+        "inputTokens": 9570,
+        "outputTokens": 119,
+        "totalTokens": 9689
+      },
+      "durationMs": 1334,
+      "error": null
+    }
+  },
+  "suite3AdversarialZalo452020": {
+    "chars": 48986,
+    "pipelineV3Cold": {
+      "durationMs": 3861,
+      "tokens": 5258,
+      "matchedCount": 9,
+      "matchedIds": [
+        "Z01",
+        "Z02",
+        "Z03",
+        "Z04",
+        "Z06",
+        "Z07",
+        "Z08",
+        "Z09",
+        "Z10"
+      ]
+    },
+    "pipelineV3Warm": {
+      "durationMs": 1956,
+      "tokens": 2306
+    },
+    "pureLlm": {
+      "model": "gemini-2.5-flash",
+      "durationMs": 117,
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0
+      },
+      "matchedCount": 0,
+      "matchedIds": [],
+      "issuesCount": 0,
+      "error": "Gemini API lỗi (404): {\"error\":{\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and impr",
+      "issuesSample": []
+    }
+  },
+  "suite4Workspace6Docs": {
+    "files": 6,
+    "totalChars": 388137,
+    "durationMs": 618,
+    "tokens": 0,
+    "totalErrorsAcross6CleanLaws": 7,
+    "relationEdges": 5
+  }
+}
