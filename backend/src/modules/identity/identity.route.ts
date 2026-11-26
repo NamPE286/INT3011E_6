@@ -98,8 +98,8 @@ export const identityModule = new Elysia({ prefix: "/api" })
             }
 
             return resolveDocumentIdentities(env.DB, params.documentId, {
-                apiKey: env.OPENAI_API_KEY,
-                model: env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
+                apiKey: env.GEMINI_API_KEY ?? env.OPENAI_API_KEY,
+                model: (env.GEMINI_MODEL ?? env.OPENAI_MODEL)?.trim() || DEFAULT_OPENAI_MODEL,
             });
         },
         {

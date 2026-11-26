@@ -18,8 +18,8 @@ export async function handleProcessingBatch(
         if (stage !== undefined) {
             if (isPreprocessingStage(stage)) {
                 await runQueuedStage(env.DB, env.PROCESSING_QUEUE, jobId, stage, {
-                    apiKey: env.OPENAI_API_KEY,
-                    model: env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+                    apiKey: env.GEMINI_API_KEY ?? env.OPENAI_API_KEY,
+                    model: (env.GEMINI_MODEL ?? env.OPENAI_MODEL)?.trim() || DEFAULT_OPENAI_MODEL,
                 });
             } else {
                 console.warn("[Queue] Unknown preprocessing stage:", stage);

@@ -7,6 +7,7 @@ import { extractViolationRules, getViolationRules } from "../src/modules/violati
 import { createTestD1Database } from "./d1-test-db";
 import { AMENDING_DECREE, BASE_DECREE, storeLegalDocument, type FixtureDocument } from "./legal-fixtures";
 import { createMockEnv, withEnv } from "./mocks";
+import { geminiInteractionResponse, readInteractionUserText } from "./openai-fake";
 
 const NO_MODEL = { model: "test-model" };
 
@@ -16,13 +17,11 @@ async function importDocument(db: D1Database, fixture: FixtureDocument): Promise
     await buildChangeGraph(db, fixture.id);
 }
 
-/** Fake Responses API for the semantic step: answers each rule id with `reply(ruleId, ruleText)`. */
+/** Fake Gemini Interactions API for the semantic step: answers each rule id with `reply(ruleId, ruleText)`. */
 function fakeSemanticModel(reply: (ruleId: string, ruleText: string) => Record<string, unknown>) {
     const calls: string[] = [];
     const fetcher = (async (_url: unknown, init?: RequestInit) => {
-        const body = JSON.parse(String(init?.body)) as { input: { content: string | { text: string }[] }[] };
-        const userContent = body.input[1].content as { text: string }[];
-        const payload = JSON.parse(userContent[0].text) as { rules: { rule_id: string; rule_text: string }[] };
+        const payload = JSON.parse(readInteractionUserText(init)) as { rules: { rule_id: string; rule_text: string }[] };
 
         calls.push(...payload.rules.map((rule) => rule.rule_id));
 
@@ -42,7 +41,7 @@ function fakeSemanticModel(reply: (ruleId: string, ruleText: string) => Record<s
             ...reply(rule.rule_id, rule.rule_text),
         }));
 
-        return Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ items }) }] }] });
+        return geminiInteractionResponse({ items });
     }) as unknown as typeof fetch;
 
     return { fetcher, calls };

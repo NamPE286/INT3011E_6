@@ -5,7 +5,7 @@ import { app } from "../src/app";
 import { handleProcessingBatch } from "../src/modules/processing/processing.consumer";
 import type { BlockKind, TranscribedBlock } from "../src/modules/processing/legal-types";
 import type { ProcessingQueueMessage } from "../src/types/env";
-import { block, goodPages, type FakeChunk } from "./openai-fake";
+import { block, geminiInteractionResponse, goodPages, type FakeChunk } from "./openai-fake";
 import { withEnv, type MockEnvironment } from "./mocks";
 
 /** The invented decrees in test/fixtures/synthetic-law: each JSON is both the PDF wording and what the fake reader returns. */
@@ -67,26 +67,46 @@ export async function uploadFakeDecree(env: MockEnvironment, decree: FakeDecree)
     return body.jobId;
 }
 
+function isPdfTranscriptionRequest(init?: RequestInit): boolean {
+    try {
+        const parsed: unknown = JSON.parse(String(init?.body ?? "{}"));
+
+        if (typeof parsed !== "object" || parsed === null || !("input" in parsed)) {
+            return false;
+        }
+
+        const input = (parsed as { input?: unknown }).input;
+
+        if (!Array.isArray(input)) {
+            return false;
+        }
+
+        return input.some(
+            (part) =>
+                typeof part === "object"
+                && part !== null
+                && (part as { type?: unknown }).type === "document",
+        );
+    } catch {
+        return false;
+    }
+}
+
 /**
- * Delivers queued messages like the Workers runtime, with the OpenAI boundary faked: PDF reads return the
- * decree's transcription. Preprocessing stages run without a key, so they take the deterministic path;
- * any other model call is refused.
+ * Delivers queued messages like the Workers runtime, with the Gemini Interactions boundary faked: PDF reads
+ * return the decree's transcription. Preprocessing stages run without a key, so they take the deterministic
+ * path; any other model call is refused.
  */
 export async function drainQueueReading(env: MockEnvironment, decree: FakeDecree): Promise<void> {
     const realFetch = globalThis.fetch;
     const transcription = transcribeFakeDecree(decree);
 
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
-        const body = String(init?.body ?? "");
-
-        if (!body.includes("input_file")) {
+        if (!isPdfTranscriptionRequest(init)) {
             return Response.json({ error: { message: "model calls are disabled in this test" } }, { status: 400 });
         }
 
-        return Response.json({
-            status: "completed",
-            output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(transcription) }] }],
-        });
+        return geminiInteractionResponse(transcription);
     }) as unknown as typeof fetch;
 
     try {
@@ -94,7 +114,9 @@ export async function drainQueueReading(env: MockEnvironment, decree: FakeDecree
             const body = env.queueMessages.shift()!;
             const message = { body, ack() {}, retry() {} } as unknown as Message<ProcessingQueueMessage>;
 
-            const target = body.stage === undefined ? env : { ...env, OPENAI_API_KEY: undefined };
+            const target = body.stage === undefined
+                ? env
+                : { ...env, GEMINI_API_KEY: undefined, OPENAI_API_KEY: undefined };
 
             await handleProcessingBatch({ messages: [message] } as unknown as MessageBatch<ProcessingQueueMessage>, target);
         }

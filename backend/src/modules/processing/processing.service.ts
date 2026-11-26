@@ -73,7 +73,8 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
         const pdfSha256 = await sha256Hex(pdfBytes);
         const pdf = await loadPdfForReview(pdfBytes);
         const pageCount = pdf.getPageCount();
-        const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+        const model = (env.GEMINI_MODEL ?? env.OPENAI_MODEL)?.trim() || DEFAULT_OPENAI_MODEL;
+        const apiKey = env.GEMINI_API_KEY ?? env.OPENAI_API_KEY;
         const runPrefix = `runs/${jobId}/${pdfSha256.slice(0, 16)}-${model}-${PROMPT_VERSION}-${LEGAL_SCHEMA_VERSION}`;
 
         await updateJobStage(env.DB, jobId, { step: "extracting", progress: EXTRACTION_PROGRESS_START });
@@ -114,7 +115,7 @@ export async function executeProcessingPipeline(env: Env, jobId: string, options
             await enqueueMissingStages(env.DB, env.PROCESSING_QUEUE, jobId);
         } else {
             // Clears what was derived from an earlier read; the stages run once the document is accepted.
-            await runPreprocessing(env.DB, jobId, { apiKey: env.OPENAI_API_KEY, model, fetcher: options.fetcher });
+            await runPreprocessing(env.DB, jobId, { apiKey, model, fetcher: options.fetcher });
         }
 
         console.log(JSON.stringify({
@@ -230,7 +231,7 @@ async function transcribeWithRetry(context: RunContext, range: PageRange): Promi
                 chunkPdf,
                 pageStart: range.pageStart,
                 pageEnd: range.pageEnd,
-                apiKey: context.env.OPENAI_API_KEY ?? "",
+                apiKey: context.env.GEMINI_API_KEY ?? context.env.OPENAI_API_KEY ?? "",
                 model: context.model,
                 fetcher: context.fetcher,
             });

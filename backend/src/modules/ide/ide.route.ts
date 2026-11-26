@@ -242,7 +242,7 @@ export const ideModule = new Elysia({ prefix: "/api/ide" })
         async ({ body, set, request }) => {
             const env = extractEnvFromRequest(request);
             const includeAi = body.includeAi ?? false;
-            const choice = resolveModel(body.model, env?.OPENAI_MODEL);
+            const choice = resolveModel(body.model, env?.GEMINI_MODEL ?? env?.OPENAI_MODEL);
 
             if (!choice.ok) {
                 set.status = 400;
@@ -253,7 +253,7 @@ export const ideModule = new Elysia({ prefix: "/api/ide" })
             return analyzeDraftContent(body.content, {
                 db: env?.DB,
                 includeAi,
-                apiKey: env?.OPENAI_API_KEY,
+                apiKey: env?.GEMINI_API_KEY ?? env?.OPENAI_API_KEY,
                 model: choice.model,
             });
         },
@@ -270,7 +270,7 @@ export const ideModule = new Elysia({ prefix: "/api/ide" })
         async ({ body, set, request }) => {
             const env = extractEnvFromRequest(request);
             const useAi = body.useAi ?? false;
-            const choice = resolveModel(body.model, env?.OPENAI_MODEL);
+            const choice = resolveModel(body.model, env?.GEMINI_MODEL ?? env?.OPENAI_MODEL);
 
             if (!choice.ok) {
                 set.status = 400;
@@ -284,7 +284,7 @@ export const ideModule = new Elysia({ prefix: "/api/ide" })
                 db: env?.DB,
                 ambiguityOverrides: body.ambiguityOverrides,
                 useAi,
-                apiKey: env?.OPENAI_API_KEY,
+                apiKey: env?.GEMINI_API_KEY ?? env?.OPENAI_API_KEY,
                 model: choice.model,
             });
         },

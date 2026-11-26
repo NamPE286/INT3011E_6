@@ -13,6 +13,7 @@ import { extractViolationRules } from "../src/modules/violations/violation.servi
 import { createTestD1Database } from "./d1-test-db";
 import { AMENDING_DECREE, BASE_DECREE, storeLegalDocument, type FixtureDocument } from "./legal-fixtures";
 import { createMockEnv, withEnv } from "./mocks";
+import { geminiInteractionResponse } from "./openai-fake";
 
 const OPTIONS = { model: "test-model" };
 const QUESTION = "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị phạt bao nhiêu?";
@@ -38,11 +39,7 @@ async function createCorpus(): Promise<D1Database> {
 }
 
 function modelReply(claims: { text: string; evidence_ids: string[] }[]): typeof fetch {
-    return (async () =>
-        Response.json({
-            status: "completed",
-            output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ claims }) }] }],
-        })) as unknown as typeof fetch;
+    return (async () => geminiInteractionResponse({ claims })) as unknown as typeof fetch;
 }
 
 function evidence(id: string, overrides: Partial<AnswerEvidence> = {}): AnswerEvidence {
@@ -183,16 +180,13 @@ function retrievalModel(matchReply: unknown): { fetcher: typeof fetch; catalogue
     const fetcher = (async (_url: unknown, init?: RequestInit) => {
         const body = String(init?.body ?? "");
 
-        if (!body.includes("violation_match")) {
+        if (!body.includes("violation_ids")) {
             return Response.json({ error: { message: "phrasing disabled in this test" } }, { status: 400 });
         }
 
         catalogues.push(body);
 
-        return Response.json({
-            status: "completed",
-            output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(matchReply) }] }],
-        });
+        return geminiInteractionResponse(matchReply);
     }) as unknown as typeof fetch;
 
     return { fetcher, catalogues };
@@ -333,7 +327,7 @@ describe("POST /api/ask", () => {
         globalThis.fetch = (async (_url: unknown, init?: { body?: unknown }) => {
             requestedModels.push(typeof init?.body === "string" ? (JSON.parse(init.body) as { model?: unknown }).model : null);
 
-            return Response.json({ status: "completed", output: [] });
+            return geminiInteractionResponse({ claims: [] });
         }) as unknown as typeof fetch;
 
         try {
@@ -343,14 +337,53 @@ describe("POST /api/ask", () => {
                     new Request("http://localhost/api/ask", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ question: QUESTION, as_of: "2021-06-01", model: "gpt-6-luna" }),
+                        body: JSON.stringify({ question: QUESTION, as_of: "2021-06-01", model: "gemini-4-hydrogen" }),
                     }),
                     env
                 )
             );
 
             expect(response.status).toBe(200);
-            expect(requestedModels).toEqual(["gpt-6-luna"]);
+            expect(requestedModels).toEqual(["gemini-4-hydrogen"]);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    it("prefers GEMINI_API_KEY and GEMINI_MODEL over OPENAI_* fallbacks", async () => {
+        const originalFetch = globalThis.fetch;
+        const captured: { apiKey: string | null; model: unknown }[] = [];
+
+        globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+            const headers = new Headers(init?.headers);
+            const parsed = typeof init?.body === "string" ? (JSON.parse(init.body) as { model?: unknown }) : {};
+
+            captured.push({ apiKey: headers.get("x-goog-api-key"), model: parsed.model });
+
+            return geminiInteractionResponse({ claims: [] });
+        }) as unknown as typeof fetch;
+
+        try {
+            const env = createMockEnv({
+                DB: await createCorpus(),
+                GEMINI_API_KEY: "gemini-key",
+                GEMINI_MODEL: "gemini-4-hydrogen",
+                OPENAI_API_KEY: "legacy-openai-key",
+                OPENAI_MODEL: "legacy-model",
+            });
+            const response = await app.fetch(
+                withEnv(
+                    new Request("http://localhost/api/ask", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ question: QUESTION, as_of: "2021-06-01" }),
+                    }),
+                    env
+                )
+            );
+
+            expect(response.status).toBe(200);
+            expect(captured).toEqual([{ apiKey: "gemini-key", model: "gemini-4-hydrogen" }]);
         } finally {
             globalThis.fetch = originalFetch;
         }

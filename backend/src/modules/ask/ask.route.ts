@@ -32,7 +32,7 @@ export const askModule = new Elysia({ prefix: "/api" }).post(
             return { message: "as_of must be a date in YYYY-MM-DD format" };
         }
 
-        const choice = resolveModel(body.model, env.OPENAI_MODEL);
+        const choice = resolveModel(body.model, env.GEMINI_MODEL ?? env.OPENAI_MODEL);
 
         if (!choice.ok) {
             set.status = 400;
@@ -40,7 +40,9 @@ export const askModule = new Elysia({ prefix: "/api" }).post(
             return { message: "model is not supported" };
         }
 
-        return answerQuestion(env.DB, { question, asOf }, { apiKey: env.OPENAI_API_KEY, model: choice.model });
+        const apiKey = env.GEMINI_API_KEY ?? env.OPENAI_API_KEY;
+
+        return answerQuestion(env.DB, { question, asOf }, { apiKey, model: choice.model });
     },
     {
         body: t.Object({

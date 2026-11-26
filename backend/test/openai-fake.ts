@@ -7,17 +7,51 @@ export type FakeChunk = {
 
 export type FakeReply = FakeChunk | Response | string;
 
+/** Builds a mock Gemini Interactions API response with a text payload. */
+export function geminiInteractionResponse(payload: unknown): Response {
+    const outputText = typeof payload === "string" ? payload : JSON.stringify(payload);
+
+    return Response.json({
+        status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "text", text: outputText }] }],
+    });
+}
+
+/** Extracts the user text sent in a Gemini Interactions request body (`input` as string or content-part array). */
+export function readInteractionUserText(init?: RequestInit): string {
+    const parsed: unknown = JSON.parse(String(init?.body ?? "{}"));
+
+    if (typeof parsed !== "object" || parsed === null || !("input" in parsed)) {
+        return "";
+    }
+
+    const input = (parsed as { input?: unknown }).input;
+
+    if (typeof input === "string") {
+        return input;
+    }
+
+    if (Array.isArray(input)) {
+        const textPart = input.find(
+            (part): part is { type: string; text: string } =>
+                typeof part === "object"
+                && part !== null
+                && (part as { type?: unknown }).type === "text"
+                && typeof (part as { text?: unknown }).text === "string",
+        );
+
+        return textPart?.text ?? "";
+    }
+
+    return "";
+}
+
 /** Fake Gemini Interactions API keyed by the chunk range ("1-2"); page numbers are chunk-relative. */
 export function createFakeOpenAi(replies: Record<string, FakeReply | FakeReply[]>) {
     const calls: string[] = [];
 
     const fetcher = (async (_url: unknown, init?: RequestInit) => {
-        const body = JSON.parse(String(init?.body)) as {
-            input: { type?: string; text?: string }[];
-        };
-        const textPart = Array.isArray(body.input)
-            ? body.input.find((part) => part.type === "text" && typeof part.text === "string")?.text ?? ""
-            : "";
+        const textPart = readInteractionUserText(init);
         const rangeMatch = /pages-(\d+-\d+)\.pdf/.exec(textPart);
         const range = rangeMatch?.[1] ?? "1-1";
         calls.push(range);
@@ -33,12 +67,7 @@ export function createFakeOpenAi(replies: Record<string, FakeReply | FakeReply[]
             return reply;
         }
 
-        const outputText = typeof reply === "string" ? reply : JSON.stringify(reply);
-
-        return Response.json({
-            status: "completed",
-            steps: [{ type: "model_output", content: [{ type: "text", text: outputText }] }],
-        });
+        return geminiInteractionResponse(reply);
     }) as unknown as typeof fetch;
 
     return { fetcher, calls };

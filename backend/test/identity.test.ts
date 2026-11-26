@@ -10,6 +10,7 @@ import type { SemanticIr } from "../src/modules/violations/violation.types";
 import { createTestD1Database } from "./d1-test-db";
 import { AMENDING_DECREE, BASE_DECREE, storeLegalDocument, type FixtureDocument } from "./legal-fixtures";
 import { createMockEnv, withEnv } from "./mocks";
+import { geminiInteractionResponse, readInteractionUserText } from "./openai-fake";
 
 const OPTIONS = { model: "test-model" };
 
@@ -131,14 +132,13 @@ describe("resolveDocumentIdentities", () => {
         };
         const calls: string[] = [];
         const fetcher = (async (_url: unknown, init?: RequestInit) => {
-            const body = JSON.parse(String(init?.body)) as { input: { content: string | { text: string }[] }[] };
-            const payload = JSON.parse((body.input[1].content as { text: string }[])[0].text) as { candidates: { violation_id: string }[] };
+            const payload = JSON.parse(readInteractionUserText(init)) as { candidates: { violation_id: string }[] };
 
             calls.push(payload.candidates.map((candidate) => candidate.violation_id).join(","));
 
             const answer = { verdict: "SAME", violation_id: payload.candidates[0].violation_id, reason: "Cùng hành vi vượt đèn đỏ." };
 
-            return Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(answer) }] }] });
+            return geminiInteractionResponse(answer);
         }) as unknown as typeof fetch;
 
         await storeLegalDocument(db, variant);
